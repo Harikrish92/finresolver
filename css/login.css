@@ -104,3 +104,48 @@
   padding: .05rem .35rem; font-family: var(--font-mono);
   font-size: .7rem; color: var(--accent);
 }
+
+/* ── Guest button ─────────────────────────────────────────── */
+.login-divider {
+  display: flex; align-items: center; gap: .75rem;
+  margin: 1rem 0 .75rem; color: var(--muted); font-size: .72rem;
+}
+.login-divider::before,
+.login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.btn-guest {
+  width: 100%; padding: .8rem 1.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 10px;
+  font-family: var(--font-head); font-weight: 600; font-size: .88rem;
+  cursor: pointer; transition: border-color .2s, color .2s, background .2s;
+}
+.btn-guest:hover {
+  border-color: var(--accent); color: var(--text);
+  background: rgba(0,229,160,.05);
+}
+
+/* ── Guest banner inside app ──────────────────────────────── */
+.guest-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  background: rgba(255,209,102,.07);
+  border: 1px solid rgba(255,209,102,.3);
+  border-radius: var(--radius);
+  padding: .7rem 1.1rem;
+  margin-bottom: 1.1rem;
+  font-size: .78rem; color: var(--accent3);
+}
+.btn-guest-upgrade {
+  background: var(--accent3); color: #000;
+  border: none; border-radius: 6px;
+  font-family: var(--font-head); font-weight: 700; font-size: .72rem;
+  padding: .35rem .85rem; cursor: pointer;
+  white-space: nowrap; transition: opacity .15s;
+  flex-shrink: 0;
+}
+.btn-guest-upgrade:hover { opacity: .85; }

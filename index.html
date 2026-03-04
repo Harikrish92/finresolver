@@ -52,10 +52,18 @@
 
     <div id="loginError" style="display:none; color:var(--accent2); font-size:.75rem; margin-top:1rem;"></div>
 
+    <div class="login-divider">
+      <span>or</span>
+    </div>
+
+    <button class="btn-guest" onclick="loginAsGuest()">
+      👤 Experience as Guest
+    </button>
+
     <div class="login-note">
       By signing in you agree to FinResolver's
       <a href="#">Terms of Service</a>.<br />
-      Your data is stored locally in your browser — never on a server.
+      Guest data is stored locally only — sign in with Google to sync across devices.
     </div>
 
   </div>
@@ -86,8 +94,14 @@
         <div class="user-menu-item user-menu-email" id="menuUserInfo"></div>
         <div class="user-menu-sep"></div>
         <div class="user-menu-item" onclick="openImport()">⬆&nbsp; Import Sheet</div>
-        <div class="user-menu-sep"></div>
-        <div class="user-menu-item danger" onclick="logOut()">⎋&nbsp; Sign Out</div>
+        <div id="menuSignInRow" style="display:none">
+          <div class="user-menu-sep"></div>
+          <div class="user-menu-item" style="color:var(--accent)" onclick="loginWithGoogle()">🔑&nbsp; Sign in with Google</div>
+        </div>
+        <div id="menuSignOutRow">
+          <div class="user-menu-sep"></div>
+          <div class="user-menu-item danger" onclick="logOut()">⎋&nbsp; Sign Out</div>
+        </div>
       </div>
     </div>
   </div>
@@ -179,6 +193,14 @@
      MAIN APP  (hidden until sign-in)
 ════════════════════════════════════════════════════════════ -->
 <main id="appMain" style="display:none">
+
+  <!-- Guest mode banner — shown only for guest users -->
+  <div id="guestBanner" style="display:none">
+    <div class="guest-banner">
+      <span>👤 You're in <strong>Guest mode</strong> — data is saved locally only.</span>
+      <button class="btn-guest-upgrade" onclick="loginWithGoogle()">Sign in with Google to sync →</button>
+    </div>
+  </div>
 
   <!-- Initial balance -->
   <div class="init-row">

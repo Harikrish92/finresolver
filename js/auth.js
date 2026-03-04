@@ -207,10 +207,18 @@ function applyUser(user, skipSave = false) {
   document.getElementById('userName').textContent     = user.name.split(' ')[0];
   document.getElementById('menuUserInfo').textContent = user.email;
 
+  // Show/hide guest-specific UI
+  const isGuest = !!user.isGuest;
+  const guestBanner   = document.getElementById('guestBanner');
+  const menuSignIn    = document.getElementById('menuSignInRow');
+  const menuSignOut   = document.getElementById('menuSignOutRow');
+  if (guestBanner) guestBanner.style.display  = isGuest ? 'block' : 'none';
+  if (menuSignIn)  menuSignIn.style.display   = isGuest ? 'block' : 'none';
+  if (menuSignOut) menuSignOut.style.display  = isGuest ? 'none'  : 'block';
+
   // Load local data immediately for instant render
   if (typeof loadData === 'function') loadData();
-  // Cloud sync is triggered by onAuthStateChanged in sync.js
-  // AFTER Firebase Auth confirms — do NOT call syncLoadData() here.
+  // Cloud sync is triggered by onAuthStateChanged in sync.js (skipped for guest)
 }
 
 /* ── Sign out ─────────────────────────────────────────────── */
@@ -224,10 +232,30 @@ function logOut() {
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
 
+  // Reset guest UI
+  const guestBanner = document.getElementById('guestBanner');
+  const menuSignIn  = document.getElementById('menuSignInRow');
+  const menuSignOut = document.getElementById('menuSignOutRow');
+  if (guestBanner) guestBanner.style.display = 'none';
+  if (menuSignIn)  menuSignIn.style.display  = 'none';
+  if (menuSignOut) menuSignOut.style.display = 'block';
+
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('appMain').style.display     = 'none';
   document.getElementById('userMenu').classList.remove('open');
   setButtonReady();
+}
+
+/* ── Guest login ──────────────────────────────────────────── */
+function loginAsGuest() {
+  applyUser({
+    uid:      'guest',
+    name:     'Guest',
+    email:    'Local storage only',
+    initials: '👤',
+    photo:    null,
+    isGuest:  true,
+  });
 }
 
 /* ── User menu ────────────────────────────────────────────── */
