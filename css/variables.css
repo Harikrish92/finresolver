@@ -1,0 +1,57 @@
+/* ============================================================
+   variables.css — Design tokens & resets
+   FinResolver · finresolver.in
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg:       #0a0d12;
+  --surface:  #111620;
+  --surface2: #1a2030;
+  --border:   #232d3f;
+  --accent:   #00e5a0;
+  --accent2:  #ff6b6b;
+  --accent3:  #ffd166;
+  --accent4:  #4dabf7;
+  --purple:   #a78bfa;
+  --text:     #e8edf5;
+  --muted:    #6b7a99;
+
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --radius:    12px;
+  --radius-lg: 20px;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Dot-grid background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,160,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Animations ── */
+@keyframes fadeUp   { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: none; } }
+@keyframes fadeOut  { from { opacity:1; } to { opacity:0; transform: scale(.95); } }
+@keyframes spin     { to { transform: rotate(360deg); } }

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinResolver — Financial Tracker</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/login.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/import.css" />
+
+  <!-- External libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+
+    <div class="login-logo">Fin<span>Resolver</span></div>
+    <div class="login-tagline">Your personal finance command center</div>
+
+    <!-- ⚠️  SETUP REQUIRED: Replace YOUR_GOOGLE_CLIENT_ID_HERE in js/auth.js -->
+    <div class="setup-banner" id="setupBanner">
+      <strong>⚙️ Developer Setup Required</strong>
+      Open <code>js/auth.js</code> and replace <code>YOUR_GOOGLE_CLIENT_ID_HERE</code>
+      with your Google OAuth Client ID from
+      <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">
+        Google Cloud Console
+      </a>.
+    </div>
+
+    <div class="login-features">
+      <div class="login-feat"><strong>📊 All-in-One Tracker</strong>Expense, Income, Investment &amp; Loans</div>
+      <div class="login-feat"><strong>✅ CC Checklist</strong>Never miss a credit card payment</div>
+      <div class="login-feat"><strong>📁 Sheet Import</strong>Upload Excel or CSV directly</div>
+      <div class="login-feat"><strong>📈 Analytics</strong>Charts &amp; 6-month trends</div>
+    </div>
+
+    <button id="btnGoogleLogin" class="btn-google" onclick="loginWithGoogle()">
+      <span class="spinner"></span> Loading…
+    </button>
+
+    <!-- Fallback: rendered by GIS renderButton() when popup is blocked -->
+    <div id="googleBtnContainer" style="display:none; justify-content:center; margin-top:.75rem;"></div>
+
+    <div id="loginError" style="display:none; color:var(--accent2); font-size:.75rem; margin-top:1rem;"></div>
+
+    <div class="login-note">
+      By signing in you agree to FinResolver's
+      <a href="#">Terms of Service</a>.<br />
+      Your data is stored locally in your browser — never on a server.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<header>
+  <div class="logo">Fin<span>Resolver</span></div>
+
+  <div class="header-right">
+    <div class="month-selector">
+      <label>MONTH</label>
+      <select id="monthSelect"></select>
+      <select id="yearSelect"></select>
+    </div>
+
+    <span id="syncStatus" style="font-size:.68rem;color:var(--muted);opacity:.7;"></span>
+    <button class="btn-import" onclick="openImport()">⬆ Import Sheet</button>
+
+    <div class="user-pill" id="userPill" onclick="toggleUserMenu()">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span class="user-name" id="userName">User</span>
+
+      <!-- Dropdown -->
+      <div class="user-menu" id="userMenu" onclick="event.stopPropagation()">
+        <div class="user-menu-item user-menu-email" id="menuUserInfo"></div>
+        <div class="user-menu-sep"></div>
+        <div class="user-menu-item" onclick="openImport()">⬆&nbsp; Import Sheet</div>
+        <div class="user-menu-sep"></div>
+        <div class="user-menu-item danger" onclick="logOut()">⎋&nbsp; Sign Out</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     IMPORT MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="importModal">
+  <div class="modal">
+
+    <div class="modal-header">
+      <span class="modal-title">📁 Import Financial Sheet</span>
+      <button class="modal-close" onclick="closeImport()">✕</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Mode selector -->
+      <div class="import-options">
+        <div class="import-opt-btn active" id="optStd" onclick="setImportMode('standard')">
+          <div class="opt-icon">📊</div>
+          <div class="opt-label">Standard Format</div>
+          <div class="opt-sub">Matches the FinResolver template</div>
+        </div>
+        <div class="import-opt-btn" id="optAuto" onclick="setImportMode('auto')">
+          <div class="opt-icon">🧠</div>
+          <div class="opt-label">Auto-Detect</div>
+          <div class="opt-sub">Any sheet with Description &amp; Amount columns</div>
+        </div>
+      </div>
+
+      <!-- Column map reference -->
+      <div class="import-info">
+        <div class="import-info-title">Expected Column Layout (Standard)</div>
+        <div class="col-map">
+          <div class="col-map-item"><div class="col-name">Col A–B</div><div class="col-type tag-exp">Expense</div></div>
+          <div class="col-map-item"><div class="col-name">Col C–D</div><div class="col-type tag-inc">Income</div></div>
+          <div class="col-map-item"><div class="col-name">Col E–F</div><div class="col-type tag-inv">Investment</div></div>
+          <div class="col-map-item"><div class="col-name">Col G–H</div><div class="col-type tag-loan">Loan</div></div>
+        </div>
+        <div class="import-hint">
+          Row 1: Initial Balance in B1 &nbsp;|&nbsp;
+          Row 2: Section headers &nbsp;|&nbsp;
+          Row 3: Description/Amount headers &nbsp;|&nbsp;
+          Row 4+: Data &nbsp;|&nbsp;
+          Col I: Monthly Checklist items
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFile(event)" />
+        <div class="dropzone-icon">☁</div>
+        <div class="dropzone-title">Drop your file here</div>
+        <div class="dropzone-sub">or click to browse</div>
+        <div class="dropzone-formats">
+          <span class="format-tag">.xlsx</span>
+          <span class="format-tag">.xls</span>
+          <span class="format-tag">.csv</span>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="previewSection" style="display:none">
+        <div class="preview-title">Preview — Detected Data</div>
+        <div class="preview-wrap">
+          <table class="preview-table">
+            <thead id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+        <div class="import-summary-text" id="importSummText"></div>
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeImport()">Cancel</button>
+      <button class="btn-primary" id="importConfirmBtn" disabled onclick="confirmImport()">
+        Import Data
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP  (hidden until sign-in)
+════════════════════════════════════════════════════════════ -->
+<main id="appMain" style="display:none">
+
+  <!-- Initial balance -->
+  <div class="init-row">
+    <span class="init-label">INITIAL BALANCE (₹)</span>
+    <input class="init-input" type="number" id="initialAmount" placeholder="0" />
+    <button class="btn-clear-month" onclick="clearMonthData()" title="Clear all data for this month">🗑 Clear Month</button>
+    <span class="domain-badge">finresolver.in</span>
+  </div>
+
+  <!-- ── Summary Cards ── -->
+  <div class="summary-grid">
+    <div class="card" style="--card-accent:var(--accent)">
+      <div class="card-label">Current Balance</div>
+      <div class="card-value" id="sumBalance">₹0</div>
+      <div class="card-sub">Initial + Income − Expenses − Investments − Loans</div>
+    </div>
+    <div class="card" style="--card-accent:var(--accent2)">
+      <div class="card-label">Total Expenses</div>
+      <div class="card-value amount-neg" id="sumExpense">₹0</div>
+    </div>
+    <div class="card" style="--card-accent:var(--accent)">
+      <div class="card-label">Total Income</div>
+      <div class="card-value amount-pos" id="sumIncome">₹0</div>
+    </div>
+    <div class="card" style="--card-accent:var(--accent4)">
+      <div class="card-label">Investments</div>
+      <div class="card-value amount-inv" id="sumInvestment">₹0</div>
+    </div>
+    <div class="card" style="--card-accent:var(--accent3)">
+      <div class="card-label">Loan Payments</div>
+      <div class="card-value amount-loan" id="sumLoan">₹0</div>
+    </div>
+    <div class="card" style="--card-accent:var(--purple)">
+      <div class="card-label">CC Checklist</div>
+      <div class="card-value" id="sumChecklist" style="color:var(--purple)">0/0</div>
+      <div class="card-sub">Monthly payments done</div>
+    </div>
+  </div>
+
+  <!-- ── Expenses & Income ── -->
+  <div class="section-header">
+    <span class="section-title" style="color:var(--accent2)">Expenses</span>
+    <span class="section-badge" style="background:rgba(255,107,107,.12);color:var(--accent2)" id="expBadge">0</span>
+    <div class="section-line"></div>
+    <span class="section-title" style="color:var(--accent)">Income</span>
+    <span class="section-badge" style="background:rgba(0,229,160,.12);color:var(--accent)" id="incBadge">0</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="two-col">
+    <!-- Expenses -->
+    <div class="table-card">
+      <div class="table-card-head">
+        <span class="table-card-title">💸 Expenses</span>
+        <span class="total-row">Total: <span class="total-val amount-neg" id="expTotal">₹0</span></span>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <tbody id="expBody"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text"   id="expDesc" placeholder="Description" />
+        <input type="number" id="expAmt"  placeholder="Amount" style="max-width:105px" />
+        <button class="btn" onclick="addRow('expense')">+ Add</button>
+      </div>
+    </div>
+    <!-- Income -->
+    <div class="table-card">
+      <div class="table-card-head">
+        <span class="table-card-title">💰 Income</span>
+        <span class="total-row">Total: <span class="total-val amount-pos" id="incTotal">₹0</span></span>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <tbody id="incBody"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text"   id="incDesc" placeholder="Description" />
+        <input type="number" id="incAmt"  placeholder="Amount" style="max-width:105px" />
+        <button class="btn" onclick="addRow('income')">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Investments & Loans ── -->
+  <div class="section-header">
+    <span class="section-title" style="color:var(--accent4)">Investments</span>
+    <span class="section-badge" style="background:rgba(77,171,247,.12);color:var(--accent4)" id="invBadge">0</span>
+    <div class="section-line"></div>
+    <span class="section-title" style="color:var(--accent3)">Loans</span>
+    <span class="section-badge" style="background:rgba(255,209,102,.12);color:var(--accent3)" id="loanBadge">0</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="two-col">
+    <!-- Investments -->
+    <div class="table-card">
+      <div class="table-card-head">
+        <span class="table-card-title">📈 Investments</span>
+        <span class="total-row">Total: <span class="total-val amount-inv" id="invTotal">₹0</span></span>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <tbody id="invBody"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text"   id="invDesc" placeholder="Description" />
+        <input type="number" id="invAmt"  placeholder="Amount" style="max-width:105px" />
+        <button class="btn" onclick="addRow('investment')">+ Add</button>
+      </div>
+    </div>
+    <!-- Loans -->
+    <div class="table-card">
+      <div class="table-card-head">
+        <span class="table-card-title">🏦 Loans</span>
+        <span class="total-row">Total: <span class="total-val amount-loan" id="loanTotal">₹0</span></span>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <tbody id="loanBody"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text"   id="loanDesc" placeholder="Description" />
+        <input type="number" id="loanAmt"  placeholder="Amount" style="max-width:105px" />
+        <button class="btn" onclick="addRow('loan')">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Monthly Checklist ── -->
+  <div class="section-header">
+    <span class="section-title" style="color:var(--purple)">Monthly Checklist</span>
+    <span class="section-badge" style="background:rgba(167,139,250,.12);color:var(--purple)">CC Payments</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="checklist-grid" id="checklistGrid"></div>
+  <div class="add-checklist-row">
+    <input type="text" id="checkDesc" class="check-input" placeholder="Add item (e.g. Axis CC Payment)" />
+    <button class="btn" onclick="addCheckItem()">+ Add</button>
+  </div>
+
+  <!-- ── Analytics ── -->
+  <div class="section-header" style="margin-top:2rem">
+    <span class="section-title" style="color:var(--muted)">Analytics</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card"><h4>Breakdown</h4><div class="chart-wrap"><canvas id="pieChart"></canvas></div></div>
+    <div class="chart-card"><h4>Income vs Expenses</h4><div class="chart-wrap"><canvas id="barChart"></canvas></div></div>
+    <div class="chart-card"><h4>3-Month Balance Trend</h4><div class="chart-wrap"><canvas id="lineChart"></canvas></div></div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS  (order matters)
+════════════════════════════════════════════════════════════ -->
+<script src="js/data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tracker.js"></script>
+<script src="js/import.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/auth.js"></script>
+
+<script>
+  // ── Boot ────────────────────────────────────────────────────
+  // Hide the setup banner once a real Client ID is pasted in
+  if (!GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE_CLIENT_ID')) {
+    const banner = document.getElementById('setupBanner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  // Init month/year selectors (data.js)
+  initSelectors();
+
+  // Wire tracker keyboard events (tracker.js)
+  initTrackerEvents();
+
+  // Wire import drag-drop events (import.js)
+  initImportEvents();
+
+  // Start auth flow — loads GIS, restores session if any (auth.js)
+  initAuth();
+
+  // Start Firebase sync (sync.js) — no-op if config not set
+  initSync();
+</script>
+
+</body>
+</html>

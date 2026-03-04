@@ -1,0 +1,106 @@
+/* ============================================================
+   login.css — Login / Auth screen styles
+   FinResolver · finresolver.in
+   ============================================================ */
+
+#loginScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+#loginScreen::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,229,160,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-card {
+  position: relative; z-index: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2.5rem;
+  width: 420px; max-width: 92vw;
+  text-align: center;
+  box-shadow: 0 40px 80px rgba(0,0,0,.5);
+  animation: fadeUp .5s ease both;
+}
+
+.login-logo {
+  font-family: var(--font-head);
+  font-size: 2.2rem; font-weight: 800;
+  color: var(--accent); margin-bottom: .3rem;
+}
+.login-logo span { color: var(--text); }
+
+.login-tagline {
+  font-size: .78rem; color: var(--muted);
+  margin-bottom: 2.2rem; letter-spacing: .5px;
+}
+
+/* Feature grid */
+.login-features {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: .6rem; margin-bottom: 2rem;
+}
+.login-feat {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .6rem .75rem;
+  font-size: .72rem; text-align: left; color: var(--muted);
+}
+.login-feat strong {
+  display: block; color: var(--text);
+  font-size: .75rem; margin-bottom: .15rem;
+}
+
+/* Google button */
+.btn-google {
+  display: flex; align-items: center; justify-content: center;
+  gap: .85rem; width: 100%; padding: .9rem 1.5rem;
+  background: #fff; color: #1a1a1a;
+  border: none; border-radius: 10px;
+  font-family: var(--font-head); font-weight: 700; font-size: .9rem;
+  cursor: pointer; transition: box-shadow .2s, transform .15s;
+}
+.btn-google:hover { box-shadow: 0 6px 24px rgba(255,255,255,.12); transform: translateY(-1px); }
+.btn-google:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Spinner inside button */
+.btn-google .spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #ccc; border-top-color: #333;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+.login-note {
+  font-size: .68rem; color: var(--muted);
+  margin-top: 1.5rem; line-height: 1.7;
+}
+.login-note a { color: var(--accent4); text-decoration: none; }
+.login-note a:hover { text-decoration: underline; }
+
+/* Setup instructions banner */
+.setup-banner {
+  background: rgba(77,171,247,.08);
+  border: 1px solid rgba(77,171,247,.3);
+  border-radius: 10px;
+  padding: .85rem 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  font-size: .73rem;
+  color: var(--accent4);
+  line-height: 1.6;
+}
+.setup-banner strong { display: block; margin-bottom: .3rem; font-size: .78rem; }
+.setup-banner code {
+  background: rgba(0,0,0,.3); border-radius: 4px;
+  padding: .05rem .35rem; font-family: var(--font-mono);
+  font-size: .7rem; color: var(--accent);
+}
