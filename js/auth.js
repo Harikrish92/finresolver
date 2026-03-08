@@ -196,7 +196,12 @@ function applyUser(user, skipSave = false) {
   if (!skipSave) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
 
   document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appMain').style.display     = 'block';
+  // Show home dashboard first; goToTracker() opens appMain
+  if (typeof showHomeScreen === 'function') {
+    showHomeScreen();
+  } else {
+    document.getElementById('appMain').style.display = 'block';
+  }
 
   const av = document.getElementById('userAvatar');
   if (user.photo) {

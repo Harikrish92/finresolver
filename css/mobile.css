@@ -1,0 +1,142 @@
+/* ============================================================
+   mobile.css — Responsive / mobile-first overrides
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── Header collapses on small screens ─────────────────────── */
+@media (max-width: 640px) {
+  header {
+    height: auto;
+    padding: .6rem 1rem;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+  .month-selector label { display: none; }
+  select { font-size: .72rem; padding: .28rem .4rem; }
+  #syncStatus { display: none; }
+  .btn-import { font-size: .7rem; padding: .35rem .6rem; }
+  .user-name { max-width: 64px; }
+}
+
+/* ── Main padding ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  main { padding: .85rem .75rem 5rem; }
+}
+
+/* ── Init row ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .init-row { flex-wrap: wrap; gap: .5rem; }
+  .init-input { width: 120px; font-size: .95rem; }
+  .domain-badge { display: none; }
+  .btn-clear-month { margin-left: 0; }
+}
+
+/* ── Summary grid — 2 cols on mobile ───────────────────────── */
+@media (max-width: 640px) {
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: .6rem;
+  }
+  .card { padding: .85rem .9rem; }
+  .card-value { font-size: 1.15rem; }
+}
+
+/* ── Section headers ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .section-header { gap: .45rem; margin: 1.25rem 0 .65rem; }
+  .section-title { font-size: .78rem; }
+}
+
+/* ── Two-col always single on mobile ───────────────────────── */
+@media (max-width: 640px) {
+  .two-col { grid-template-columns: 1fr; gap: .65rem; }
+}
+
+/* ── Tables — compact ───────────────────────────────────────── */
+@media (max-width: 640px) {
+  thead th { padding: .38rem .65rem; font-size: .6rem; }
+  tbody td { padding: .42rem .65rem; font-size: .74rem; }
+  .table-card-head { padding: .6rem .75rem; }
+  .table-card-title { font-size: .75rem; }
+}
+
+/* ── Add row — stack on very small ─────────────────────────── */
+@media (max-width: 400px) {
+  .add-row { flex-wrap: wrap; }
+  .add-row input[style*="max-width"] { max-width: 100% !important; }
+}
+
+/* ── Checklist — 1 col on mobile ───────────────────────────── */
+@media (max-width: 640px) {
+  .checklist-grid { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .check-item { padding: .65rem .75rem; }
+  .check-label { font-size: .74rem; }
+  .check-del { opacity: 1; } /* always visible on touch */
+}
+@media (max-width: 380px) {
+  .checklist-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Add checklist row ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .add-checklist-row { flex-wrap: wrap; }
+  .check-input { max-width: 100%; }
+}
+
+/* ── Charts — 1 col on mobile ──────────────────────────────── */
+@media (max-width: 640px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .chart-wrap { height: 200px; }
+}
+
+/* ── FIRE + insights panel ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .insights-grid { grid-template-columns: 1fr !important; }
+  .fire-card { padding: 1rem !important; }
+}
+
+/* ── Home dashboard ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .home-nav-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: .75rem !important;
+  }
+  .home-nav-card { padding: 1.25rem 1rem !important; }
+  .home-nav-icon { font-size: 1.8rem !important; }
+  .home-nav-title { font-size: .85rem !important; }
+  .home-stats-row { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── Guest banner ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .guest-banner { flex-direction: column; align-items: flex-start; gap: .6rem; }
+}
+
+/* ── Modal ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .modal { border-radius: 12px 12px 0 0; }
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-body { padding: 1rem; }
+  .modal-footer { padding: .75rem 1rem; }
+  .col-map { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Toast — full width on mobile ──────────────────────────── */
+@media (max-width: 640px) {
+  .toast {
+    bottom: 1rem; right: .75rem; left: .75rem;
+    font-size: .75rem;
+  }
+}
+
+/* ── Touch targets — minimum 44px ──────────────────────────── */
+@media (max-width: 640px) {
+  .btn { min-height: 38px; padding: .5rem .85rem; }
+  .btn-del { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+  select { min-height: 34px; }
+}

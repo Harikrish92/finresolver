@@ -1,0 +1,108 @@
+/* ============================================================
+   home.css — Dashboard / home screen styles
+   FinResolver · finresolver.in
+   ============================================================ */
+
+#homeScreen {
+  display: none;
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Welcome row ────────────────────────────────────────────── */
+.home-welcome {
+  margin-bottom: 2rem;
+  animation: fadeUp .4s ease both;
+}
+.home-welcome-sub {
+  font-size: .78rem; color: var(--muted); margin-top: .3rem;
+}
+.home-welcome h2 {
+  font-family: var(--font-head); font-size: 1.6rem; font-weight: 800;
+}
+.home-welcome h2 span { color: var(--accent); }
+
+/* ── Quick stats row ────────────────────────────────────────── */
+.home-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .85rem; margin-bottom: 2rem;
+}
+.home-stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.2rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .35s ease both;
+  transition: transform .15s, border-color .2s;
+}
+.home-stat-card:hover { transform: translateY(-2px); border-color: var(--card-accent, var(--border)); }
+.home-stat-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--card-accent, var(--accent));
+}
+.home-stat-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: .35rem; }
+.home-stat-value { font-family: var(--font-head); font-size: 1.3rem; font-weight: 700; }
+.home-stat-sub   { font-size: .65rem; color: var(--muted); margin-top: .2rem; }
+
+/* ── Nav cards grid ─────────────────────────────────────────── */
+.home-section-label {
+  font-size: .68rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 1.2px; margin-bottom: .85rem;
+  font-family: var(--font-head); font-weight: 700;
+}
+.home-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem; margin-bottom: 2.5rem;
+}
+.home-nav-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.75rem 1.25rem;
+  cursor: pointer; text-align: center;
+  transition: border-color .2s, transform .15s, background .2s;
+  animation: fadeUp .4s ease both;
+  position: relative; overflow: hidden; text-decoration: none;
+  display: flex; flex-direction: column; align-items: center; gap: .65rem;
+}
+.home-nav-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--card-glow, transparent);
+  opacity: 0; transition: opacity .3s;
+}
+.home-nav-card:hover {
+  border-color: var(--card-accent, var(--accent));
+  transform: translateY(-4px);
+  background: var(--surface2);
+}
+.home-nav-card:hover::before { opacity: 1; }
+
+/* Card accent colours */
+.home-nav-card.tracker   { --card-accent: var(--accent);  --card-glow: radial-gradient(ellipse at top, rgba(0,229,160,.06), transparent 70%); }
+.home-nav-card.investment{ --card-accent: var(--accent4); --card-glow: radial-gradient(ellipse at top, rgba(77,171,247,.06), transparent 70%); }
+.home-nav-card.loan      { --card-accent: var(--accent3); --card-glow: radial-gradient(ellipse at top, rgba(255,209,102,.06), transparent 70%); }
+.home-nav-card.portfolio { --card-accent: var(--purple);  --card-glow: radial-gradient(ellipse at top, rgba(167,139,250,.06), transparent 70%); }
+.home-nav-card.lifestyle { --card-accent: var(--accent2); --card-glow: radial-gradient(ellipse at top, rgba(255,107,107,.06), transparent 70%); }
+
+.home-nav-card.coming-soon {
+  opacity: .5; cursor: default;
+  pointer-events: none;
+}
+.home-nav-card.coming-soon:hover { transform: none; }
+
+.home-nav-icon  { font-size: 2.2rem; line-height: 1; }
+.home-nav-title {
+  font-family: var(--font-head); font-weight: 700; font-size: .92rem;
+  color: var(--text);
+}
+.home-nav-desc  { font-size: .68rem; color: var(--muted); line-height: 1.5; }
+.home-nav-badge {
+  font-size: .6rem; padding: .18rem .5rem;
+  border-radius: 20px; font-weight: 600;
+  background: rgba(107,122,153,.15); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.home-nav-badge.live {
+  background: rgba(0,229,160,.12); color: var(--accent);
+  border-color: rgba(0,229,160,.3);
+}

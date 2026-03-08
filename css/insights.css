@@ -1,0 +1,163 @@
+/* ============================================================
+   insights.css — FIRE number + pattern insights + smart fill
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── FIRE + Insights section ────────────────────────────────── */
+.insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .85rem; margin-top: .5rem;
+}
+
+/* FIRE card */
+.fire-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem;
+  animation: fadeUp .35s ease both;
+  position: relative; overflow: hidden;
+}
+.fire-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: linear-gradient(90deg, var(--accent3), var(--accent2));
+}
+.fire-card-header {
+  display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem;
+}
+.fire-card-title {
+  font-family: var(--font-head); font-weight: 700; font-size: .85rem;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+}
+.fire-emoji { font-size: 1.2rem; }
+.fire-number {
+  font-family: var(--font-head); font-size: 2rem; font-weight: 800;
+  color: var(--accent3); line-height: 1; margin-bottom: .35rem;
+}
+.fire-sub { font-size: .72rem; color: var(--muted); line-height: 1.6; }
+.fire-breakdown {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: .5rem; margin-top: 1rem;
+}
+.fire-stat {
+  background: var(--surface2); border-radius: 8px;
+  padding: .6rem .75rem; text-align: center;
+}
+.fire-stat-label { font-size: .62rem; color: var(--muted); margin-bottom: .2rem; text-transform: uppercase; letter-spacing: .5px; }
+.fire-stat-value { font-family: var(--font-head); font-size: .9rem; font-weight: 700; color: var(--accent3); }
+
+/* Insights card */
+.insights-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem;
+  animation: fadeUp .35s ease both;
+  position: relative; overflow: hidden;
+}
+.insights-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: linear-gradient(90deg, var(--accent4), var(--purple));
+}
+.insights-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .85rem;
+}
+.insights-card-title {
+  font-family: var(--font-head); font-weight: 700; font-size: .85rem;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+  display: flex; align-items: center; gap: .5rem;
+}
+.insight-item {
+  display: flex; align-items: flex-start; gap: .65rem;
+  padding: .55rem 0; border-bottom: 1px solid rgba(35,45,63,.5);
+  font-size: .78rem; line-height: 1.5;
+}
+.insight-item:last-child { border-bottom: none; }
+.insight-icon {
+  font-size: .95rem; flex-shrink: 0; margin-top: .05rem;
+}
+.insight-text { color: var(--text); flex: 1; }
+.insight-text strong { color: var(--accent); }
+.insight-empty {
+  font-size: .75rem; color: var(--muted); text-align: center;
+  padding: 1rem 0; opacity: .6;
+}
+
+/* ── Smart fill button ──────────────────────────────────────── */
+.smart-fill-row {
+  display: flex; align-items: center; gap: .65rem;
+  margin-bottom: .85rem; flex-wrap: wrap;
+}
+.btn-smart-fill {
+  display: flex; align-items: center; gap: .45rem;
+  background: rgba(77,171,247,.1); border: 1px solid rgba(77,171,247,.3);
+  color: var(--accent4); font-family: var(--font-mono);
+  font-size: .73rem; padding: .38rem .85rem;
+  border-radius: 7px; cursor: pointer;
+  transition: background .2s, border-color .2s;
+  white-space: nowrap;
+}
+.btn-smart-fill:hover {
+  background: rgba(77,171,247,.18);
+  border-color: var(--accent4);
+}
+.smart-fill-hint {
+  font-size: .68rem; color: var(--muted);
+}
+
+/* Smart fill modal */
+.smart-modal-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.smart-modal-overlay.hidden { display: none; }
+.smart-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; width: 580px; max-width: 96vw;
+  max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 40px 80px rgba(0,0,0,.5);
+  animation: fadeUp .25s ease both;
+}
+.smart-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border);
+  background: var(--surface2); border-radius: 16px 16px 0 0;
+}
+.smart-modal-title {
+  font-family: var(--font-head); font-weight: 700; font-size: .95rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.smart-modal-body { padding: 1.25rem 1.4rem; }
+.smart-section-title {
+  font-size: .67rem; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); margin: 1rem 0 .5rem;
+  font-family: var(--font-head); font-weight: 700;
+}
+.smart-section-title:first-child { margin-top: 0; }
+.smart-item {
+  display: flex; align-items: center; gap: .65rem;
+  padding: .45rem .65rem; border-radius: 8px;
+  border: 1px solid var(--border); margin-bottom: .4rem;
+  background: var(--surface2); cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.smart-item:hover { border-color: var(--accent4); background: rgba(77,171,247,.05); }
+.smart-item.selected { border-color: var(--accent4); background: rgba(77,171,247,.1); }
+.smart-item-check {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1.5px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: .65rem;
+  transition: all .15s;
+}
+.smart-item.selected .smart-item-check {
+  background: var(--accent4); border-color: var(--accent4); color: #000;
+}
+.smart-item-desc { flex: 1; font-size: .78rem; }
+.smart-item-meta { font-size: .67rem; color: var(--muted); }
+.smart-item-amt  { font-size: .8rem; font-weight: 600; font-family: var(--font-head); }
+.smart-modal-footer {
+  padding: .9rem 1.4rem; border-top: 1px solid var(--border);
+  display: flex; gap: .6rem; justify-content: space-between;
+  align-items: center; background: var(--surface2);
+  border-radius: 0 0 16px 16px;
+}
+.smart-footer-info { font-size: .72rem; color: var(--muted); }

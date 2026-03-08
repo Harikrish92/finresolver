@@ -10,6 +10,9 @@
   <link rel="stylesheet" href="css/login.css" />
   <link rel="stylesheet" href="css/app.css" />
   <link rel="stylesheet" href="css/import.css" />
+  <link rel="stylesheet" href="css/home.css" />
+  <link rel="stylesheet" href="css/insights.css" />
+  <link rel="stylesheet" href="css/mobile.css" />
 
   <!-- External libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
@@ -57,7 +60,7 @@
     </div>
 
     <button class="btn-guest" onclick="loginAsGuest()">
-      👤 Experience as Guest
+      👤 Continue as Guest
     </button>
 
     <div class="login-note">
@@ -73,7 +76,10 @@
      HEADER
 ════════════════════════════════════════════════════════════ -->
 <header>
-  <div class="logo">Fin<span>Resolver</span></div>
+  <div style="display:flex;align-items:center;gap:.85rem;">
+    <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer">Fin<span>Resolver</span></div>
+    <button id="btnBackHome" onclick="goToHome()" style="display:none;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.32rem .7rem;border-radius:6px;cursor:pointer;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Home</button>
+  </div>
 
   <div class="header-right">
     <div class="month-selector">
@@ -189,6 +195,83 @@
   </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     HOME DASHBOARD  (shown after login, before any module)
+════════════════════════════════════════════════════════════ -->
+<div id="homeScreen">
+
+  <div class="home-welcome">
+    <h2>Hello, <span id="homeWelcomeName">there</span> 👋</h2>
+    <div class="home-welcome-sub">Here's your financial overview for <span id="homeMonthName"></span></div>
+  </div>
+
+  <!-- Quick stats -->
+  <div class="home-stats-row">
+    <div class="home-stat-card" style="--card-accent:var(--accent)">
+      <div class="home-stat-label">Current Balance</div>
+      <div class="home-stat-value" id="homeStatBalance">₹0</div>
+      <div class="home-stat-sub">This month</div>
+    </div>
+    <div class="home-stat-card" style="--card-accent:var(--accent3)">
+      <div class="home-stat-label">FIRE Number</div>
+      <div class="home-stat-value" id="homeStatFire" style="color:var(--accent3)">—</div>
+      <div class="home-stat-sub">25× annual expenses</div>
+    </div>
+    <div class="home-stat-card" style="--card-accent:var(--accent2)">
+      <div class="home-stat-label">Month Expenses</div>
+      <div class="home-stat-value" id="homeStatMonthExp" style="color:var(--accent2)">₹0</div>
+      <div class="home-stat-sub">This month</div>
+    </div>
+    <div class="home-stat-card" style="--card-accent:var(--accent4)">
+      <div class="home-stat-label">YTD Savings</div>
+      <div class="home-stat-value" id="homeStatYTD">₹0</div>
+      <div class="home-stat-sub">Income − Expenses YTD</div>
+    </div>
+  </div>
+
+  <!-- Navigation cards -->
+  <div class="home-section-label">Your Modules</div>
+  <div class="home-nav-grid">
+
+    <div class="home-nav-card tracker" onclick="goToTracker()">
+      <div class="home-nav-icon">📊</div>
+      <div class="home-nav-title">Monthly Tracker</div>
+      <div class="home-nav-desc">Expenses, income, investments &amp; loans</div>
+      <div class="home-nav-badge live">Live</div>
+    </div>
+
+    <div class="home-nav-card investment coming-soon">
+      <div class="home-nav-icon">📈</div>
+      <div class="home-nav-title">Investment Tracker</div>
+      <div class="home-nav-desc">Stocks, MF, FD &amp; portfolio returns</div>
+      <div class="home-nav-badge">Coming Soon</div>
+    </div>
+
+    <div class="home-nav-card loan coming-soon">
+      <div class="home-nav-icon">🏦</div>
+      <div class="home-nav-title">Loan Tracker</div>
+      <div class="home-nav-desc">EMIs, interest &amp; payoff timeline</div>
+      <div class="home-nav-badge">Coming Soon</div>
+    </div>
+
+    <div class="home-nav-card portfolio coming-soon">
+      <div class="home-nav-icon">🗂️</div>
+      <div class="home-nav-title">Portfolio Overview</div>
+      <div class="home-nav-desc">Net worth &amp; asset allocation</div>
+      <div class="home-nav-badge">Coming Soon</div>
+    </div>
+
+    <div class="home-nav-card lifestyle coming-soon">
+      <div class="home-nav-icon">🌿</div>
+      <div class="home-nav-title">Lifestyle Tracker</div>
+      <div class="home-nav-desc">Goals, habits &amp; spending quality</div>
+      <div class="home-nav-badge">Coming Soon</div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      MAIN APP  (hidden until sign-in)
 ════════════════════════════════════════════════════════════ -->
@@ -208,6 +291,12 @@
     <input class="init-input" type="number" id="initialAmount" placeholder="0" />
     <button class="btn-clear-month" onclick="clearMonthData()" title="Clear all data for this month">🗑 Clear Month</button>
     <span class="domain-badge">finresolver.in</span>
+  </div>
+
+  <!-- Smart Fill row -->
+  <div class="smart-fill-row">
+    <button class="btn-smart-fill" onclick="openSmartFill()">✨ Smart Fill — Recurring Items</button>
+    <span class="smart-fill-hint">Pre-populate repeated entries from past months</span>
   </div>
 
   <!-- ── Summary Cards ── -->
@@ -351,15 +440,78 @@
     <div class="chart-card"><h4>3-Month Balance Trend</h4><div class="chart-wrap"><canvas id="lineChart"></canvas></div></div>
   </div>
 
+  <!-- ── FIRE Number + Insights ── -->
+  <div class="section-header" style="margin-top:2rem">
+    <span class="section-title" style="color:var(--accent3)">FIRE & Insights</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="insights-grid">
+
+    <!-- FIRE Card -->
+    <div class="fire-card">
+      <div class="fire-card-header">
+        <span class="fire-emoji">🔥</span>
+        <span class="fire-card-title">FIRE Number</span>
+      </div>
+      <div class="fire-number" id="fireNumber">—</div>
+      <div class="fire-sub">Based on 3-month avg expenses × 12 × 25<br/>
+        <span id="fireDataMonths" style="color:var(--accent3);font-size:.7rem"></span>
+      </div>
+      <div class="fire-breakdown">
+        <div class="fire-stat">
+          <div class="fire-stat-label">Avg Monthly</div>
+          <div class="fire-stat-value" id="fireMonthlyExp">—</div>
+        </div>
+        <div class="fire-stat">
+          <div class="fire-stat-label">Annual Exp</div>
+          <div class="fire-stat-value" id="fireAnnualExp">—</div>
+        </div>
+        <div class="fire-stat">
+          <div class="fire-stat-label">FIRE Target</div>
+          <div class="fire-stat-value" id="fireNumber2" style="color:var(--accent3)">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insights Card -->
+    <div class="insights-card">
+      <div class="insights-card-header">
+        <span class="insights-card-title">💡 Pattern Insights</span>
+      </div>
+      <div id="insightsList"></div>
+    </div>
+
+  </div>
+
 </main>
 
 <!-- ═══════════════════════════════════════════════════════════
      SCRIPTS  (order matters)
 ════════════════════════════════════════════════════════════ -->
+<!-- ── Smart Fill Modal ── -->
+<div class="smart-modal-overlay hidden" id="smartFillModal">
+  <div class="smart-modal">
+    <div class="smart-modal-header">
+      <span class="smart-modal-title">✨ Smart Fill — <span id="smartFillCount" style="color:var(--accent4);font-weight:400;font-size:.85rem"></span></span>
+      <button class="modal-close" onclick="closeSmartFill()">✕</button>
+    </div>
+    <div class="smart-modal-body" id="smartFillBody"></div>
+    <div class="smart-modal-footer">
+      <span class="smart-footer-info">Select items to add to this month</span>
+      <div style="display:flex;gap:.6rem">
+        <button class="btn-secondary" onclick="selectAllSmartFill()">Select All</button>
+        <button class="btn-primary" id="smartFillApplyBtn" disabled onclick="applySmartFill()">Add Selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="js/data.js"></script>
 <script src="js/render.js"></script>
 <script src="js/tracker.js"></script>
 <script src="js/import.js"></script>
+<script src="js/home.js"></script>
+<script src="js/insights.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/auth.js"></script>
 
