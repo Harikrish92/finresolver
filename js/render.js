@@ -7,6 +7,13 @@ let pieChart, barChart, lineChart;
 
 // ── Master render ────────────────────────────────────────────
 function render() {
+  // Guard: only render tracker UI when appMain is actually visible.
+  // syncLoadData() can be called while the home screen is showing (on initial
+  // auth or prefetch), which would crash trying to update tracker DOM elements
+  // (charts on hidden canvases, null element refs, etc.).
+  const appMain = document.getElementById('appMain');
+  if (!appMain || appMain.style.display === 'none') return;
+
   renderSummary();
   renderTable('expense',    'expBody',  'amount-neg');
   renderTable('income',     'incBody',  'amount-pos');

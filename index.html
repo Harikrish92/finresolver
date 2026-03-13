@@ -82,14 +82,17 @@
   </div>
 
   <div class="header-right">
-    <div class="month-selector">
-      <label>MONTH</label>
-      <select id="monthSelect"></select>
-      <select id="yearSelect"></select>
-    </div>
 
-    <span id="syncStatus" style="font-size:.68rem;color:var(--muted);opacity:.7;"></span>
-    <button class="btn-import" onclick="openImport()">⬆ Import Sheet</button>
+    <!-- Tracker-only controls: hidden on home screen, revealed by goToTracker() -->
+    <div id="headerTrackerControls" style="display:none;align-items:center;gap:.85rem;flex-wrap:wrap;">
+      <div class="month-selector">
+        <label>MONTH</label>
+        <select id="monthSelect"></select>
+        <select id="yearSelect"></select>
+      </div>
+      <span id="syncStatus" style="font-size:.68rem;color:var(--muted);opacity:.7;"></span>
+      <button class="btn-import" onclick="openImport()">⬆ Import Sheet</button>
+    </div>
 
     <div class="user-pill" id="userPill" onclick="toggleUserMenu()">
       <div class="user-avatar" id="userAvatar">?</div>
@@ -98,8 +101,6 @@
       <!-- Dropdown -->
       <div class="user-menu" id="userMenu" onclick="event.stopPropagation()">
         <div class="user-menu-item user-menu-email" id="menuUserInfo"></div>
-        <div class="user-menu-sep"></div>
-        <div class="user-menu-item" onclick="openImport()">⬆&nbsp; Import Sheet</div>
         <div id="menuSignInRow" style="display:none">
           <div class="user-menu-sep"></div>
           <div class="user-menu-item" style="color:var(--accent)" onclick="loginWithGoogle()">🔑&nbsp; Sign in with Google</div>
@@ -226,7 +227,7 @@
     <div class="home-stat-card" style="--card-accent:var(--accent4)">
       <div class="home-stat-label">YTD Savings</div>
       <div class="home-stat-value" id="homeStatYTD">₹0</div>
-      <div class="home-stat-sub">Income − Expenses YTD</div>
+      <div class="home-stat-sub">Income − Expenses - Loans YTD</div>
     </div>
   </div>
 

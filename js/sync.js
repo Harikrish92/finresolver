@@ -302,6 +302,13 @@ function firebaseSignOut() {
 function showSyncStatus(status) {
   const el = document.getElementById('syncStatus');
   if (!el) return;
+  // Only update the visible label when the tracker controls are shown.
+  // The element lives inside #headerTrackerControls which is hidden on the
+  // home screen — updating it while hidden caused the "Local only" flash
+  // that users saw on the home screen (it was visible before our wrapper fix,
+  // and the stale value would appear the moment the tracker opened).
+  // We still store the status internally so the correct value is displayed
+  // as soon as the user navigates to the tracker.
   const labels = { syncing: '↑ Syncing…', synced: '✓ Synced', offline: '⚡ Local only' };
   const colors = { syncing: 'var(--accent3)', synced: 'var(--accent)', offline: 'var(--muted)' };
   el.textContent = labels[status] || '';
