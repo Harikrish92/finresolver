@@ -1,0 +1,199 @@
+/* ============================================================
+   theme-light.css — Light theme overrides
+   Applied via  <body class="theme-light">
+   FinResolver · finresolver.in
+   ============================================================ */
+
+body.theme-light {
+  /* ── Core palette ── */
+  --bg:       #f0f2f7;
+  --surface:  #ffffff;
+  --surface2: #f5f6fa;
+  --border:   #dde1ec;
+  --text:     #1a2030;
+  --muted:    #7a869e;
+
+  /* ── Accents — slightly richer for light bg ── */
+  --accent:   #00c48a;
+  --accent2:  #f04b4b;
+  --accent3:  #e6a800;
+  --accent4:  #2d8fe0;
+  --purple:   #7c5be6;
+}
+
+/* ── Grid dots — lighter tint ── */
+body.theme-light::before {
+  background-image:
+    linear-gradient(rgba(0,196,138,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,196,138,.04) 1px, transparent 1px);
+}
+
+/* ── Scrollbar ── */
+body.theme-light ::-webkit-scrollbar-track { background: var(--bg); }
+body.theme-light ::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ── Header ── */
+body.theme-light header {
+  background: rgba(240,242,247,.96);
+  box-shadow: 0 1px 0 var(--border), 0 2px 12px rgba(0,0,0,.05);
+}
+
+/* ── Select dropdowns ── */
+body.theme-light select {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* ── User menu shadow ── */
+body.theme-light .user-menu {
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+}
+
+/* ── Cards ── */
+body.theme-light .card,
+body.theme-light .table-card,
+body.theme-light .chart-card,
+body.theme-light .home-stat-card,
+body.theme-light .home-nav-card,
+body.theme-light .fire-card,
+body.theme-light .insights-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+}
+
+body.theme-light .card:hover,
+body.theme-light .home-stat-card:hover,
+body.theme-light .home-nav-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,.1);
+}
+
+/* ── Nav card glow — tuned for light bg ── */
+body.theme-light .home-nav-card:hover { background: var(--surface); }
+body.theme-light .home-nav-card.tracker    { --card-glow: radial-gradient(ellipse at top, rgba(0,196,138,.07), transparent 70%); }
+body.theme-light .home-nav-card.investment { --card-glow: radial-gradient(ellipse at top, rgba(45,143,224,.07), transparent 70%); }
+body.theme-light .home-nav-card.loan       { --card-glow: radial-gradient(ellipse at top, rgba(230,168,0,.07),  transparent 70%); }
+body.theme-light .home-nav-card.portfolio  { --card-glow: radial-gradient(ellipse at top, rgba(124,91,230,.07), transparent 70%); }
+body.theme-light .home-nav-card.lifestyle  { --card-glow: radial-gradient(ellipse at top, rgba(240,75,75,.07),  transparent 70%); }
+
+/* ── Tables ── */
+body.theme-light tbody tr:hover { background: #f8f9fc; }
+body.theme-light tbody td { border-bottom-color: rgba(221,225,236,.7); }
+
+/* ── Add row inputs ── */
+body.theme-light .add-row input {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Init input ── */
+body.theme-light .init-input {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Check item done ── */
+body.theme-light .check-item.done {
+  background: rgba(0,196,138,.06);
+  border-color: rgba(0,196,138,.35);
+}
+
+/* ── Check input ── */
+body.theme-light .check-input {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Login card ── */
+body.theme-light .login-card {
+  box-shadow: 0 24px 64px rgba(0,0,0,.1);
+}
+body.theme-light #loginScreen {
+  background: var(--bg);
+}
+body.theme-light .btn-google:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+}
+body.theme-light .btn-guest:hover {
+  background: rgba(0,196,138,.06);
+}
+
+/* ── Toast ── */
+body.theme-light .toast {
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+}
+
+/* ── Import modal ── */
+body.theme-light .modal {
+  box-shadow: 0 24px 64px rgba(0,0,0,.12);
+}
+body.theme-light .dropzone.drag-over {
+  background: rgba(45,143,224,.04);
+}
+body.theme-light .col-map-item {
+  background: var(--bg);
+}
+
+/* ── Smart fill modal ── */
+body.theme-light .smart-modal {
+  box-shadow: 0 24px 64px rgba(0,0,0,.12);
+}
+body.theme-light .smart-item:hover {
+  background: rgba(45,143,224,.04);
+}
+body.theme-light .smart-item.selected {
+  background: rgba(45,143,224,.08);
+}
+
+/* ── FIRE card ── */
+body.theme-light .fire-stat {
+  background: var(--bg);
+}
+
+/* ── Insight item separator ── */
+body.theme-light .insight-item {
+  border-bottom-color: rgba(221,225,236,.8);
+}
+
+/* ── Setup banner ── */
+body.theme-light .setup-banner {
+  background: rgba(45,143,224,.06);
+  border-color: rgba(45,143,224,.25);
+}
+body.theme-light .setup-banner code {
+  background: rgba(0,0,0,.06);
+}
+
+/* ── Guest banner ── */
+body.theme-light .guest-banner {
+  background: rgba(230,168,0,.07);
+  border-color: rgba(230,168,0,.3);
+}
+
+/* ── Btn smart fill ── */
+body.theme-light .btn-smart-fill {
+  background: rgba(45,143,224,.08);
+  border-color: rgba(45,143,224,.25);
+}
+body.theme-light .btn-smart-fill:hover {
+  background: rgba(45,143,224,.15);
+}
+
+/* ── Preview table ── */
+body.theme-light .preview-table td {
+  border-bottom-color: rgba(221,225,236,.7);
+}
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer;
+  font-size: 1rem; line-height: 1;
+  transition: background .2s, border-color .2s, transform .15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: scale(1.08);
+}

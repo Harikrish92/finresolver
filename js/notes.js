@@ -85,10 +85,10 @@
       flex-direction: column;
       gap: .5rem;
     }
-    .note-card:hover { transform: translateY(-2px); border-color: rgba(167,139,250,.35); }
+    .note-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--purple) 35%, transparent); }
     .note-card.pinned {
-      border-color: rgba(167,139,250,.55);
-      background: rgba(167,139,250,.06);
+      border-color: color-mix(in srgb, var(--purple) 55%, transparent);
+      background: color-mix(in srgb, var(--purple) 6%, transparent);
     }
     .note-card.pinned::after {
       content: '📌';
@@ -146,8 +146,8 @@
       transition: background .15s, color .15s, border-color .15s;
     }
     .note-action-btn:hover { background: var(--surface2); color: var(--text); }
-    .note-action-btn.pin-active { color: var(--purple); border-color: rgba(167,139,250,.4); }
-    .note-action-btn.del-btn:hover { color: var(--accent2); border-color: rgba(255,107,107,.4); }
+    .note-action-btn.pin-active { color: var(--purple); border-color: color-mix(in srgb, var(--purple) 40%, transparent); }
+    .note-action-btn.del-btn:hover { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 40%, transparent); }
 
     .note-edit-row {
       display: none;

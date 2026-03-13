@@ -96,13 +96,23 @@ function renderCharts() {
   const tInv  = sumArr(data.investment);
   const tLoan = sumArr(data.loan);
 
+  // Use theme-aware colours if theme.js is loaded, else fall back to dark defaults
+  const ct = (typeof getChartTheme === 'function') ? getChartTheme() : {
+    grid: 'rgba(255,255,255,.04)', tick: '#6b7a99',
+    accent: '#00e5a0', areaFill: 'rgba(0,229,160,.07)',
+  };
+
   const chartBase = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#6b7a99', font: { family: 'DM Mono', size: 11 } } }
+      legend: { labels: { color: ct.tick, font: { family: 'DM Mono', size: 11 } } }
     }
   };
+
+  // Accent colours are the same in both themes (only slightly adjusted via CSS vars)
+  const PIE_COLORS = ['#ff6b6b','#00e5a0','#4dabf7','#ffd166'];
+  const BAR_COLORS = ['rgba(0,229,160,.75)','rgba(255,107,107,.75)','rgba(77,171,247,.75)','rgba(255,209,102,.75)'];
 
   // Doughnut breakdown
   if (pieChart) pieChart.destroy();
@@ -112,7 +122,7 @@ function renderCharts() {
       labels: ['Expenses', 'Income', 'Investments', 'Loans'],
       datasets: [{
         data: [tExp, tInc, tInv, tLoan],
-        backgroundColor: ['#ff6b6b','#00e5a0','#4dabf7','#ffd166'],
+        backgroundColor: PIE_COLORS,
         borderWidth: 0, hoverOffset: 8
       }]
     },
@@ -127,10 +137,7 @@ function renderCharts() {
       labels: ['Income','Expenses','Investments','Loans'],
       datasets: [{
         data: [tInc, tExp, tInv, tLoan],
-        backgroundColor: [
-          'rgba(0,229,160,.7)','rgba(255,107,107,.7)',
-          'rgba(77,171,247,.7)','rgba(255,209,102,.7)'
-        ],
+        backgroundColor: BAR_COLORS,
         borderRadius: 6
       }]
     },
@@ -138,8 +145,8 @@ function renderCharts() {
       ...chartBase,
       plugins: { ...chartBase.plugins, legend: { display: false } },
       scales: {
-        x: { ticks: { color:'#6b7a99', font:{ family:'DM Mono', size:11 } }, grid: { color:'rgba(255,255,255,.04)' } },
-        y: { ticks: { color:'#6b7a99', font:{ family:'DM Mono', size:11 }, callback: v => '₹'+Number(v).toLocaleString('en-IN') }, grid: { color:'rgba(255,255,255,.04)' } }
+        x: { ticks: { color: ct.tick, font:{ family:'DM Mono', size:11 } }, grid: { color: ct.grid } },
+        y: { ticks: { color: ct.tick, font:{ family:'DM Mono', size:11 }, callback: v => '₹'+Number(v).toLocaleString('en-IN') }, grid: { color: ct.grid } }
       }
     }
   });
@@ -165,9 +172,9 @@ function renderCharts() {
       labels,
       datasets: [{
         data: balances,
-        borderColor: '#00e5a0',
-        backgroundColor: 'rgba(0,229,160,.07)',
-        borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#00e5a0',
+        borderColor: ct.accent,
+        backgroundColor: ct.areaFill,
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: ct.accent,
         fill: true, tension: .4
       }]
     },
@@ -175,8 +182,8 @@ function renderCharts() {
       ...chartBase,
       plugins: { ...chartBase.plugins, legend: { display: false } },
       scales: {
-        x: { ticks: { color:'#6b7a99', font:{ family:'DM Mono', size:11 } }, grid: { color:'rgba(255,255,255,.04)' } },
-        y: { ticks: { color:'#6b7a99', font:{ family:'DM Mono', size:11 }, callback: v => '₹'+Number(v).toLocaleString('en-IN') }, grid: { color:'rgba(255,255,255,.04)' } }
+        x: { ticks: { color: ct.tick, font:{ family:'DM Mono', size:11 } }, grid: { color: ct.grid } },
+        y: { ticks: { color: ct.tick, font:{ family:'DM Mono', size:11 }, callback: v => '₹'+Number(v).toLocaleString('en-IN') }, grid: { color: ct.grid } }
       }
     }
   });
