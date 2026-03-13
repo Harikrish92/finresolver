@@ -14,6 +14,7 @@ function render() {
   renderTable('loan',       'loanBody', 'amount-loan');
   renderChecklist();
   renderCharts();
+  if (typeof renderNotes         === 'function') renderNotes();
   if (typeof renderInsightsPanel === 'function') renderInsightsPanel();
 }
 

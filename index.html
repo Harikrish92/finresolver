@@ -199,7 +199,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      HOME DASHBOARD  (shown after login, before any module)
 ════════════════════════════════════════════════════════════ -->
-<div id="homeScreen">
+<div id="homeScreen" style="display:none">
 
   <div class="home-welcome">
     <h2>Hello, <span id="homeWelcomeName">there</span> 👋</h2>
@@ -428,6 +428,16 @@
     <input type="text" id="checkDesc" class="check-input" placeholder="Add item (e.g. Axis CC Payment)" />
     <button class="btn" onclick="addCheckItem()">+ Add</button>
   </div>
+<div class="section-header">
+  <span class="section-title" style="color:var(--purple)">Notes</span>
+  <span class="section-badge" style="background:rgba(167,139,250,.12);color:var(--purple)">Things to remember for future refenrece</span>
+  <div class="section-line"></div>
+</div>
+<div id="notesGrid"></div>
+<div class="notes-add-row">
+  <textarea id="noteInput" placeholder="Add a note… (Enter to save, Shift+Enter for new line)"></textarea>
+  <button class="btn-note-add" onclick="addNote()">+ Note</button>
+</div>
 
   <!-- ── Analytics ── -->
   <div class="section-header" style="margin-top:2rem">
@@ -514,6 +524,7 @@
 <script src="js/insights.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/notes.js"></script>
 
 <script>
   // ── Boot ────────────────────────────────────────────────────
@@ -537,6 +548,9 @@
 
   // Start Firebase sync (sync.js) — no-op if config not set
   initSync();
+
+  // Start notes functionality (notes.js) 
+  initNotesEvents()
 </script>
 
 </body>

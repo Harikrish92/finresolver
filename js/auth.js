@@ -195,31 +195,42 @@ function applyUser(user, skipSave = false) {
   currentUser = user;
   if (!skipSave) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
 
+  // ── FIX: Update all user-facing DOM FIRST, before showing any screen ──
+  // showHomeScreen() calls renderHomeDashboard() which reads currentUser.name.
+  // Avatar/username must be set before that call, not after.
+  const displayName = (user.name && user.name.trim()) ? user.name.trim() : 'User';
+  const firstName   = displayName.split(' ')[0];
+  const displayInit = user.initials || getInitials(displayName);
+
+  const av = document.getElementById('userAvatar');
+  if (user.photo) {
+    av.innerHTML = `<img src="${user.photo}" alt="${displayName}" referrerpolicy="no-referrer" />`;
+  } else {
+    av.textContent = displayInit;
+  }
+  document.getElementById('userName').textContent = firstName;
+
+  // Support both element ids used across versions
+  const infoEl = document.getElementById('menuUserInfo') || document.getElementById('menuEmail');
+  if (infoEl) infoEl.textContent = user.email || '';
+
+  // Show/hide guest-specific UI
+  const isGuest   = !!user.isGuest;
+  const guestBanner = document.getElementById('guestBanner');
+  const menuSignIn  = document.getElementById('menuSignInRow');
+  const menuSignOut = document.getElementById('menuSignOutRow');
+  if (guestBanner) guestBanner.style.display = isGuest ? 'block' : 'none';
+  if (menuSignIn)  menuSignIn.style.display  = isGuest ? 'block' : 'none';
+  if (menuSignOut) menuSignOut.style.display = isGuest ? 'none'  : 'block';
+
   document.getElementById('loginScreen').style.display = 'none';
-  // Show home dashboard first; goToTracker() opens appMain
+
+  // Now show home — renderHomeDashboard() will see the correct user
   if (typeof showHomeScreen === 'function') {
     showHomeScreen();
   } else {
     document.getElementById('appMain').style.display = 'block';
   }
-
-  const av = document.getElementById('userAvatar');
-  if (user.photo) {
-    av.innerHTML = `<img src="${user.photo}" alt="${user.name}" referrerpolicy="no-referrer" />`;
-  } else {
-    av.textContent = user.initials;
-  }
-  document.getElementById('userName').textContent     = user.name.split(' ')[0];
-  document.getElementById('menuUserInfo').textContent = user.email;
-
-  // Show/hide guest-specific UI
-  const isGuest = !!user.isGuest;
-  const guestBanner   = document.getElementById('guestBanner');
-  const menuSignIn    = document.getElementById('menuSignInRow');
-  const menuSignOut   = document.getElementById('menuSignOutRow');
-  if (guestBanner) guestBanner.style.display  = isGuest ? 'block' : 'none';
-  if (menuSignIn)  menuSignIn.style.display   = isGuest ? 'block' : 'none';
-  if (menuSignOut) menuSignOut.style.display  = isGuest ? 'none'  : 'block';
 
   // Load local data immediately for instant render
   if (typeof loadData === 'function') loadData();
@@ -234,8 +245,22 @@ function logOut() {
   }
   if (typeof firebaseSignOut === 'function') firebaseSignOut();
 
+  // ── FIX 2: Clear all localStorage data for this user ──
+  // Remove every fr_data_{uid}_* key so the next user starts clean.
+  const uid = currentUser?.uid;
+  if (uid) {
+    const prefix = `fr_data_${uid}_`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => localStorage.removeItem(k));
+  }
+
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
+
+  // FIX: Reset in-memory data immediately so a subsequent guest login
+  // cannot see the previous user's data before loadData() runs.
+  if (typeof emptyData === 'function') data = emptyData();
 
   // Reset guest UI
   const guestBanner = document.getElementById('guestBanner');
@@ -247,6 +272,11 @@ function logOut() {
 
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('appMain').style.display     = 'none';
+
+  // Also hide home screen if present
+  const homeScreen = document.getElementById('homeScreen');
+  if (homeScreen) homeScreen.style.display = 'none';
+
   document.getElementById('userMenu').classList.remove('open');
   setButtonReady();
 }

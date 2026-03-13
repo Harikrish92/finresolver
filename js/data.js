@@ -23,6 +23,7 @@ function emptyData() {
     income:     [],
     investment: [],
     loan:       [],
+    notes: [],          // { id, text, pinned, createdAt }
     checklist: [
       { label: 'HDFC CC Payment',  done: false },
       { label: 'IDFC CC Payment',  done: false },
@@ -73,6 +74,8 @@ function loadData() {
   if (raw) {
     // Existing month — load as-is
     data = JSON.parse(raw);
+    // Migrate: older saves may not have a notes array
+    if (!Array.isArray(data.notes)) data.notes = [];
   } else {
     // New month — seed initial balance from previous month's closing balance
     const prev = getPrevMonthBalance();

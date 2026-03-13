@@ -54,6 +54,10 @@ function initSync() {
     return;
   }
 
+  // FIX (session 1): Show 'syncing' while Firebase scripts load instead of
+  // 'offline' — the old default caused "Local only" to stick permanently.
+  showSyncStatus('syncing');
+
   const BASE = 'https://www.gstatic.com/firebasejs/10.12.2';
   loadScript(`${BASE}/firebase-app-compat.js`, () => {
     loadScript(`${BASE}/firebase-auth-compat.js`, () => {
@@ -64,20 +68,19 @@ function initSync() {
           db     = firebase.firestore();
           console.info('[Sync] Firebase ready:', FIREBASE_CONFIG.projectId);
 
-          // onAuthStateChanged is the ONLY place that sets syncReady and
-          // triggers syncLoadData. This fires:
-          //   • after signInWithCredential() resolves  (new login)
-          //   • automatically on page refresh if Firebase session persists
           fbAuth.onAuthStateChanged(async fbUser => {
             if (fbUser) {
               syncReady = true;
               console.info('[Sync] Firebase Auth uid:', fbUser.uid);
 
-              // On page refresh: currentUser is restored from localStorage by
-              // auth.js using the stored session. But that session was saved
-              // with the Firebase uid, so they will match.
+              // FIX (session 1): Race condition on page-refresh — Firebase fires
+              // before auth.js has restored currentUser from SESSION_KEY.
+              // Yield one microtask tick to let auth.js finish restoring session.
+              if (!currentUser) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+              }
+
               if (currentUser) {
-                // Ensure the stored uid matches Firebase's uid (safety check)
                 if (currentUser.uid !== fbUser.uid) {
                   console.warn('[Sync] uid mismatch — updating currentUser uid to Firebase uid');
                   currentUser.uid = fbUser.uid;
@@ -85,10 +88,16 @@ function initSync() {
                 }
                 showSyncStatus('synced');
                 syncLoadData();
+              } else {
+                // No stored session — user needs to log in fresh
+                showSyncStatus('offline');
               }
             } else {
               syncReady = false;
-              showSyncStatus('offline');
+              // FIX (session 1): Only show 'offline' when there's genuinely
+              // no stored session. A session key means we're still mid-load.
+              const hasStoredSession = !!localStorage.getItem('fr_session');
+              showSyncStatus(hasStoredSession ? 'syncing' : 'offline');
             }
           });
 
@@ -158,18 +167,17 @@ async function firebaseSignInWithAccessToken(accessToken, profile) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   LOAD
+   LOAD — current month
 ══════════════════════════════════════════════════════════ */
 async function syncLoadData() {
   if (!currentUser || !syncReady || !db) return;
 
-  // Always use Firebase Auth uid for Firestore paths
   const uid   = fbAuth?.currentUser?.uid || currentUser.uid;
   const year  = document.getElementById('yearSelect').value;
   const month = document.getElementById('monthSelect').value;
   const key   = `${year}_${month}`;
 
-  // Show local data immediately
+  // Show local data immediately for instant render
   loadData();
   showSyncStatus('syncing');
 
@@ -195,9 +203,64 @@ async function syncLoadData() {
       }
       showSyncStatus('synced');
     }
+
+    // Fix 1 & 3: Always fetch last 3 months after loading current month.
+    // This populates localStorage cache so home dashboard and FIRE number
+    // have real data even on a first login / fresh device.
+    await syncPrefetchPastMonths(uid, Number(year), Number(month));
+
   } catch (err) {
     console.error('[Sync] ❌ Load failed:', err.code, err.message);
     showSyncStatus('offline');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   PREFETCH — last 3 months for FIRE & home dashboard
+   Fetches each of the 3 months before the selected month from
+   Firestore and caches them in localStorage. Then re-renders
+   the home dashboard so FIRE number is accurate.
+══════════════════════════════════════════════════════════ */
+async function syncPrefetchPastMonths(uid, year, month) {
+  if (!db || !syncReady) return;
+
+  const fetches = [];
+  for (let i = 1; i <= 3; i++) {
+    let m = month - i;
+    let y = year;
+    while (m < 0) { m += 12; y--; }
+
+    const localKey = `fr_data_${uid}_${y}_${m}`;
+    const firestoreKey = `${y}_${m}`;
+
+    // Only fetch from Firestore if not already cached locally
+    if (!localStorage.getItem(localKey)) {
+      fetches.push(
+        db.collection('users').doc(uid).collection('months').doc(firestoreKey)
+          .get()
+          .then(snap => {
+            if (snap.exists) {
+              localStorage.setItem(localKey, JSON.stringify(snap.data()));
+              console.info('[Sync] ✅ Prefetched past month:', firestoreKey);
+            }
+          })
+          .catch(err => console.warn('[Sync] Could not prefetch', firestoreKey, err.message))
+      );
+    }
+  }
+
+  if (fetches.length) {
+    await Promise.all(fetches);
+  }
+
+  // Re-render home dashboard now that past months are in localStorage
+  // Fix 1: this is the call that was missing — home was never refreshed after sync
+  if (typeof renderHomeDashboard === 'function') {
+    renderHomeDashboard();
+  }
+  // Also refresh FIRE number in tracker if it's visible
+  if (typeof renderInsightsPanel === 'function') {
+    renderInsightsPanel();
   }
 }
 
