@@ -88,18 +88,23 @@ main {
 
 /* Initial amount row */
 .init-row {
-  display: flex; align-items: center; gap: .75rem;
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
   margin-bottom: 1.25rem;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: .85rem 1.25rem;
+  border-radius: var(--radius); padding: .75rem 1.25rem;
 }
-.init-label { font-size: .78rem; color: var(--muted); }
+.init-row .month-selector {
+  border-right: 1px solid var(--border);
+  padding-right: .85rem;
+  margin-right: .1rem;
+}
+.init-label { font-size: .72rem; color: var(--muted); white-space: nowrap; }
 .init-input {
   background: var(--bg); border: 1px solid var(--border);
   color: var(--text); font-family: var(--font-head);
   font-weight: 700; font-size: 1.1rem;
   padding: .35rem .65rem; border-radius: 6px;
-  width: 160px; transition: border-color .2s;
+  width: 140px; transition: border-color .2s;
 }
 .init-input:focus { outline: none; border-color: var(--accent); }
 .domain-badge { margin-left: auto; font-size: .7rem; color: var(--muted); opacity: .4; }

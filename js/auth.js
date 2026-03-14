@@ -277,6 +277,15 @@ function logOut() {
   const homeScreen = document.getElementById('homeScreen');
   if (homeScreen) homeScreen.style.display = 'none';
 
+  // Hide ALL module screens
+  ['loanScreen','loanDetailScreen','investmentScreen'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Stop investment auto-refresh if running
+  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
+
   document.getElementById('userMenu').classList.remove('open');
   setButtonReady();
 }

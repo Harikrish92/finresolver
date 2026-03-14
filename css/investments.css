@@ -1,0 +1,454 @@
+/* ============================================================
+   investments.css — Investment Tracker screen styles
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── Screen wrapper ─────────────────────────────────────────── */
+#investmentScreen {
+  display: none;
+  position: relative; z-index: 1;
+  max-width: 1400px; margin: 0 auto;
+  padding: 1.75rem 1.5rem 5rem;
+  overflow-x: hidden;
+}
+
+/* ── Page header ────────────────────────────────────────────── */
+.inv-page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.75rem; gap: 1rem; flex-wrap: wrap;
+}
+.inv-page-title {
+  font-family: var(--font-head); font-size: 1.4rem; font-weight: 800;
+}
+.inv-page-title span { color: var(--accent4); }
+
+.inv-header-actions { display: flex; gap: .65rem; flex-wrap: wrap; }
+
+/* ── Summary strip ──────────────────────────────────────────── */
+.inv-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .85rem; margin-bottom: 1.75rem;
+}
+.inv-sum-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.2rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .35s ease both;
+  transition: transform .15s, border-color .2s;
+}
+.inv-sum-card:hover { transform: translateY(-2px); }
+.inv-sum-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--card-accent, var(--accent4));
+}
+.inv-sum-label { font-size: .63rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: .3rem; }
+.inv-sum-value { font-family: var(--font-head); font-size: 1.2rem; font-weight: 700; color: var(--card-color, var(--text)); }
+.inv-sum-sub   { font-size: .6rem; color: var(--muted); margin-top: .15rem; }
+.inv-sum-change { font-size: .68rem; font-weight: 600; margin-top: .25rem; }
+.inv-sum-change.pos { color: var(--accent); }
+.inv-sum-change.neg { color: var(--accent2); }
+
+/* ── Tab bar ────────────────────────────────────────────────── */
+.inv-tabs {
+  display: flex; gap: .4rem; margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0;
+  flex-wrap: wrap;
+}
+.inv-tab {
+  padding: .5rem 1rem; font-size: .72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+  cursor: pointer; border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid transparent; border-bottom: none;
+  color: var(--muted); background: transparent;
+  transition: color .2s, background .2s, border-color .2s;
+  position: relative; bottom: -1px;
+}
+.inv-tab:hover { color: var(--text); }
+.inv-tab.active {
+  color: var(--accent4); background: var(--surface);
+  border-color: var(--border); border-bottom-color: var(--surface);
+}
+.inv-tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(77,171,247,.15); color: var(--accent4);
+  border-radius: 10px; font-size: .6rem; padding: .1rem .4rem;
+  margin-left: .3rem; min-width: 18px;
+}
+
+/* ── Main layout: holdings list + side panel ─────────────────── */
+.inv-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.25rem;
+  align-items: start;
+  min-width: 0;
+}
+
+/* ── Holdings table card ────────────────────────────────────── */
+.inv-holdings-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  animation: fadeUp .35s ease both;
+  min-width: 0;
+}
+.inv-holdings-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.3rem; border-bottom: 1px solid var(--border);
+  gap: .75rem; flex-wrap: wrap;
+}
+.inv-holdings-title {
+  font-family: var(--font-head); font-size: .9rem; font-weight: 700;
+}
+.inv-search {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .35rem .75rem;
+  color: var(--text); font-family: var(--font-mono); font-size: .75rem;
+  width: 180px; outline: none; transition: border-color .2s;
+}
+.inv-search:focus { border-color: var(--accent4); }
+
+.inv-table-wrap { overflow-x: auto; overflow-y: auto; max-height: 480px; }
+.inv-table {
+  width: 100%; min-width: 720px; border-collapse: collapse; font-size: .75rem;
+}
+/* Sticky header so column labels stay visible when scrolling the table */
+.inv-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+}
+.inv-table th {
+  padding: .65rem 1rem; text-align: left;
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+.inv-table th:hover { color: var(--text); }
+.inv-table th.sorted { color: var(--accent4); }
+.inv-table td {
+  padding: .7rem 1rem; border-bottom: 1px solid rgba(35,45,63,.5);
+  white-space: nowrap;
+}
+.inv-table tr { transition: background .15s; cursor: pointer; }
+.inv-table tr:hover td { background: rgba(77,171,247,.04); }
+.inv-table tr.selected td { background: rgba(77,171,247,.08); }
+.inv-table tr.selected td:first-child { border-left: 3px solid var(--accent4); }
+.inv-table tr:last-child td { border-bottom: none; }
+
+.inv-ticker-cell { display: flex; align-items: center; gap: .6rem; }
+.inv-ticker-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; font-weight: 700; flex-shrink: 0;
+}
+.inv-ticker-name { font-weight: 600; font-size: .78rem; }
+.inv-ticker-sub  { font-size: .6rem; color: var(--muted); margin-top: .05rem; }
+
+.cat-badge {
+  display: inline-flex; align-items: center;
+  font-size: .58rem; padding: .18rem .5rem; border-radius: 12px;
+  font-weight: 600; white-space: nowrap;
+}
+.cat-stock    { background: rgba(0,229,160,.1);  color: var(--accent);  border: 1px solid rgba(0,229,160,.2);  }
+.cat-mf       { background: rgba(77,171,247,.1); color: var(--accent4); border: 1px solid rgba(77,171,247,.2); }
+.cat-bond     { background: rgba(255,209,102,.1);color: var(--accent3); border: 1px solid rgba(255,209,102,.2); }
+.cat-realestate { background: rgba(167,139,250,.1);color: var(--purple);  border: 1px solid rgba(167,139,250,.2); }
+.cat-others   { background: rgba(255,107,107,.1);color: var(--accent2); border: 1px solid rgba(255,107,107,.2); }
+
+.inv-change-pos { color: var(--accent);  font-weight: 600; }
+.inv-change-neg { color: var(--accent2); font-weight: 600; }
+.inv-change-neu { color: var(--muted); }
+
+.inv-live-dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent);
+  margin-right: .3rem; animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform: scale(1); }
+  50%      { opacity:.5; transform: scale(.85); }
+}
+
+.inv-empty-state {
+  padding: 3rem; text-align: center; color: var(--muted);
+}
+.inv-empty-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+.inv-empty-title { font-family: var(--font-head); font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+.inv-empty-sub   { font-size: .75rem; }
+
+/* ── Side panel ─────────────────────────────────────────────── */
+.inv-side-panel {
+  display: flex; flex-direction: column; gap: 1rem;
+  min-width: 0; overflow: hidden;
+}
+/* Allocation donut */
+.inv-alloc-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.2rem 1.3rem;
+  animation: fadeUp .4s ease both;
+}
+.inv-card-title {
+  font-family: var(--font-head); font-size: .82rem; font-weight: 700;
+  margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
+}
+.inv-donut-wrap { position: relative; max-width: 160px; margin: 0 auto 1rem; }
+.inv-donut-center {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  text-align: center; pointer-events: none;
+}
+.inv-donut-center-val {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 800;
+}
+.inv-donut-center-sub { font-size: .58rem; color: var(--muted); }
+
+.inv-alloc-legend { display: flex; flex-direction: column; gap: .4rem; }
+.inv-alloc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: .68rem; gap: .5rem;
+}
+.inv-alloc-dot-label { display: flex; align-items: center; gap: .5rem; }
+.inv-alloc-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.inv-alloc-pct { color: var(--muted); font-size: .63rem; }
+
+/* Live price ticker panel */
+.inv-live-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.2rem 1.3rem;
+  animation: fadeUp .45s ease both;
+}
+.inv-live-list { display: flex; flex-direction: column; gap: .5rem; }
+.inv-live-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .5rem .65rem; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  transition: border-color .2s;
+}
+.inv-live-item:hover { border-color: var(--accent4); }
+.inv-live-ticker { font-weight: 700; font-size: .72rem; }
+.inv-live-name   { font-size: .58rem; color: var(--muted); }
+.inv-live-right  { text-align: right; }
+.inv-live-price  { font-weight: 600; font-size: .75rem; }
+.inv-live-chg    { font-size: .6rem; font-weight: 600; }
+
+.inv-refresh-btn {
+  width: 100%; margin-top: .75rem; padding: .45rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted); font-family: var(--font-mono);
+  font-size: .68rem; cursor: pointer; transition: all .2s;
+}
+.inv-refresh-btn:hover { border-color: var(--accent4); color: var(--accent4); }
+
+/* ── Detail panel (bottom) ──────────────────────────────────── */
+.inv-detail-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-top: 3px solid var(--accent4);
+  border-radius: var(--radius-lg); overflow: hidden;
+  animation: fadeUp .25s ease both;
+}
+.inv-detail-panel.hidden { display: none; }
+
+.inv-detail-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 1.3rem;
+}
+.inv-detail-tab {
+  padding: .65rem .9rem; font-size: .68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+  cursor: pointer; color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.inv-detail-tab.active { color: var(--accent4); border-bottom-color: var(--accent4); }
+.inv-detail-tab:hover  { color: var(--text); }
+
+.inv-detail-body { padding: 1.2rem 1.3rem; }
+
+/* Chart section */
+.inv-price-chart-wrap { height: 200px; margin-bottom: 1rem; position: relative; }
+
+/* Financials table */
+.inv-fin-table {
+  width: 100%; border-collapse: collapse; font-size: .72rem;
+}
+.inv-fin-table th {
+  padding: .55rem .75rem; text-align: right;
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+}
+.inv-fin-table th:first-child { text-align: left; }
+.inv-fin-table td {
+  padding: .55rem .75rem; border-bottom: 1px solid rgba(35,45,63,.5);
+  text-align: right;
+}
+.inv-fin-table td:first-child { text-align: left; font-weight: 600; }
+.inv-fin-table tr:last-child td { border-bottom: none; }
+
+/* News list */
+.inv-news-list { display: flex; flex-direction: column; gap: .6rem; }
+.inv-news-item {
+  display: flex; gap: .75rem; padding: .7rem .85rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; text-decoration: none;
+  transition: border-color .2s, transform .15s;
+}
+.inv-news-item:hover { border-color: var(--accent4); transform: translateX(3px); }
+.inv-news-source {
+  font-size: .58rem; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--accent4); margin-bottom: .2rem; font-weight: 600;
+}
+.inv-news-title { font-size: .72rem; color: var(--text); line-height: 1.4; }
+.inv-news-time  { font-size: .6rem; color: var(--muted); margin-top: .2rem; }
+.inv-news-badge {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; background: var(--surface);
+}
+
+/* Loading spinner inside panels */
+.inv-loading {
+  display: flex; align-items: center; justify-content: center;
+  padding: 2rem; color: var(--muted); font-size: .75rem; gap: .6rem;
+}
+.inv-spinner {
+  width: 16px; height: 16px; border: 2px solid var(--border);
+  border-top-color: var(--accent4); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+/* ── Add / Edit Investment Modal ────────────────────────────── */
+.inv-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+.inv-modal-overlay.hidden { display: none; }
+
+.inv-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto;
+  animation: fadeUp .25s ease both;
+}
+.inv-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
+}
+.inv-modal-title {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+}
+.inv-modal-body { padding: 1.4rem 1.5rem; }
+.inv-modal-footer {
+  display: flex; justify-content: flex-end; gap: .65rem;
+  padding: 1rem 1.5rem; border-top: 1px solid var(--border);
+}
+
+.inv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.inv-form-field { display: flex; flex-direction: column; gap: .35rem; }
+.inv-form-field.full { grid-column: 1 / -1; }
+.inv-form-label {
+  font-size: .62rem; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted); font-weight: 600;
+}
+.inv-form-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .55rem .8rem;
+  color: var(--text); font-family: var(--font-mono); font-size: .8rem;
+  outline: none; transition: border-color .2s;
+}
+.inv-form-input:focus { border-color: var(--accent4); }
+.inv-form-input::placeholder { color: var(--muted); }
+.inv-form-select { appearance: none; cursor: pointer; }
+
+/* Category selector pills */
+.inv-cat-selector {
+  display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .1rem;
+}
+.inv-cat-pill {
+  padding: .3rem .75rem; border-radius: 20px; border: 1px solid var(--border);
+  font-size: .65rem; font-weight: 600; cursor: pointer;
+  transition: all .15s; color: var(--muted); background: var(--surface2);
+}
+.inv-cat-pill:hover { border-color: var(--accent4); color: var(--text); }
+.inv-cat-pill.active-stock    { background: rgba(0,229,160,.1);  color: var(--accent);  border-color: rgba(0,229,160,.4);  }
+.inv-cat-pill.active-mf       { background: rgba(77,171,247,.1); color: var(--accent4); border-color: rgba(77,171,247,.4); }
+.inv-cat-pill.active-bond     { background: rgba(255,209,102,.1);color: var(--accent3); border-color: rgba(255,209,102,.4); }
+.inv-cat-pill.active-fd       { background: rgba(255,209,102,.1);color: var(--accent3); border-color: rgba(255,209,102,.4); }
+.inv-cat-pill.active-realestate{ background: rgba(167,139,250,.1);color: var(--purple);  border-color: rgba(167,139,250,.4);}
+.inv-cat-pill.active-others   { background: rgba(255,107,107,.1);color: var(--accent2); border-color: rgba(255,107,107,.4);}
+
+.inv-ticker-hint {
+  font-size: .62rem; color: var(--muted); margin-top: .3rem;
+}
+.inv-ticker-hint a { color: var(--accent4); text-decoration: none; }
+.inv-ticker-hint a:hover { text-decoration: underline; }
+
+/* Preview quote box */
+.inv-quote-preview {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .75rem 1rem; margin-top: .75rem;
+  display: none;
+}
+.inv-quote-preview.show { display: flex; align-items: center; gap: 1rem; }
+.inv-quote-ticker { font-family: var(--font-head); font-size: 1rem; font-weight: 800; }
+.inv-quote-price  { font-weight: 600; font-size: .85rem; }
+.inv-quote-name   { font-size: .65rem; color: var(--muted); }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .inv-summary-strip { grid-template-columns: repeat(3, 1fr); }
+  .inv-body { grid-template-columns: 1fr; }
+  .inv-side-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+}
+@media (max-width: 900px) {
+  .inv-summary-strip { grid-template-columns: repeat(2, 1fr); }
+  .inv-side-panel { grid-template-columns: 1fr; }
+  /* Hide cost basis col on mid screens */
+  .inv-table th:nth-child(5),
+  .inv-table td:nth-child(5) { display: none; }
+}
+@media (max-width: 700px) {
+  .inv-summary-strip { grid-template-columns: 1fr 1fr; }
+  .inv-side-panel { grid-template-columns: 1fr; }
+  .inv-form-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .inv-page-header  { flex-direction: column; align-items: flex-start; }
+  /* Hide less critical cols on small screens */
+  .inv-table th:nth-child(3),
+  .inv-table td:nth-child(3) { display: none; }   /* Live Price */
+  .inv-table th:nth-child(8),
+  .inv-table td:nth-child(8) { display: none; }   /* Return % */
+  .inv-table th:nth-child(9),
+  .inv-table td:nth-child(9) { display: none; }   /* Actions — use row click */
+  .inv-detail-tabs { overflow-x: auto; white-space: nowrap; }
+  .inv-fin-table th, .inv-fin-table td { font-size: .62rem; padding: .4rem .5rem; }
+}
+
+/* ── Toast (shared, in case app.css doesn't define it) ─────── */
+.toast { display:flex; align-items:center; gap:.6rem; position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:.65rem 1.1rem; font-size:.78rem; box-shadow:0 4px 20px rgba(0,0,0,.3); animation:fadeUp .25s ease; pointer-events:none; }
+.toast.success { border-color:rgba(0,229,160,.3); color:var(--accent); }
+.toast.error   { border-color:rgba(255,107,107,.3); color:var(--accent2); }
+.toast.hide    { animation:fadeOut .3s ease forwards; }
+
+/* ── Missing utility used in overview tab inline icon ───────── */
+.inv-ticker-icon {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; font-weight: 700; flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+/* ── Detail body padding fix ────────────────────────────────── */
+.inv-detail-body { padding: 1.2rem 1.3rem; min-height: 120px; }
+
+/* ── Mobile: stack table, hide less-important cols ──────────── */
+@media (max-width: 600px) {
+  .inv-page-header  { flex-direction: column; align-items: flex-start; }
+  .inv-table th:nth-child(3),
+  .inv-table td:nth-child(3) { display: none; }      /* hide Live Price col */
+  .inv-table th:nth-child(8),
+  .inv-table td:nth-child(8) { display: none; }      /* hide Actions col — use row click */
+  .inv-detail-tabs { overflow-x: auto; white-space: nowrap; }
+  .inv-fin-table th, .inv-fin-table td { font-size: .62rem; padding: .4rem .5rem; }
+}

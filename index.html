@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="css/insights.css" />
   <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/theme-light.css" />
+  <link rel="stylesheet" href="css/loans.css" />
+  <link rel="stylesheet" href="css/investments.css" />
 
   <!-- Theme toggle — load FIRST so correct theme applies before paint -->
   <script src="js/theme.js"></script>
@@ -89,13 +91,6 @@
 
     <!-- Tracker-only controls: hidden on home screen, revealed by goToTracker() -->
     <div id="headerTrackerControls" style="display:none;align-items:center;gap:.85rem;flex-wrap:wrap;">
-      <div class="month-selector">
-        <label>MONTH</label>
-        <select id="monthSelect"></select>
-        <select id="yearSelect"></select>
-      </div>
-      <span id="syncStatus" style="font-size:.68rem;color:var(--muted);opacity:.7;"></span>
-      <button class="btn-import" onclick="openImport()">⬆ Import Sheet</button>
     </div>
 
     <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Switch to light theme">☀️</button>
@@ -215,25 +210,25 @@
 
   <!-- Quick stats -->
   <div class="home-stats-row">
-    <div class="home-stat-card" style="--card-accent:var(--accent)">
-      <div class="home-stat-label">Current Balance</div>
-      <div class="home-stat-value" id="homeStatBalance">₹0</div>
-      <div class="home-stat-sub">This month</div>
-    </div>
     <div class="home-stat-card" style="--card-accent:var(--accent3)">
       <div class="home-stat-label">FIRE Number</div>
       <div class="home-stat-value" id="homeStatFire" style="color:var(--accent3)">—</div>
       <div class="home-stat-sub">25× annual expenses</div>
     </div>
-    <div class="home-stat-card" style="--card-accent:var(--accent2)">
-      <div class="home-stat-label">Month Expenses</div>
-      <div class="home-stat-value" id="homeStatMonthExp" style="color:var(--accent2)">₹0</div>
-      <div class="home-stat-sub">This month</div>
-    </div>
     <div class="home-stat-card" style="--card-accent:var(--accent4)">
+      <div class="home-stat-label">Total Investments</div>
+      <div class="home-stat-value" id="homeStatInvestments" style="color:var(--accent4)">—</div>
+      <div class="home-stat-sub">Portfolio cost basis</div>
+    </div>
+    <div class="home-stat-card" style="--card-accent:var(--accent2)">
+      <div class="home-stat-label">Total Loan Balance</div>
+      <div class="home-stat-value" id="homeStatLoans" style="color:var(--accent2)">—</div>
+      <div class="home-stat-sub">Outstanding across all loans</div>
+    </div>
+    <div class="home-stat-card" style="--card-accent:var(--accent)">
       <div class="home-stat-label">YTD Savings</div>
-      <div class="home-stat-value" id="homeStatYTD">₹0</div>
-      <div class="home-stat-sub">Income − Expenses YTD</div>
+      <div class="home-stat-value" id="homeStatYTD" style="color:var(--accent)">₹0</div>
+      <div class="home-stat-sub">Income − Expenses − Loan repayments</div>
     </div>
   </div>
 
@@ -248,18 +243,18 @@
       <div class="home-nav-badge live">Live</div>
     </div>
 
-    <div class="home-nav-card investment coming-soon">
+    <div class="home-nav-card investment" onclick="goToInvestments()">
       <div class="home-nav-icon">📈</div>
       <div class="home-nav-title">Investment Tracker</div>
       <div class="home-nav-desc">Stocks, MF, FD &amp; portfolio returns</div>
-      <div class="home-nav-badge">Coming Soon</div>
+      <div class="home-nav-badge live">Live</div>
     </div>
 
-    <div class="home-nav-card loan coming-soon">
+    <div class="home-nav-card loan" onclick="goToLoans()">
       <div class="home-nav-icon">🏦</div>
       <div class="home-nav-title">Loan Tracker</div>
       <div class="home-nav-desc">EMIs, interest &amp; payoff timeline</div>
-      <div class="home-nav-badge">Coming Soon</div>
+      <div class="home-nav-badge live">Live</div>
     </div>
 
     <div class="home-nav-card portfolio coming-soon">
@@ -280,6 +275,522 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     LOAN TRACKER SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="loanScreen" style="display:none">
+
+  <div class="loan-page-header">
+    <div class="loan-page-title">🏦 Loan <span>Tracker</span></div>
+    <button class="btn" onclick="openLoanModal()">+ Add Loan</button>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="loan-summary-strip">
+    <div class="loan-sum-card" style="--card-accent:var(--accent3);--card-color:var(--accent3)">
+      <div class="loan-sum-label">Total Borrowed</div>
+      <div class="loan-sum-value" id="loanSumTotal">₹0</div>
+      <div class="loan-sum-sub">Active loans principal</div>
+    </div>
+    <div class="loan-sum-card" style="--card-accent:var(--accent2);--card-color:var(--accent2)">
+      <div class="loan-sum-label">Outstanding</div>
+      <div class="loan-sum-value" id="loanSumOutstanding">₹0</div>
+      <div class="loan-sum-sub">Balance remaining</div>
+    </div>
+    <div class="loan-sum-card" style="--card-accent:var(--accent4);--card-color:var(--accent4)">
+      <div class="loan-sum-label">Monthly EMI</div>
+      <div class="loan-sum-value" id="loanSumEMI">₹0</div>
+      <div class="loan-sum-sub">Total across all loans</div>
+    </div>
+    <div class="loan-sum-card" style="--card-accent:var(--purple);--card-color:var(--purple)">
+      <div class="loan-sum-label">Interest Remaining</div>
+      <div class="loan-sum-value" id="loanSumInterest">₹0</div>
+      <div class="loan-sum-sub">Yet to be paid</div>
+    </div>
+  </div>
+
+  <!-- Loans grid -->
+  <div class="loans-grid" id="loansGrid"></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOAN DETAIL SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="loanDetailScreen" style="display:none">
+
+  <div class="detail-header">
+    <div class="detail-title-row">
+      <button onclick="backToLoanList()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.32rem .7rem;border-radius:6px;cursor:pointer">← Loans</button>
+      <div class="detail-title" id="detailLoanName">—</div>
+      <span id="detailLoanBadge" class="loan-type-badge"></span>
+    </div>
+    <div class="detail-actions">
+      <button class="btn-import" onclick="openLoanModal(activeLoanId)">✏️ Edit Loan</button>
+      <button class="btn" onclick="openLoanModal()">+ New Loan</button>
+    </div>
+  </div>
+
+  <!-- Key metrics -->
+  <div class="detail-metrics">
+    <div class="detail-metric" style="--card-accent:var(--accent2)">
+      <div class="detail-metric-label">Outstanding</div>
+      <div class="detail-metric-value" id="detailMetricOutstanding">—</div>
+      <div class="detail-metric-sub" id="detailMetricOutstandingSub"></div>
+    </div>
+    <div class="detail-metric" style="--card-accent:var(--accent3)">
+      <div class="detail-metric-label">Monthly EMI</div>
+      <div class="detail-metric-value" id="detailMetricEMI">—</div>
+    </div>
+    <div class="detail-metric" style="--card-accent:var(--accent4)">
+      <div class="detail-metric-label">Interest Rate</div>
+      <div class="detail-metric-value" id="detailMetricRate">—</div>
+    </div>
+    <div class="detail-metric" style="--card-accent:var(--accent)">
+      <div class="detail-metric-label">EMIs Paid</div>
+      <div class="detail-metric-value" id="detailMetricPaid">—</div>
+    </div>
+    <div class="detail-metric" style="--card-accent:var(--purple)">
+      <div class="detail-metric-label">Payoff Date</div>
+      <div class="detail-metric-value" id="detailMetricPayoff">—</div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="detail-body">
+    <div class="detail-chart-card">
+      <div class="detail-chart-title">Principal vs Interest</div>
+      <div class="detail-chart-wrap"><canvas id="loanPieChart"></canvas></div>
+    </div>
+    <div class="detail-chart-card">
+      <div class="detail-chart-title">Balance Over Time</div>
+      <div class="detail-chart-wrap"><canvas id="loanLineChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Amortization + Payments -->
+  <div class="detail-body">
+
+    <div class="amort-card">
+      <div class="amort-card-head">
+        <span class="amort-card-title">📅 Amortization Schedule</span>
+        <span style="font-size:.68rem;color:var(--muted)">← Now highlighted</span>
+      </div>
+      <div class="amort-table-wrap">
+        <table class="amort-table">
+          <thead><tr>
+            <th>#</th><th>Due Date</th><th>EMI</th>
+            <th>Principal</th><th>Interest</th><th>Balance</th><th>Status</th>
+          </tr></thead>
+          <tbody id="amortBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="payment-card">
+      <div class="payment-card-head">
+        <span class="payment-card-title">💳 Payment History</span>
+      </div>
+      <div class="payment-log-list" id="paymentLogList"></div>
+      <div class="add-payment-row">
+        <input type="number" id="paymentAmt"  placeholder="Amount (₹)" style="max-width:130px" />
+        <input type="date"   id="paymentDate" />
+        <input type="text"   id="paymentNote" placeholder="Note (optional)" style="flex:1;min-width:100px" />
+        <button class="btn" onclick="logPayment()">Log</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADD / EDIT LOAN MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="loan-modal-overlay hidden" id="loanModal">
+  <div class="loan-modal">
+    <div class="loan-modal-header">
+      <span class="loan-modal-title" id="loanModalTitle">➕ Add New Loan</span>
+      <button class="modal-close" onclick="closeLoanModal()">✕</button>
+    </div>
+    <div class="loan-modal-body">
+      <form id="loanForm" onsubmit="event.preventDefault()">
+        <div class="loan-form-grid">
+
+          <div class="loan-form-field full">
+            <label class="loan-form-label">Loan Name *</label>
+            <input class="loan-form-input" id="loanFormName" type="text" placeholder="e.g. SBI Home Loan" required />
+          </div>
+
+          <div class="loan-form-field">
+            <label class="loan-form-label">Loan Type</label>
+            <select class="loan-form-input" id="loanFormType">
+              <option>Home</option>
+              <option>Vehicle</option>
+              <option selected>Personal</option>
+              <option>Education</option>
+              <option>Business</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="loan-form-field">
+            <label class="loan-form-label">Principal Amount (₹) *</label>
+            <input class="loan-form-input" id="loanFormPrincipal" type="number" min="1" placeholder="e.g. 1000000" oninput="updateEMIPreview()" />
+          </div>
+
+          <div class="loan-form-field">
+            <label class="loan-form-label">Annual Interest Rate (%)</label>
+            <input class="loan-form-input" id="loanFormRate" type="number" min="0" step="0.01" placeholder="e.g. 8.5" oninput="updateEMIPreview()" />
+          </div>
+
+          <div class="loan-form-field">
+            <label class="loan-form-label">Tenure (months) *</label>
+            <input class="loan-form-input" id="loanFormTenure" type="number" min="1" placeholder="e.g. 240" oninput="updateEMIPreview()" />
+          </div>
+
+          <div class="loan-form-field">
+            <label class="loan-form-label">Start Date *</label>
+            <input class="loan-form-input" id="loanFormStart" type="date" />
+          </div>
+
+          <div class="loan-form-field full">
+            <label class="loan-form-label">Custom EMI Override <span style="color:var(--muted);text-transform:none;font-weight:400">(optional — leave blank to auto-calculate)</span></label>
+            <input class="loan-form-input" id="loanFormEMI" type="number" min="1" placeholder="Leave blank to use calculated EMI" oninput="updateEMIPreview()" />
+          </div>
+
+        </div>
+
+        <!-- Live EMI preview -->
+        <div class="emi-preview" id="emiPreview">
+          <div class="emi-preview-title">📊 Calculated Preview</div>
+          <div class="emi-preview-row"><span>Monthly EMI</span><span id="emiPreviewEMI">—</span></div>
+          <div class="emi-preview-row"><span>Total Payable</span><span id="emiPreviewTotal">—</span></div>
+          <div class="emi-preview-row"><span>Total Interest</span><span id="emiPreviewInterest">—</span></div>
+        </div>
+
+      </form>
+    </div>
+    <div class="loan-modal-footer">
+      <button class="btn-secondary" onclick="closeLoanModal()">Cancel</button>
+      <button class="btn-primary" id="loanModalSave" onclick="saveLoan()">Save Loan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INVESTMENT TRACKER SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="investmentScreen" style="display:none">
+
+  <!-- Page header -->
+  <div class="inv-page-header">
+    <div class="inv-page-title">📈 Investment <span>Tracker</span></div>
+    <div class="inv-header-actions">
+      <button class="btn-import" onclick="openInvImport()">⬆ Import Sheet</button>
+      <button class="btn-import" onclick="invRefreshQuotes()" id="invRefreshBtn">⟳ Refresh Prices</button>
+      <button class="btn-import" onclick="openInvClearModal()" style="border-color:rgba(255,107,107,.3);color:var(--accent2)">🗑 Clear</button>
+      <button class="btn" onclick="openInvModal()">+ Add Holding</button>
+    </div>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="inv-summary-strip">
+    <div class="inv-sum-card" style="--card-accent:var(--accent4);--card-color:var(--accent4)">
+      <div class="inv-sum-label">Total Invested</div>
+      <div class="inv-sum-value" id="invSumInvested">₹0</div>
+      <div class="inv-sum-sub">Cost basis</div>
+    </div>
+    <div class="inv-sum-card" style="--card-accent:var(--accent);--card-color:var(--accent)">
+      <div class="inv-sum-label">Current Value</div>
+      <div class="inv-sum-value" id="invSumCurrent">₹0</div>
+      <div class="inv-sum-sub">Live + manual</div>
+    </div>
+    <div class="inv-sum-card" style="--card-accent:var(--accent3)">
+      <div class="inv-sum-label">Total P&amp;L</div>
+      <div class="inv-sum-value" id="invSumPnL">₹0</div>
+      <div class="inv-sum-sub" id="invSumPnLPct">0.00%</div>
+    </div>
+    <div class="inv-sum-card" style="--card-accent:var(--purple)">
+      <div class="inv-sum-label">Holdings</div>
+      <div class="inv-sum-value" id="invSumHoldings">0</div>
+      <div class="inv-sum-sub">Across all categories</div>
+    </div>
+    <div class="inv-sum-card" style="--card-accent:var(--accent2);cursor:pointer" onclick="invToggleLive()" title="Click to toggle">
+      <div class="inv-sum-label">Live Tracking</div>
+      <div class="inv-sum-value" id="invSumLiveStatus"><span class="inv-live-dot"></span> Active</div>
+      <div class="inv-sum-sub">Auto-refresh 60s · click to pause</div>
+    </div>
+  </div>
+
+  <!-- Category tabs -->
+  <div class="inv-tabs" id="invTabBar"></div>
+
+  <!-- Body: table + side panel -->
+  <div class="inv-body">
+
+    <!-- Left column: holdings table + detail panel -->
+    <div style="display:flex;flex-direction:column;gap:1.25rem;min-width:0">
+
+      <div class="inv-holdings-card">
+        <div class="inv-holdings-head">
+          <span class="inv-holdings-title">Portfolio Holdings</span>
+          <input class="inv-search" id="invSearch" placeholder="🔍 Search holdings…" oninput="renderInvTable()" />
+        </div>
+        <div class="inv-table-wrap">
+          <table class="inv-table">
+            <thead>
+              <tr>
+                <th onclick="invSetSort('name')" id="invTh_name">Name ↕</th>
+                <th onclick="invSetSort('cat')"  id="invTh_cat">Category ↕</th>
+                <th style="text-align:right">Live Price</th>
+                <th onclick="invSetSort('invested')" style="text-align:right" id="invTh_invested">Qty / Avg Price ↕</th>
+                <th style="text-align:right">Cost Basis</th>
+                <th onclick="invSetSort('value')"    style="text-align:right" id="invTh_value">Cur. Value ↕</th>
+                <th onclick="invSetSort('pnl')"      style="text-align:right" id="invTh_pnl">P&amp;L ↕</th>
+                <th onclick="invSetSort('pnlpct')"   style="text-align:right" id="invTh_pnlpct">Return ↕</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="invTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Detail panel (overview / chart / financials / news) -->
+      <div class="inv-detail-panel hidden" id="invDetailPanel">
+        <div class="inv-detail-tabs">
+          <div class="inv-detail-tab"          id="invDTab_overview"    onclick="invSetDetailTab('overview')">📊 Overview</div>
+          <div class="inv-detail-tab active"   id="invDTab_chart"       onclick="invSetDetailTab('chart')">📉 Price Chart</div>
+          <div class="inv-detail-tab"          id="invDTab_financials"  onclick="invSetDetailTab('financials')">📋 Financials</div>
+          <div class="inv-detail-tab"          id="invDTab_news"        onclick="invSetDetailTab('news')">📰 News</div>
+        </div>
+        <div class="inv-detail-body" id="invDetailBody"></div>
+      </div>
+
+    </div><!-- /left column -->
+
+    <!-- Right column: side panel -->
+    <div class="inv-side-panel">
+
+      <!-- Allocation donut -->
+      <div class="inv-alloc-card">
+        <div class="inv-card-title">🗂 Asset Allocation</div>
+        <div class="inv-donut-wrap">
+          <canvas id="invDonutChart"></canvas>
+          <div class="inv-donut-center" id="invDonutCenter">
+            <div class="inv-donut-center-val">₹0</div>
+            <div class="inv-donut-center-sub">Portfolio</div>
+          </div>
+        </div>
+        <div class="inv-alloc-legend" id="invAllocLegend"></div>
+      </div>
+
+
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADD / EDIT INVESTMENT MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invModal">
+  <div class="inv-modal">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title" id="invModalTitle">➕ Add Investment</span>
+      <button class="modal-close" onclick="closeInvModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+
+      <!-- Category selector -->
+      <div class="inv-form-field" style="margin-bottom:1rem">
+        <label class="inv-form-label">Category *</label>
+        <div class="inv-cat-selector">
+          <button class="inv-cat-pill active-stock" data-cat="Stock"       onclick="invSetCatPill('Stock')">📈 Stock</button>
+          <button class="inv-cat-pill"              data-cat="MF"          onclick="invSetCatPill('MF')">🏦 Mutual Fund</button>
+          <button class="inv-cat-pill"              data-cat="Bond"        onclick="invSetCatPill('Bond')">📄 Bond</button>
+          <button class="inv-cat-pill"              data-cat="FD"          onclick="invSetCatPill('FD')">🏧 FD</button>
+          <button class="inv-cat-pill"              data-cat="RealEstate"  onclick="invSetCatPill('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill"              data-cat="Others"      onclick="invSetCatPill('Others')">💼 Others</button>
+        </div>
+      </div>
+
+      <div class="inv-form-grid">
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Investment Name *</label>
+          <input class="inv-form-input" id="invFormName" type="text" placeholder="e.g. Reliance Industries, HDFC Nifty 50 Fund" />
+        </div>
+
+        <!-- Ticker row (Stock/MF only) -->
+        <div class="inv-form-field full" id="invTickerRow">
+          <label class="inv-form-label">Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(for live prices)</span></label>
+          <input class="inv-form-input" id="invFormTicker" type="text"
+                 placeholder="e.g. RELIANCE.NS / INFY.NS / 0P0001FOP8.BO"
+                 oninput="invTickerInput()" style="text-transform:uppercase" />
+          <div class="inv-ticker-hint">
+            NSE stocks: <code>SYMBOL.NS</code> &nbsp;·&nbsp; BSE: <code>SYMBOL.BO</code> &nbsp;·&nbsp;
+            <a href="https://finance.yahoo.com" target="_blank" rel="noopener">Look up on Yahoo Finance →</a>
+          </div>
+          <!-- Live quote preview -->
+          <div class="inv-quote-preview" id="invQuotePreview"></div>
+        </div>
+
+        <div class="inv-form-field">
+          <label class="inv-form-label">Units / Qty *</label>
+          <input class="inv-form-input" id="invFormQty" type="number" min="0" step="any"
+                 placeholder="e.g. 10" oninput="invQtyInput()" />
+        </div>
+
+        <div class="inv-form-field">
+          <label class="inv-form-label">Avg Buy Price (₹) *
+            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit</span>
+          </label>
+          <input class="inv-form-input" id="invFormAvgPrice" type="number" min="0" step="any"
+                 placeholder="e.g. 2450.50" oninput="invCalcInvestedPreview()" />
+        </div>
+
+        <!-- Read-only invested preview -->
+        <div class="inv-form-field full" id="invInvestedPreviewRow" style="display:none">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Total Invested (auto)</span>
+            <span style="font-family:var(--font-head);font-weight:700;font-size:.9rem;color:var(--accent4)" id="invInvestedPreviewVal">—</span>
+          </div>
+        </div>
+
+        <div class="inv-form-field">
+          <label class="inv-form-label">Purchase Date</label>
+          <input class="inv-form-input" id="invFormDate" type="date" />
+        </div>
+
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Notes <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input class="inv-form-input" id="invFormNotes" type="text" placeholder="e.g. Long-term hold, SIP investment…" />
+        </div>
+      </div>
+
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-secondary" onclick="closeInvModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveInvHolding()">Save Holding</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INVESTMENT CLEAR MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invClearModal">
+  <div class="inv-modal" style="max-width:440px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title">🗑 Clear Holdings</span>
+      <button class="modal-close" onclick="closeInvClearModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+      <div style="margin-bottom:1rem">
+        <label class="inv-form-label" style="margin-bottom:.5rem;display:block">Filter by Category</label>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap" id="invClearCatPills">
+          <button class="inv-cat-pill active-stock" data-cat="ALL" onclick="setInvClearCat('ALL')" style="background:rgba(77,171,247,.1);color:var(--accent4);border-color:rgba(77,171,247,.4)">All Categories</button>
+          <button class="inv-cat-pill" data-cat="Stock"      onclick="setInvClearCat('Stock')">📈 Stock</button>
+          <button class="inv-cat-pill" data-cat="MF"         onclick="setInvClearCat('MF')">🏦 MF</button>
+          <button class="inv-cat-pill" data-cat="Bond"       onclick="setInvClearCat('Bond')">📄 Bond</button>
+          <button class="inv-cat-pill" data-cat="FD"         onclick="setInvClearCat('FD')">🏧 FD</button>
+          <button class="inv-cat-pill" data-cat="RealEstate" onclick="setInvClearCat('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill" data-cat="Others"     onclick="setInvClearCat('Others')">💼 Others</button>
+        </div>
+      </div>
+      <div id="invClearSummary" style="background:var(--surface2);border:1px solid rgba(255,107,107,.25);border-radius:10px;padding:.85rem 1rem;font-size:.78rem;color:var(--muted);line-height:1.7"></div>
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-secondary" onclick="closeInvClearModal()">Cancel</button>
+      <button id="invClearConfirmBtn" onclick="confirmInvClear()"
+        style="background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.4);color:var(--accent2);font-family:var(--font-mono);font-size:.8rem;padding:.5rem 1.1rem;border-radius:8px;cursor:pointer;font-weight:600">
+        Delete Holdings
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INVESTMENT IMPORT MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invImportModal">
+  <div class="inv-modal" style="max-width:680px">
+
+    <div class="inv-modal-header">
+      <span class="inv-modal-title">⬆ Import Investment Sheet</span>
+      <button class="modal-close" onclick="closeInvImport()">✕</button>
+    </div>
+
+    <div class="inv-modal-body">
+
+      <!-- Format info -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:1.1rem">
+        <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:.55rem;font-weight:600">Expected Column Layout</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+          <span style="background:rgba(0,229,160,.1);color:var(--accent);border:1px solid rgba(0,229,160,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col A — Name</span>
+          <span style="background:rgba(77,171,247,.1);color:var(--accent4);border:1px solid rgba(77,171,247,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col B — Ticker</span>
+          <span style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col C — Quantity</span>
+          <span style="background:rgba(255,209,102,.1);color:var(--accent3);border:1px solid rgba(255,209,102,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col D — Avg Price (₹)</span>
+          <span style="background:rgba(255,107,107,.1);color:var(--accent2);border:1px solid rgba(255,107,107,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col E — Category (optional)</span>
+          <span style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col F — Date (optional)</span>
+        </div>
+        <div style="font-size:.63rem;color:var(--muted);line-height:1.6">
+          Row 1 may be a header row — it will be auto-skipped. &nbsp;·&nbsp;
+          Ticker column is optional for non-stock assets. &nbsp;·&nbsp;
+          Category values: <code>Stock</code>, <code>MF</code>, <code>Bond</code>, <code>RealEstate</code>, <code>Others</code> (defaults to <code>Stock</code> if blank). &nbsp;·&nbsp;
+          Duplicate tickers will <strong>merge</strong> — qty and cost averaged.
+        </div>
+      </div>
+
+      <!-- Category override -->
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+        <span style="font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;white-space:nowrap">Default Category if blank:</span>
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap" id="invImportCatPills">
+          <button class="inv-cat-pill active-stock" data-cat="Stock"       onclick="setInvImportCat('Stock')">📈 Stock</button>
+          <button class="inv-cat-pill"              data-cat="MF"          onclick="setInvImportCat('MF')">🏦 MF</button>
+          <button class="inv-cat-pill"              data-cat="Bond"        onclick="setInvImportCat('Bond')">📄 Bond</button>
+          <button class="inv-cat-pill"              data-cat="FD"          onclick="setInvImportCat('FD')">🏧 FD</button>
+          <button class="inv-cat-pill"              data-cat="RealEstate"  onclick="setInvImportCat('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill"              data-cat="Others"      onclick="setInvImportCat('Others')">💼 Others</button>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="invImportDropzone" style="margin-bottom:1rem">
+        <input type="file" id="invImportFileInput" accept=".xlsx,.xls,.csv" onchange="handleInvImportFile(event)" />
+        <div class="dropzone-icon">☁</div>
+        <div class="dropzone-title">Drop your file here</div>
+        <div class="dropzone-sub">or click to browse</div>
+        <div class="dropzone-formats">
+          <span class="format-tag">.xlsx</span>
+          <span class="format-tag">.xls</span>
+          <span class="format-tag">.csv</span>
+        </div>
+      </div>
+
+      <!-- Preview table -->
+      <div id="invImportPreview" style="display:none">
+        <div style="font-family:var(--font-head);font-size:.78rem;font-weight:700;margin-bottom:.6rem;color:var(--accent4)">Preview</div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:.75rem">
+          <table style="width:100%;border-collapse:collapse;font-size:.73rem">
+            <thead id="invImportPreviewHead"></thead>
+            <tbody id="invImportPreviewBody"></tbody>
+          </table>
+        </div>
+        <div id="invImportSummary" style="font-size:.7rem;color:var(--muted);margin-bottom:.25rem"></div>
+        <div id="invImportWarnings" style="font-size:.68rem;color:var(--accent3)"></div>
+      </div>
+
+    </div>
+
+    <div class="inv-modal-footer">
+      <button class="btn-secondary" onclick="closeInvImport()">Cancel</button>
+      <button class="btn-primary" id="invImportConfirmBtn" disabled onclick="confirmInvImport()">Import Holdings</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      MAIN APP  (hidden until sign-in)
 ════════════════════════════════════════════════════════════ -->
 <main id="appMain" style="display:none">
@@ -294,10 +805,15 @@
 
   <!-- Initial balance -->
   <div class="init-row">
-    <span class="init-label">INITIAL BALANCE (₹)</span>
+    <div class="month-selector" style="flex-shrink:0">
+      <label>MONTH</label>
+      <select id="monthSelect"></select>
+      <select id="yearSelect"></select>
+    </div>
+    <span class="init-label">BALANCE (₹)</span>
     <input class="init-input" type="number" id="initialAmount" placeholder="0" />
-    <button class="btn-clear-month" onclick="clearMonthData()" title="Clear all data for this month">🗑 Clear Month</button>
-    <span class="domain-badge">finresolver.in</span>
+    <button class="btn-import" onclick="openImport()" style="flex-shrink:0">⬆ Import</button>
+    <button class="btn-clear-month" onclick="clearMonthData()" title="Clear all data for this month">🗑 Clear</button>
   </div>
 
   <!-- Smart Fill row -->
@@ -523,15 +1039,19 @@
   </div>
 </div>
 
+</main>
+
 <script src="js/data.js"></script>
 <script src="js/render.js"></script>
 <script src="js/tracker.js"></script>
 <script src="js/import.js"></script>
-<script src="js/home.js"></script>
 <script src="js/insights.js"></script>
+<script src="js/home.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/notes.js"></script>
+<script src="js/loans.js"></script>
+<script src="js/investments.js"></script>
 
 <script>
   // ── Boot ────────────────────────────────────────────────────
@@ -557,7 +1077,14 @@
   initSync();
 
   // Start notes functionality (notes.js) 
-  initNotesEvents()
+  initNotesEvents();
+
+  // Init investments (investments.js)
+  initInvestments();
+
+  // Set default date for loan payment input
+  const payDateEl = document.getElementById('paymentDate');
+  if (payDateEl) payDateEl.value = new Date().toISOString().slice(0, 10);
 </script>
 
 </body>

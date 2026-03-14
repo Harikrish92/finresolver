@@ -33,11 +33,25 @@ function goToHome() {
   const tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
 
+  // Hide loan screens if active
+  const loanScreen       = document.getElementById('loanScreen');
+  const loanDetailScreen = document.getElementById('loanDetailScreen');
+  if (loanScreen)       loanScreen.style.display       = 'none';
+  if (loanDetailScreen) loanDetailScreen.style.display = 'none';
+
+  // Hide investment screen if active
+  const investmentScreen = document.getElementById('investmentScreen');
+  if (investmentScreen) investmentScreen.style.display = 'none';
+  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
+
   renderHomeDashboard();
 }
 
 /** Render the home dashboard stats */
 function renderHomeDashboard() {
+  // Safety guard: fmtCrore is defined in insights.js — if not yet loaded, bail
+  if (typeof fmtCrore !== 'function') return;
+
   const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid)
               ? fbAuth.currentUser.uid : (currentUser?.uid || 'guest');
 
@@ -78,18 +92,49 @@ function renderHomeDashboard() {
   const avgMonthlyExp = monthsWithData ? totalExp / monthsWithData : 0;
   const fireNumber    = avgMonthlyExp * 12 * 25;
 
-  // YTD savings
-  let ytdInc = 0, ytdExp = 0, ytdLoan=0;
+  // YTD savings = Income − Expenses − Loan repayments
+  let ytdInc = 0, ytdExp = 0, ytdLoan = 0;
   for (let m = 0; m <= mo; m++) {
     const raw = localStorage.getItem(`fr_data_${uid}_${yr}_${m}`);
     if (raw) {
       const d = JSON.parse(raw);
-      ytdInc += sumArr(d.income   || []);
-      ytdExp += sumArr(d.expense  || []);
-      ytdLoan += sumArr(d.loan || []);
+      ytdInc  += sumArr(d.income   || []);
+      ytdExp  += sumArr(d.expense  || []);
+      ytdLoan += sumArr(d.loan     || []);
     }
   }
   const ytdSavings = ytdInc - ytdExp - ytdLoan;
+
+  // Total investment cost basis from fr_investments_{uid}
+  let totalInvested = 0;
+  try {
+    const invRaw = localStorage.getItem(`fr_investments_${uid}`);
+    if (invRaw) {
+      const holdings = JSON.parse(invRaw);
+      holdings.forEach(h => { totalInvested += (h.qty || 0) * (h.avgPrice || 0); });
+    }
+  } catch(e) {}
+
+  // Total loan outstanding balance from fr_loans_{uid}
+  let totalLoanOutstanding = 0;
+  try {
+    const loanRaw = localStorage.getItem(`fr_loans_${uid}`);
+    if (loanRaw) {
+      const loans = JSON.parse(loanRaw);
+      loans.forEach(loan => {
+        if (loan.closed) return;
+        // Simple outstanding: principal - payments made
+        let outstanding = Number(loan.principal || 0);
+        const payments = loan.payments || [];
+        payments.forEach(p => { outstanding -= Number(p.amount || 0); });
+        // Use schedule-based outstanding if calcLoanStats is available
+        if (typeof calcLoanStats === 'function') {
+          try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
+        }
+        if (outstanding > 0) totalLoanOutstanding += outstanding;
+      });
+    }
+  } catch(e) {}
 
   const monthName = MONTHS[mo];
   const name      = currentUser?.name?.split(' ')[0] || 'there';
@@ -103,13 +148,22 @@ function renderHomeDashboard() {
   // If we're still fetching on a fresh login, show a loading indicator
   const placeholder = (!hasAnyData && isSyncing) ? '…' : null;
 
-  const balEl = document.getElementById('homeStatBalance');
-  if (balEl) {
-    balEl.textContent = placeholder ?? fmtCrore(Math.abs(curBal));
-    balEl.style.color = curBal >= 0 ? 'var(--accent)' : 'var(--accent2)';
-  }
+  // Month quick summary (optional elements — kept for potential future use)
+  const curRaw  = localStorage.getItem(`fr_data_${uid}_${yr}_${mo}`);
+  const curData = curRaw ? JSON.parse(curRaw) : null;
 
   setText('homeStatFire', placeholder ?? (fireNumber > 0 ? fmtCrore(fireNumber) : '—'));
+
+  const invEl = document.getElementById('homeStatInvestments');
+  if (invEl) {
+    invEl.textContent = placeholder ?? (totalInvested > 0 ? fmtCrore(totalInvested) : '—');
+  }
+
+  const loanEl = document.getElementById('homeStatLoans');
+  if (loanEl) {
+    loanEl.textContent = placeholder ?? (totalLoanOutstanding > 0 ? fmtCrore(totalLoanOutstanding) : '—');
+    loanEl.style.color = totalLoanOutstanding > 0 ? 'var(--accent2)' : 'var(--accent)';
+  }
 
   const ytdEl = document.getElementById('homeStatYTD');
   if (ytdEl) {
@@ -118,12 +172,6 @@ function renderHomeDashboard() {
   }
 
   // Month quick summary
-  const curRaw  = localStorage.getItem(`fr_data_${uid}_${yr}_${mo}`);
-  const curData = curRaw ? JSON.parse(curRaw) : null;
-  const curExp  = curData ? sumArr(curData.expense) : 0;
-  const curInc  = curData ? sumArr(curData.income)  : 0;
-  setText('homeStatMonthExp', placeholder ?? fmt(curExp));
-  setText('homeStatMonthInc', placeholder ?? fmt(curInc)); // element optional
 }
 
 /** Called from applyUser — shows home instead of tracker directly */
@@ -132,6 +180,15 @@ function showHomeScreen() {
   document.getElementById('appMain').style.display      = 'none';
   document.getElementById('homeScreen').style.display   = 'block';
   document.getElementById('btnBackHome').style.display  = 'none';
+
+  // Hide ALL module screens so nothing bleeds through on login/logout
+  ['loanScreen','loanDetailScreen','investmentScreen'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Stop investment auto-refresh if running
+  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
 
   // Always hide tracker-only controls when on home screen
   const tc = document.getElementById('headerTrackerControls');
