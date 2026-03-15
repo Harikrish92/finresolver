@@ -284,3 +284,14 @@ tbody tr:last-child td { border-bottom: none; }
 .toast.success { border-color: rgba(0,229,160,.4); }
 .toast.error   { border-color: rgba(255,107,107,.4); }
 .toast.hide    { animation: fadeOut .3s ease both; }
+
+/* ── Logo images ── */
+.header-logo-img {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: .45rem;
+  border-radius: 0;
+  background: transparent;
+  position: relative; top: -1px;
+}

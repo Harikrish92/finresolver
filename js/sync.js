@@ -209,9 +209,63 @@ async function syncLoadData() {
     // have real data even on a first login / fresh device.
     await syncPrefetchPastMonths(uid, Number(year), Number(month));
 
+    // Also sync loans and investments config so home dashboard totals are accurate
+    await syncLoadConfig(uid);
+
   } catch (err) {
     console.error('[Sync] ❌ Load failed:', err.code, err.message);
     showSyncStatus('offline');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   LOAD CONFIG — loans + investments (for home dashboard totals)
+   Called after monthly data sync so home stats are up to date.
+══════════════════════════════════════════════════════════ */
+async function syncLoadConfig(uid) {
+  if (!db || !syncReady) return;
+
+  const promises = [];
+
+  // ── Loans ──
+  promises.push(
+    db.collection('users').doc(uid).collection('config').doc('loans').get()
+      .then(snap => {
+        if (snap.exists && Array.isArray(snap.data().loans)) {
+          const loans = snap.data().loans;
+          localStorage.setItem('fr_loans_' + uid, JSON.stringify(loans));
+          // Update in-memory loansData if loans.js is loaded
+          if (typeof loansData !== 'undefined') {
+            loansData = loans;
+          }
+          console.info('[Sync] ✅ Loans loaded from Firestore:', loans.length);
+        }
+      })
+      .catch(e => console.warn('[Sync] Loans load failed:', e.message))
+  );
+
+  // ── Investments ──
+  promises.push(
+    db.collection('users').doc(uid).collection('config').doc('investments').get()
+      .then(snap => {
+        if (snap.exists && Array.isArray(snap.data().investments)) {
+          const holdings = snap.data().investments;
+          localStorage.setItem('fr_investments_' + uid, JSON.stringify(holdings));
+          // Update in-memory investmentsData if investments.js is loaded
+          if (typeof investmentsData !== 'undefined') {
+            investmentsData = holdings;
+          }
+          console.info('[Sync] ✅ Investments loaded from Firestore:', holdings.length);
+        }
+      })
+      .catch(e => console.warn('[Sync] Investments load failed:', e.message))
+  );
+
+  await Promise.all(promises);
+
+  // Refresh home dashboard now that loans + investments are in localStorage
+  if (typeof renderHomeDashboard === 'function') {
+    renderHomeDashboard();
   }
 }
 

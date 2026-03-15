@@ -81,6 +81,22 @@ function invSyncSave() {
     .catch(function(e){ console.warn('[Inv] Firestore save failed:', e.message); });
 }
 
+function invSyncLoad() {
+  if (typeof syncReady === 'undefined' || !syncReady || typeof db === 'undefined' || !db) return Promise.resolve();
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+    ? fbAuth.currentUser.uid : null;
+  if (!uid) return Promise.resolve();
+  return db.collection('users').doc(uid).collection('config').doc('investments').get()
+    .then(function(snap) {
+      if (snap.exists && Array.isArray(snap.data().investments)) {
+        investmentsData = snap.data().investments;
+        localStorage.setItem(getInvKey(), JSON.stringify(investmentsData));
+        console.info('[Inv] ✅ Loaded from Firestore:', investmentsData.length, 'holdings');
+      }
+    })
+    .catch(function(e) { console.warn('[Inv] Firestore load failed:', e.message); });
+}
+
 /* ══════════════════════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════════════════════ */
@@ -407,6 +423,10 @@ function getFilteredHoldings() {
 }
 
 function getLiveValue(h) {
+  /* Real Estate: uses explicit curPrice field */
+  if (h.category === 'RealEstate') {
+    return h.curPrice || h.avgPrice || 0;
+  }
   var qty = h.qty || 0;
   var q   = (h.category === 'Stock' || h.category === 'MF') && h.ticker && invQuoteCache[h.ticker];
   if (q && qty) return qPrice(q) * qty;
@@ -461,12 +481,16 @@ function renderInvTable() {
            + '<div class="inv-ticker-icon" style="background:' + meta.color + '18;color:' + meta.color + '">'
            + (h.ticker ? h.ticker.slice(0,3) : initials) + '</div>'
            + '<div><div class="inv-ticker-name">' + invEsc(h.name) + '</div>'
-           + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
+           + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
            + '</div></div></td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
            + '<td style="text-align:right">' + priceCell + '</td>'
            + '<td style="text-align:right">'
-           + (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—')
+           + (h.category === 'RealEstate'
+               ? '<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
+                 + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : '')
+               : (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—')
+             )
            + '</td>'
            + '<td style="text-align:right">' + fmtI(getCostBasis(h)) + '</td>'
            + '<td style="text-align:right;font-weight:600">' + fmtI(liveVal) + '</td>'
@@ -682,14 +706,24 @@ function invHoldingStats(h) {
   var pos  = pnl >= 0;
   var q    = (h.category === 'Stock' || h.category === 'MF') && h.ticker && invQuoteCache[h.ticker];
   var today = q ? ((qChgPct(q) >= 0 ? '+' : '') + qChgPct(q).toFixed(2) + '%') : '—';
+
+  if (h.category === 'RealEstate') {
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-top:.85rem">'
+      + invStatBox('Buy Price',    fmtI(h.buyPrice || h.avgPrice || 0),  'var(--muted)')
+      + invStatBox('Current Value',fmtI(h.curPrice || h.avgPrice || 0),  'var(--accent4)')
+      + invStatBox('Unrealised P&L',(pos?'+':'') + fmtI(pnl),            pos ? 'var(--accent)' : 'var(--accent2)')
+      + invStatBox('Return %',     fmtIPct(pct),                         pos ? 'var(--accent)' : 'var(--accent2)')
+      + '</div>';
+  }
+
   return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-top:.85rem">'
-    + invStatBox('Units',       h.qty ? h.qty.toLocaleString('en-IN') : '—',   'var(--purple)')
+    + invStatBox('Units',        h.qty ? h.qty.toLocaleString('en-IN') : '—',   'var(--purple)')
     + invStatBox('Avg Buy Price','₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}), 'var(--muted)')
-    + invStatBox('Cost Basis',  fmtI(cost),                                    'var(--accent4)')
-    + invStatBox('Current Val', fmtI(lv),                                      'var(--text)')
-    + invStatBox('P&L',         (pos?'+':'') + fmtI(pnl),                      pos ? 'var(--accent)' : 'var(--accent2)')
-    + invStatBox('Return %',    fmtIPct(pct),                                  pos ? 'var(--accent)' : 'var(--accent2)')
-    + invStatBox("Today's Chg", today, q && qChgPct(q) >= 0 ? 'var(--accent)' : 'var(--accent2)')
+    + invStatBox('Cost Basis',   fmtI(cost),                                    'var(--accent4)')
+    + invStatBox('Current Val',  fmtI(lv),                                      'var(--text)')
+    + invStatBox('P&L',          (pos?'+':'') + fmtI(pnl),                      pos ? 'var(--accent)' : 'var(--accent2)')
+    + invStatBox('Return %',     fmtIPct(pct),                                  pos ? 'var(--accent)' : 'var(--accent2)')
+    + invStatBox("Today's Chg",  today, q && qChgPct(q) >= 0 ? 'var(--accent)' : 'var(--accent2)')
     + '</div>';
 }
 function invStatBox(label, val, color) {
@@ -1157,16 +1191,52 @@ function openInvModal(id) {
   if (!modal) return;
 
   document.getElementById('invModalTitle').textContent = h ? '✏️ Edit Holding' : '➕ Add Investment';
-  document.getElementById('invFormName').value        = h ? h.name          : '';
-  document.getElementById('invFormTicker').value      = h ? (h.ticker||'')  : '';
-  document.getElementById('invFormQty').value         = h ? (h.qty||'')     : '';
-  document.getElementById('invFormAvgPrice').value    = h ? (h.avgPrice||'') : '';
-  document.getElementById('invFormDate').value        = h ? (h.date||'')    : new Date().toISOString().slice(0,10);
-  document.getElementById('invFormNotes').value       = h ? (h.notes||'')   : '';
+  document.getElementById('invFormName').value         = h ? h.name         : '';
+  document.getElementById('invFormTicker').value       = h ? (h.ticker||'') : '';
+  document.getElementById('invFormDate').value         = h ? (h.date||'')   : new Date().toISOString().slice(0,10);
+  document.getElementById('invFormNotes').value        = h ? (h.notes||'')  : '';
+
+  var isRE = h ? (h.category === 'RealEstate') : false;
+
+  if (isRE) {
+    document.getElementById('invFormBuyPrice').value  = h ? (h.buyPrice||'')  : '';
+    document.getElementById('invFormCurPrice').value  = h ? (h.curPrice||'')  : '';
+    document.getElementById('invFormQty').value       = '';
+    document.getElementById('invFormAvgPrice').value  = '';
+  } else {
+    document.getElementById('invFormQty').value       = h ? (h.qty||'')       : '';
+    document.getElementById('invFormAvgPrice').value  = h ? (h.avgPrice||'')  : '';
+    document.getElementById('invFormBuyPrice').value  = '';
+    document.getElementById('invFormCurPrice').value  = '';
+  }
+
   invCalcInvestedPreview();
+  invCalcREPreview();
   invSetCatPill(h ? h.category : 'Stock');
   invHideQuotePreview();
   modal.classList.remove('hidden');
+}
+
+/* RE live preview: gain + return % */
+function invCalcREPreview() {
+  var buy = parseFloat(document.getElementById('invFormBuyPrice').value)  || 0;
+  var cur = parseFloat(document.getElementById('invFormCurPrice').value)  || 0;
+  var row = document.getElementById('invREPreviewRow');
+  var gainEl   = document.getElementById('invREGainVal');
+  var returnEl = document.getElementById('invREReturnVal');
+  if (!row) return;
+
+  if (buy > 0 && cur > 0) {
+    var gain   = cur - buy;
+    var retPct = (gain / buy) * 100;
+    var pos    = gain >= 0;
+    var color  = pos ? 'var(--accent)' : 'var(--accent2)';
+    if (gainEl)   { gainEl.textContent   = (pos?'+':'') + '₹' + Math.round(Math.abs(gain)).toLocaleString('en-IN'); gainEl.style.color = color; }
+    if (returnEl) { returnEl.textContent = (pos?'+':'') + retPct.toFixed(2) + '%'; returnEl.style.color = color; }
+    row.style.display = '';
+  } else {
+    row.style.display = 'none';
+  }
 }
 
 function closeInvModal() {
@@ -1184,9 +1254,29 @@ function invSetCatPill(cat) {
       p.classList.add('active-' + cat.toLowerCase().replace(' ',''));
     }
   });
-  // Show/hide ticker row
+
+  var isRE      = (cat === 'RealEstate');
+  var isLive    = (cat === 'Stock' || cat === 'MF');
+
+  // Ticker row: only Stock / MF
   var tickerRow = document.getElementById('invTickerRow');
-  if (tickerRow) tickerRow.style.display = (cat === 'Stock' || cat === 'MF') ? '' : 'none';
+  if (tickerRow) tickerRow.style.display = isLive ? '' : 'none';
+
+  // Standard qty + avgPrice rows: hide for Real Estate
+  var qtyRow      = document.getElementById('invQtyRow');
+  var avgPriceRow = document.getElementById('invAvgPriceRow');
+  var previewRow  = document.getElementById('invInvestedPreviewRow');
+  if (qtyRow)      qtyRow.style.display      = isRE ? 'none' : '';
+  if (avgPriceRow) avgPriceRow.style.display  = isRE ? 'none' : '';
+  if (previewRow)  previewRow.style.display   = 'none'; // reset; recalc on input
+
+  // RE-specific rows: show only for Real Estate
+  var buyPriceRow = document.getElementById('invBuyPriceRow');
+  var curPriceRow = document.getElementById('invCurPriceRow');
+  var rePreview   = document.getElementById('invREPreviewRow');
+  if (buyPriceRow) buyPriceRow.style.display = isRE ? '' : 'none';
+  if (curPriceRow) curPriceRow.style.display = isRE ? '' : 'none';
+  if (rePreview)   rePreview.style.display   = 'none'; // reset; recalc on input
 }
 
 /* Live quote preview inside modal */
@@ -1247,30 +1337,55 @@ function invCalcInvestedPreview() {
 function invQtyInput() { invCalcInvestedPreview(); }
 
 function saveInvHolding() {
-  var name     = document.getElementById('invFormName').value.trim();
-  var ticker   = document.getElementById('invFormTicker').value.trim().toUpperCase();
-  var qty      = parseFloat(document.getElementById('invFormQty').value)      || 0;
-  var avgPrice = parseFloat(document.getElementById('invFormAvgPrice').value) || 0;
-  var date     = document.getElementById('invFormDate').value;
-  var notes    = document.getElementById('invFormNotes').value.trim();
+  var name  = document.getElementById('invFormName').value.trim();
+  var date  = document.getElementById('invFormDate').value;
+  var notes = document.getElementById('invFormNotes').value.trim();
+  var isRE  = (invSelectedCat === 'RealEstate');
 
-  if (!name)     { alert('Please enter a name for this holding.'); return; }
-  if (qty <= 0)  { alert('Please enter the number of units / qty.'); return; }
-  if (avgPrice <= 0) { alert('Please enter the average buy price per unit.'); return; }
+  if (!name) { alert('Please enter a name for this holding.'); return; }
 
-  var h = {
-    id:        invEditId || invId(),
-    name:      name,
-    category:  invSelectedCat,
-    ticker:    (invSelectedCat === 'Stock' || invSelectedCat === 'MF') ? ticker : '',
-    qty:       qty,
-    avgPrice:  avgPrice,
-    date:      date,
-    notes:     notes,
-    createdAt: invEditId
-      ? ((investmentsData.find(function(x){ return x.id === invEditId; }) || {}).createdAt || Date.now())
-      : Date.now(),
-  };
+  var h;
+  if (isRE) {
+    /* ── Real Estate: buyPrice + curPrice, qty implicit = 1 ── */
+    var buyPrice = parseFloat(document.getElementById('invFormBuyPrice').value) || 0;
+    var curPrice = parseFloat(document.getElementById('invFormCurPrice').value) || 0;
+    if (buyPrice <= 0) { alert('Please enter the buy price for this property.'); return; }
+    h = {
+      id:        invEditId || invId(),
+      name:      name,
+      category:  'RealEstate',
+      ticker:    '',
+      qty:       1,
+      avgPrice:  buyPrice,
+      buyPrice:  buyPrice,
+      curPrice:  curPrice || buyPrice,
+      date:      date,
+      notes:     notes,
+      createdAt: invEditId
+        ? ((investmentsData.find(function(x){ return x.id === invEditId; }) || {}).createdAt || Date.now())
+        : Date.now(),
+    };
+  } else {
+    /* ── Standard: qty + avgPrice ── */
+    var ticker   = document.getElementById('invFormTicker').value.trim().toUpperCase();
+    var qty      = parseFloat(document.getElementById('invFormQty').value)      || 0;
+    var avgPrice = parseFloat(document.getElementById('invFormAvgPrice').value) || 0;
+    if (qty <= 0)      { alert('Please enter the number of units / qty.'); return; }
+    if (avgPrice <= 0) { alert('Please enter the average buy price per unit.'); return; }
+    h = {
+      id:        invEditId || invId(),
+      name:      name,
+      category:  invSelectedCat,
+      ticker:    (invSelectedCat === 'Stock' || invSelectedCat === 'MF') ? ticker : '',
+      qty:       qty,
+      avgPrice:  avgPrice,
+      date:      date,
+      notes:     notes,
+      createdAt: invEditId
+        ? ((investmentsData.find(function(x){ return x.id === invEditId; }) || {}).createdAt || Date.now())
+        : Date.now(),
+    };
+  }
 
   if (invEditId) {
     var idx = investmentsData.findIndex(function(x){ return x.id === invEditId; });
@@ -1280,14 +1395,7 @@ function saveInvHolding() {
   }
   saveInvestments();
   closeInvModal();
-
-  renderInvSummary();
-  renderInvTabs();
-  renderInvTable();
-  renderInvAlloc();
-  renderInvLivePanel();
-
-  // Auto-fetch quote if ticker provided
+  renderInvSummary(); renderInvTabs(); renderInvTable(); renderInvAlloc(); renderInvLivePanel();
   if (h.ticker) {
     invFetchQuote(h.ticker).then(function(q){
       invQuoteCache[h.ticker] = q;

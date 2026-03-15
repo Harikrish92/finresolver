@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FinResolver — Financial Tracker</title>
 
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="finresolver.png" />
+  <link rel="apple-touch-icon" href="finresolver.png" />
+
   <!-- Stylesheets -->
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/login.css" />
@@ -32,7 +36,7 @@
 <div id="loginScreen">
   <div class="login-card">
 
-    <div class="login-logo">Fin<span>Resolver</span></div>
+    <div class="login-logo"><img src="finresolver.png" alt="FinResolver" class="login-logo-img" /><div class="login-wordmark"><span style="color:var(--accent)">Fin</span><span style="color:var(--text)">Resolver</span></div></div>
     <div class="login-tagline">Your personal finance command center</div>
 
     <!-- ⚠️  SETUP REQUIRED: Replace YOUR_GOOGLE_CLIENT_ID_HERE in js/auth.js -->
@@ -46,10 +50,10 @@
     </div>
 
     <div class="login-features">
-      <div class="login-feat"><strong>📊 All-in-One Tracker</strong>Expense, Income, Investment &amp; Loans</div>
-      <div class="login-feat"><strong>✅ CC Checklist</strong>Never miss a credit card payment</div>
-      <div class="login-feat"><strong>📁 Sheet Import</strong>Upload Excel or CSV directly</div>
-      <div class="login-feat"><strong>📈 Analytics</strong>Charts &amp; 6-month trends</div>
+      <div class="login-feat"><strong>📊 Monthly Tracker</strong>Expenses, income, investments &amp; loan payments in one place</div>
+      <div class="login-feat"><strong>📈 Investment Tracker</strong>Live prices for stocks &amp; MFs, financials &amp; portfolio</div>
+      <div class="login-feat"><strong>🏦 Loan Tracker</strong>EMI schedule, amortization &amp; payoff timeline</div>
+      <div class="login-feat"><strong>🔥 FIRE &amp; Insights</strong>FIRE number, YTD savings &amp; spending insights</div>
     </div>
 
     <button id="btnGoogleLogin" class="btn-google" onclick="loginWithGoogle()">
@@ -66,12 +70,12 @@
     </div>
 
     <button class="btn-guest" onclick="loginAsGuest()">
-      👤 Continue as Guest
+      👤 Experience as Guest
     </button>
 
     <div class="login-note">
       By signing in you agree to FinResolver's
-      <a href="#">Terms of Service</a>.<br />
+      <a href="#" onclick="return false;" style="color:var(--accent4);text-decoration:underline">Terms of Service</a>.<br />
       Guest data is stored locally only — sign in with Google to sync across devices.
     </div>
 
@@ -83,7 +87,7 @@
 ════════════════════════════════════════════════════════════ -->
 <header>
   <div style="display:flex;align-items:center;gap:.85rem;">
-    <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer">Fin<span>Resolver</span></div>
+    <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer"><img src="finresolver.png" alt="" class="header-logo-img" />Fin<span>Resolver</span></div>
     <button id="btnBackHome" onclick="goToHome()" style="display:none;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.32rem .7rem;border-radius:6px;cursor:pointer;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Home</button>
   </div>
 
@@ -634,13 +638,14 @@
           <div class="inv-quote-preview" id="invQuotePreview"></div>
         </div>
 
-        <div class="inv-form-field">
+        <!-- Standard: Qty + Avg Price (Stock / MF / Bond / FD / Others) -->
+        <div class="inv-form-field" id="invQtyRow">
           <label class="inv-form-label">Units / Qty *</label>
           <input class="inv-form-input" id="invFormQty" type="number" min="0" step="any"
                  placeholder="e.g. 10" oninput="invQtyInput()" />
         </div>
 
-        <div class="inv-form-field">
+        <div class="inv-form-field" id="invAvgPriceRow">
           <label class="inv-form-label">Avg Buy Price (₹) *
             <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit</span>
           </label>
@@ -648,11 +653,38 @@
                  placeholder="e.g. 2450.50" oninput="invCalcInvestedPreview()" />
         </div>
 
-        <!-- Read-only invested preview -->
+        <!-- Read-only invested preview (Stock / MF / Bond / FD / Others) -->
         <div class="inv-form-field full" id="invInvestedPreviewRow" style="display:none">
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;display:flex;align-items:center;justify-content:space-between">
             <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Total Invested (auto)</span>
             <span style="font-family:var(--font-head);font-weight:700;font-size:.9rem;color:var(--accent4)" id="invInvestedPreviewVal">—</span>
+          </div>
+        </div>
+
+        <!-- Real Estate: Buy Price + Current Price (no qty) -->
+        <div class="inv-form-field" id="invBuyPriceRow" style="display:none">
+          <label class="inv-form-label">Buy Price (₹) *
+            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> total amount paid</span>
+          </label>
+          <input class="inv-form-input" id="invFormBuyPrice" type="number" min="0" step="any"
+                 placeholder="e.g. 5000000" oninput="invCalcREPreview()" />
+        </div>
+
+        <div class="inv-form-field" id="invCurPriceRow" style="display:none">
+          <label class="inv-form-label">Current Market Value (₹)
+            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> optional</span>
+          </label>
+          <input class="inv-form-input" id="invFormCurPrice" type="number" min="0" step="any"
+                 placeholder="e.g. 7500000" oninput="invCalcREPreview()" />
+        </div>
+
+        <!-- Read-only RE preview -->
+        <div class="inv-form-field full" id="invREPreviewRow" style="display:none">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+            <div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Unrealised Gain</div>
+              <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREGainVal">—</div></div>
+            <div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Return %</div>
+              <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREReturnVal">—</div></div>
           </div>
         </div>
 
