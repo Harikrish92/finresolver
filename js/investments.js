@@ -12,6 +12,7 @@
 ══════════════════════════════════════════════════════════ */
 var investmentsData   = [];       // persisted holdings
 var invQuoteCache     = {};       // { ticker: { price, change, changePct, name, ts } }
+var goldPriceCache    = null;     // { pricePerGram, pricePerOz, ts, source }
 var invSelectedId     = null;     // currently highlighted row
 var invActiveCat      = 'ALL';    // tab filter
 var invDetailTab      = 'chart';  // chart | financials | news
@@ -219,6 +220,49 @@ function invFetchQuote(ticker) {
     });
 }
 
+/* ── Gold Live Price (CoinGecko → Yahoo Finance fallback) ───── */
+var TROY_OZ_TO_G = 31.1035;
+
+function fetchGoldPriceINR() {
+  // Return cached value if < 30 min old
+  if (goldPriceCache && (Date.now() - goldPriceCache.ts < 30 * 60 * 1000)) {
+    return Promise.resolve(goldPriceCache);
+  }
+
+  // Primary: CoinGecko — PAX Gold is backed 1:1 by 1 troy oz, returns INR
+  return fetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=inr')
+    .then(function(r) { if (!r.ok) throw new Error('CG HTTP ' + r.status); return r.json(); })
+    .then(function(data) {
+      var oz = data && data['pax-gold'] && data['pax-gold'].inr;
+      if (!oz || oz <= 0) throw new Error('CG: no price');
+      goldPriceCache = {
+        pricePerGram: oz / TROY_OZ_TO_G,
+        pricePerOz:   oz,
+        ts:           Date.now(),
+        source:       'CoinGecko'
+      };
+      return goldPriceCache;
+    })
+    .catch(function() {
+      // Fallback: Yahoo Finance GC=F (COMEX gold, USD/troy oz) + USDINR=X
+      return Promise.all([
+        invFetchQuote('GC=F'),
+        invFetchQuote('USDINR=X')
+      ]).then(function(results) {
+        var goldUSD = qPrice(results[0]);
+        var usdInr  = qPrice(results[1]);
+        if (!goldUSD || !usdInr) throw new Error('Yahoo gold fallback failed');
+        goldPriceCache = {
+          pricePerGram: (goldUSD * usdInr) / TROY_OZ_TO_G,
+          pricePerOz:   goldUSD * usdInr,
+          ts:           Date.now(),
+          source:       'Yahoo Finance'
+        };
+        return goldPriceCache;
+      });
+    });
+}
+
 function invFetchAllQuotes() {
   var tickers = [];
   investmentsData.forEach(function(h) {
@@ -277,10 +321,16 @@ function invRefreshQuotes() {
 function invStartAutoRefresh() {
   invStopAutoRefresh();
   if (!invLiveEnabled) return;
-  invFetchAllQuotes().then(function(){ renderInvTable(); renderInvSummary(); renderInvLivePanel(); });
+  var hasGold = investmentsData.some(function(h){ return h.category === 'Gold'; });
+  var refresh = function() {
+    var jobs = [invFetchAllQuotes()];
+    if (hasGold) jobs.push(fetchGoldPriceINR().catch(function(){}));
+    Promise.all(jobs).then(function(){ renderInvTable(); renderInvSummary(); renderInvLivePanel(); });
+  };
+  refresh();
   invRefreshTimer = setInterval(function(){
     if (!invLiveEnabled) { invStopAutoRefresh(); return; }
-    invFetchAllQuotes().then(function(){ renderInvTable(); renderInvSummary(); renderInvLivePanel(); });
+    refresh();
   }, 60000);
 }
 function invStopAutoRefresh() {
@@ -331,12 +381,10 @@ function invLoadLivePref() {
 function calcInvTotals() {
   var invested = 0, currentVal = 0;
   investmentsData.forEach(function(h){
-    var qty      = h.qty      || 0;
-    var avgPrice = h.avgPrice || 0;
-    var costBasis = qty * avgPrice;
-    invested += costBasis;
-    var q = (h.category === 'Stock' || h.category === 'MF') && h.ticker && invQuoteCache[h.ticker];
-    currentVal += q ? qPrice(q) * qty : (costBasis || 0);
+    var cost = getCostBasis(h);
+    var live = getLiveValue(h);
+    invested   += cost;
+    currentVal += live > 0 ? live : cost;
   });
   var pnl    = currentVal - invested;
   var pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
@@ -349,7 +397,7 @@ function renderInvSummary() {
 
   var holdings = investmentsData.length;
   var liveCount = investmentsData.filter(function(h){
-    return (h.category === 'Stock' || h.category === 'MF') && h.ticker;
+    return (((h.category === 'Stock' || h.category === 'MF') && h.ticker) || (h.category === "Gold"));
   }).length;
 
   function setEl(id, val) { var el = document.getElementById(id); if (el) el.innerHTML = val; }
@@ -424,8 +472,12 @@ function getFilteredHoldings() {
 }
 
 function getLiveValue(h) {
-  /* Real Estate / Gold: uses explicit curPrice field */
-  if (h.category === 'RealEstate' || h.category === 'Gold') {
+  if (h.category === 'Gold') {
+    var grams = h.grams || h.qty || 0;
+    if (goldPriceCache && goldPriceCache.pricePerGram) return grams * goldPriceCache.pricePerGram;
+    return grams * (h.buyPricePerGram || h.avgPrice || 0);
+  }
+  if (h.category === 'RealEstate') {
     return h.curPrice || h.avgPrice || 0;
   }
   var qty = h.qty || 0;
@@ -435,6 +487,10 @@ function getLiveValue(h) {
 }
 
 function getCostBasis(h) {
+  if (h.category === 'Gold') {
+    var buyPPG = h.buyPricePerGram || h.avgPrice || 0;
+    return buyPPG > 0 ? (h.grams || h.qty || 0) * buyPPG : 0;
+  }
   return (h.avgPrice || 0) * (h.qty || 0);
 }
 
@@ -498,16 +554,26 @@ function renderInvTable() {
            + '<div class="inv-ticker-icon" style="background:' + meta.color + '18;color:' + meta.color + '">'
            + (h.ticker ? h.ticker.slice(0,3) : initials) + '</div>'
            + '<div><div class="inv-ticker-name">' + invEsc(h.name) + '</div>'
-           + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' && h.category !== 'Gold' ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
+           + (h.category === 'Gold'
+               ? '<div class="inv-ticker-sub">' + (h.grams||h.qty||0) + ' g</div>'
+               : (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '') + '</div>' : ''))
            + '</div></div>' + mobileBody + '</td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
-           + '<td style="text-align:right">' + priceCell + '</td>'
            + '<td style="text-align:right">'
-           + ((h.category === 'RealEstate' || h.category === 'Gold')
-               ? '<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
-                 + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : '')
-               : (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—')
-             )
+           + (h.category === 'Gold' && goldPriceCache
+               ? '<span class="inv-live-dot"></span>₹' + goldPriceCache.pricePerGram.toLocaleString('en-IN',{maximumFractionDigits:0}) + '/g'
+               : priceCell)
+           + '</td>'
+           + '<td style="text-align:right">'
+           + (h.category === 'Gold'
+               ? ('<div style="font-weight:600">' + (h.grams||h.qty||0) + ' g</div>'
+                 + (h.buyPricePerGram || h.avgPrice
+                   ? '<div style="font-size:.62rem;color:var(--muted)">Buy: ₹' + (h.buyPricePerGram||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '/g</div>'
+                   : ''))
+               : h.category === 'RealEstate'
+               ? ('<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
+                 + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : ''))
+               : (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—'))
            + '</td>'
            + '<td style="text-align:right">' + fmtI(getCostBasis(h)) + '</td>'
            + '<td style="text-align:right;font-weight:600">' + fmtI(liveVal) + '</td>'
@@ -568,6 +634,24 @@ function renderInvAlloc() {
 
   if (invAllocChartInst) { invAllocChartInst.destroy(); invAllocChartInst = null; }
 
+  var invCenterTextPlugin = {
+    id: 'invCenterText',
+    afterDatasetsDraw: function(chart) {
+      var _ctx = chart.ctx, ca = chart.chartArea;
+      var cx = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
+      var label = total >= 1e5 ? (total / 1e5).toFixed(1) + 'L' : fmtI(total);
+      _ctx.save();
+      _ctx.textAlign = 'center'; _ctx.textBaseline = 'middle';
+      _ctx.font = '700 13px Syne, sans-serif';
+      _ctx.fillStyle = '#e8edf5';
+      _ctx.fillText(label, cx, cy - 8);
+      _ctx.font = '400 9px DM Mono, monospace';
+      _ctx.fillStyle = '#6b7a99';
+      _ctx.fillText('Portfolio', cx, cy + 9);
+      _ctx.restore();
+    }
+  };
+
   invAllocChartInst = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -585,7 +669,8 @@ function renderInvAlloc() {
           }
         }
       }}
-    }
+    },
+    plugins: [invCenterTextPlugin]
   });
 
   var legend = document.getElementById('invAllocLegend');
@@ -600,12 +685,6 @@ function renderInvAlloc() {
         + '<span style="font-weight:600">' + fmtI(totals[c]) + '</span>'
         + '<span class="inv-alloc-pct">' + pct + '%</span></div></div>';
     }).join('') || '<div style="color:var(--muted);font-size:.72rem;text-align:center;padding:.75rem 0">No holdings yet</div>';
-  }
-
-  var center = document.getElementById('invDonutCenter');
-  if (center) {
-    center.innerHTML = '<div class="inv-donut-center-val">' + (total >= 1e5 ? (total/1e5).toFixed(1)+'L' : fmtI(total)) + '</div>'
-                     + '<div class="inv-donut-center-sub">Portfolio</div>';
   }
 }
 
@@ -724,7 +803,23 @@ function invHoldingStats(h) {
   var q    = (h.category === 'Stock' || h.category === 'MF') && h.ticker && invQuoteCache[h.ticker];
   var today = q ? ((qChgPct(q) >= 0 ? '+' : '') + qChgPct(q).toFixed(2) + '%') : '—';
 
-  if (h.category === 'RealEstate' || h.category === 'Gold') {
+  if (h.category === 'Gold') {
+    var grams    = h.grams || h.qty || 0;
+    var buyPPG   = h.buyPricePerGram || h.avgPrice || 0;
+    var livePPG  = goldPriceCache ? goldPriceCache.pricePerGram : 0;
+    var hasCost  = buyPPG > 0;
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-top:.85rem">'
+      + invStatBox('Weight',        grams + ' g',                                            'var(--accent3)')
+      + invStatBox('Buy Price / g', hasCost ? fmtI2(buyPPG) : '—',                          'var(--muted)')
+      + invStatBox('Cost Basis',    hasCost ? fmtI(cost) : '—',                             'var(--accent4)')
+      + invStatBox('Live Price / g',livePPG ? fmtI2(livePPG) + '<span style="font-size:.6rem;color:var(--muted)"> /g</span>' : '—', livePPG ? 'var(--accent3)' : 'var(--muted)')
+      + invStatBox('Current Value', lv > 0 ? fmtI(lv) : '—',                               'var(--text)')
+      + invStatBox('Unrealised P&L',hasCost && lv > 0 ? (pos?'+':'')+fmtI(pnl) : '—',      hasCost && lv > 0 ? (pos?'var(--accent)':'var(--accent2)') : 'var(--muted)')
+      + invStatBox('Return %',      hasCost && lv > 0 ? fmtIPct(pct) : '—',                hasCost && lv > 0 ? (pos?'var(--accent)':'var(--accent2)') : 'var(--muted)')
+      + (goldPriceCache ? invStatBox('Price Source', goldPriceCache.source, 'var(--muted)') : '')
+      + '</div>';
+  }
+  if (h.category === 'RealEstate') {
     return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-top:.85rem">'
       + invStatBox('Buy Price',    fmtI(h.buyPrice || h.avgPrice || 0),  'var(--muted)')
       + invStatBox('Current Value',fmtI(h.curPrice || h.avgPrice || 0),  'var(--accent4)')
@@ -1213,18 +1308,31 @@ function openInvModal(id) {
   document.getElementById('invFormDate').value         = h ? (h.date||'')   : new Date().toISOString().slice(0,10);
   document.getElementById('invFormNotes').value        = h ? (h.notes||'')  : '';
 
-  var isRE = h ? (h.category === 'RealEstate' || h.category === 'Gold') : false;
+  var _cat   = h ? h.category : 'Stock';
+  var _isRE  = _cat === 'RealEstate';
+  var _isGold= _cat === 'Gold';
 
-  if (isRE) {
-    document.getElementById('invFormBuyPrice').value  = h ? (h.buyPrice||'')  : '';
-    document.getElementById('invFormCurPrice').value  = h ? (h.curPrice||'')  : '';
-    document.getElementById('invFormQty').value       = '';
-    document.getElementById('invFormAvgPrice').value  = '';
+  if (_isRE) {
+    document.getElementById('invFormBuyPrice').value   = h ? (h.buyPrice||'')         : '';
+    document.getElementById('invFormCurPrice').value   = h ? (h.curPrice||'')         : '';
+    document.getElementById('invFormQty').value        = '';
+    document.getElementById('invFormAvgPrice').value   = '';
+    document.getElementById('invFormGrams').value      = '';
+    document.getElementById('invFormBuyPerGram').value = '';
+  } else if (_isGold) {
+    document.getElementById('invFormGrams').value      = h ? (h.grams || h.qty || '') : '';
+    document.getElementById('invFormBuyPerGram').value = h ? (h.buyPricePerGram || '') : '';
+    document.getElementById('invFormQty').value        = '';
+    document.getElementById('invFormAvgPrice').value   = '';
+    document.getElementById('invFormBuyPrice').value   = '';
+    document.getElementById('invFormCurPrice').value   = '';
   } else {
-    document.getElementById('invFormQty').value       = h ? (h.qty||'')       : '';
-    document.getElementById('invFormAvgPrice').value  = h ? (h.avgPrice||'')  : '';
-    document.getElementById('invFormBuyPrice').value  = '';
-    document.getElementById('invFormCurPrice').value  = '';
+    document.getElementById('invFormQty').value        = h ? (h.qty||'')       : '';
+    document.getElementById('invFormAvgPrice').value   = h ? (h.avgPrice||'')  : '';
+    document.getElementById('invFormBuyPrice').value   = '';
+    document.getElementById('invFormCurPrice').value   = '';
+    document.getElementById('invFormGrams').value      = '';
+    document.getElementById('invFormBuyPerGram').value = '';
   }
 
   invCalcInvestedPreview();
@@ -1272,28 +1380,41 @@ function invSetCatPill(cat) {
     }
   });
 
-  var isRE      = (cat === 'RealEstate' || cat === 'Gold');
-  var isLive    = (cat === 'Stock' || cat === 'MF');
+  var isRE   = (cat === 'RealEstate');
+  var isGold = (cat === 'Gold');
+  var isLive = (cat === 'Stock' || cat === 'MF');
+  var isSpecial = isRE || isGold;
 
-  // Ticker row: only Stock / MF
+  // Ticker row: Stock / MF only
   var tickerRow = document.getElementById('invTickerRow');
   if (tickerRow) tickerRow.style.display = isLive ? '' : 'none';
 
-  // Standard qty + avgPrice rows: hide for Real Estate
+  // Standard qty + avgPrice rows: hide for RE / Gold
   var qtyRow      = document.getElementById('invQtyRow');
   var avgPriceRow = document.getElementById('invAvgPriceRow');
   var previewRow  = document.getElementById('invInvestedPreviewRow');
-  if (qtyRow)      qtyRow.style.display      = isRE ? 'none' : '';
-  if (avgPriceRow) avgPriceRow.style.display  = isRE ? 'none' : '';
-  if (previewRow)  previewRow.style.display   = 'none'; // reset; recalc on input
+  if (qtyRow)      qtyRow.style.display     = isSpecial ? 'none' : '';
+  if (avgPriceRow) avgPriceRow.style.display = isSpecial ? 'none' : '';
+  if (previewRow)  previewRow.style.display  = 'none';
 
-  // RE-specific rows: show only for Real Estate
+  // RE-specific rows
   var buyPriceRow = document.getElementById('invBuyPriceRow');
   var curPriceRow = document.getElementById('invCurPriceRow');
   var rePreview   = document.getElementById('invREPreviewRow');
   if (buyPriceRow) buyPriceRow.style.display = isRE ? '' : 'none';
   if (curPriceRow) curPriceRow.style.display = isRE ? '' : 'none';
-  if (rePreview)   rePreview.style.display   = 'none'; // reset; recalc on input
+  if (rePreview)   rePreview.style.display   = 'none';
+
+  // Gold-specific rows
+  var gramsRow      = document.getElementById('invGramsRow');
+  var buyPerGramRow = document.getElementById('invBuyPerGramRow');
+  var goldPreview   = document.getElementById('invGoldPreviewRow');
+  if (gramsRow)      gramsRow.style.display      = isGold ? '' : 'none';
+  if (buyPerGramRow) buyPerGramRow.style.display  = isGold ? '' : 'none';
+  if (goldPreview)   goldPreview.style.display    = isGold ? '' : 'none';
+
+  // Kick off gold price fetch when switching to Gold
+  if (isGold) invFetchGoldModalPreview();
 }
 
 /* Live quote preview inside modal */
@@ -1335,6 +1456,59 @@ function invHideQuotePreview() {
   if (p) { p.className = 'inv-quote-preview'; p.innerHTML = ''; }
 }
 
+/* ── Gold modal: live price fetch + preview calc ─────────────── */
+function invFetchGoldModalPreview() {
+  var priceEl  = document.getElementById('invGoldPricePerGram');
+  var sourceEl = document.getElementById('invGoldPriceSource');
+  var liveDot  = document.getElementById('invGoldLiveDot');
+  if (priceEl) { priceEl.textContent = 'Fetching…'; priceEl.style.color = 'var(--muted)'; }
+
+  fetchGoldPriceINR()
+    .then(function(result) {
+      if (priceEl) { priceEl.textContent = fmtI2(result.pricePerGram) + ' / g'; priceEl.style.color = 'var(--accent3)'; }
+      if (sourceEl) sourceEl.textContent = 'via ' + result.source + ' · updated just now';
+      if (liveDot) liveDot.className = 'inv-live-dot';
+      invCalcGoldPreview();
+    })
+    .catch(function() {
+      if (priceEl) { priceEl.textContent = 'Could not fetch price — enter cost manually'; priceEl.style.color = 'var(--accent2)'; }
+    });
+}
+
+function invCalcGoldPreview() {
+  var grams    = parseFloat(document.getElementById('invFormGrams').value)      || 0;
+  var buyPPG   = parseFloat(document.getElementById('invFormBuyPerGram').value) || 0;
+  var livePPG  = goldPriceCache ? goldPriceCache.pricePerGram : 0;
+
+  var curValWrap  = document.getElementById('invGoldCurValWrap');
+  var curValEl    = document.getElementById('invGoldCurVal');
+  var unrealWrap  = document.getElementById('invGoldUnrealWrap');
+  var unrealEl    = document.getElementById('invGoldUnrealVal');
+
+  if (grams > 0 && livePPG > 0) {
+    var curVal = grams * livePPG;
+    if (curValEl)  curValEl.textContent = fmtI(curVal);
+    if (curValWrap) curValWrap.style.display = '';
+
+    if (buyPPG > 0) {
+      var gain  = curVal - grams * buyPPG;
+      var retPct = (gain / (grams * buyPPG)) * 100;
+      var pos   = gain >= 0;
+      if (unrealEl) {
+        unrealEl.textContent = (pos ? '+' : '') + fmtI(gain)
+          + ' (' + (pos ? '+' : '') + retPct.toFixed(2) + '%)';
+        unrealEl.style.color = pos ? 'var(--accent)' : 'var(--accent2)';
+      }
+      if (unrealWrap) unrealWrap.style.display = '';
+    } else {
+      if (unrealWrap) unrealWrap.style.display = 'none';
+    }
+  } else {
+    if (curValWrap)  curValWrap.style.display  = 'none';
+    if (unrealWrap)  unrealWrap.style.display  = 'none';
+  }
+}
+
 
 function invCalcInvestedPreview() {
   var qty      = parseFloat(document.getElementById('invFormQty').value)      || 0;
@@ -1357,12 +1531,33 @@ function saveInvHolding() {
   var name  = document.getElementById('invFormName').value.trim();
   var date  = document.getElementById('invFormDate').value;
   var notes = document.getElementById('invFormNotes').value.trim();
-  var isRE  = (invSelectedCat === 'RealEstate' || invSelectedCat === 'Gold');
+  var isGold = (invSelectedCat === 'Gold');
+  var isRE   = (invSelectedCat === 'RealEstate');
 
   if (!name) { alert('Please enter a name for this holding.'); return; }
 
   var h;
-  if (isRE) {
+  if (isGold) {
+    /* ── Gold: grams + optional buy price per gram ── */
+    var grams      = parseFloat(document.getElementById('invFormGrams').value)      || 0;
+    var buyPerGram = parseFloat(document.getElementById('invFormBuyPerGram').value) || 0;
+    if (grams <= 0) { alert('Please enter the weight in grams.'); return; }
+    h = {
+      id:              invEditId || invId(),
+      name:            name,
+      category:        'Gold',
+      ticker:          '',
+      grams:           grams,
+      qty:             grams,            // backward compat
+      buyPricePerGram: buyPerGram || 0,
+      avgPrice:        buyPerGram || 0,  // backward compat
+      date:            date,
+      notes:           notes,
+      createdAt:       invEditId
+        ? ((investmentsData.find(function(x){ return x.id === invEditId; }) || {}).createdAt || Date.now())
+        : Date.now(),
+    };
+  } else if (isRE) {
     /* ── Real Estate: buyPrice + curPrice, qty implicit = 1 ── */
     var buyPrice = parseFloat(document.getElementById('invFormBuyPrice').value) || 0;
     var curPrice = parseFloat(document.getElementById('invFormCurPrice').value) || 0;

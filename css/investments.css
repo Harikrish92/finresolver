@@ -193,15 +193,6 @@
   margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
 }
 .inv-donut-wrap { position: relative; max-width: 160px; margin: 0 auto 1rem; }
-.inv-donut-center {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  text-align: center; pointer-events: none;
-}
-.inv-donut-center-val {
-  font-family: var(--font-head); font-size: 1rem; font-weight: 800;
-}
-.inv-donut-center-sub { font-size: .58rem; color: var(--muted); }
 
 .inv-alloc-legend { display: flex; flex-direction: column; gap: .4rem; }
 .inv-alloc-item {

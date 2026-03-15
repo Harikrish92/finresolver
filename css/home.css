@@ -92,7 +92,7 @@
 
 .home-nav-icon  { font-size: 2.2rem; line-height: 1; }
 .home-nav-title {
-  font-family: var(--font-head); font-weight: 700; font-size: .92rem;
+  font-family: var(--font-head); font-weight: 700; font-size: .91rem;
   color: var(--text);
 }
 .home-nav-desc  { font-size: .68rem; color: var(--muted); line-height: 1.5; }
@@ -105,4 +105,142 @@
 .home-nav-badge.live {
   background: rgba(0,229,160,.12); color: var(--accent);
   border-color: rgba(0,229,160,.3);
+}
+
+/* ── Portfolio Overview Screen ──────────────────────────────── */
+#portfolioScreen {
+  display: none;
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto;
+  padding: 1.75rem 1.5rem 5rem;
+}
+
+.pf-page-header {
+  display: flex; align-items: flex-start;
+  margin-bottom: 1.75rem;
+}
+.pf-page-title {
+  font-family: var(--font-head); font-size: 1.4rem; font-weight: 800;
+}
+.pf-page-title span { color: var(--purple); }
+.pf-page-sub { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+
+/* Summary strip */
+.pf-summary-strip {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: .85rem; margin-bottom: 1.75rem;
+}
+.pf-sum-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.2rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .35s ease both;
+  transition: transform .15s, border-color .2s;
+}
+.pf-sum-card:hover { transform: translateY(-2px); border-color: var(--card-accent, var(--border)); }
+.pf-sum-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--card-accent, var(--purple));
+}
+.pf-sum-label { font-size: .63rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: .3rem; }
+.pf-sum-value { font-family: var(--font-head); font-size: 1.2rem; font-weight: 700; color: var(--card-color, var(--text)); }
+.pf-sum-sub   { font-size: .6rem; color: var(--muted); margin-top: .15rem; }
+
+/* Body grid */
+.pf-body-grid {
+  display: grid; grid-template-columns: 1fr 1.1fr;
+  gap: 1.25rem; align-items: start;
+}
+
+/* Shared panel card */
+.pf-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.4rem 1.5rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .4s ease both;
+}
+.pf-panel-label {
+  font-size: .65rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.1rem;
+}
+
+/* Donut chart panel */
+.pf-chart-panel::before {
+  content: ''; position: absolute; top: -60px; right: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(167,139,250,.07), transparent 70%);
+  pointer-events: none;
+}
+.pf-donut-wrap {
+  position: relative; width: 220px; height: 220px;
+  margin: 0 auto 1.25rem;
+}
+.pf-donut-wrap canvas { width: 100% !important; height: 100% !important; }
+
+/* Allocation legend */
+.pf-alloc-legend {
+  display: flex; flex-direction: column; gap: .55rem;
+}
+.pf-leg-item {
+  display: grid; grid-template-columns: 10px 1fr auto auto;
+  align-items: center; gap: .5rem;
+  font-size: .72rem;
+}
+.pf-leg-dot {
+  width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+}
+.pf-leg-name { color: var(--text); }
+.pf-leg-pct  { color: var(--muted); font-size: .67rem; text-align: right; }
+.pf-leg-val  { font-family: var(--font-head); font-size: .72rem; font-weight: 600; color: var(--text); text-align: right; min-width: 60px; }
+
+/* Right column */
+.pf-right-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Health panel */
+.pf-health-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+}
+.pf-health-item {
+  background: var(--surface2); border-radius: var(--radius);
+  padding: 1rem; text-align: center;
+}
+.pf-health-val {
+  font-family: var(--font-head); font-size: 1.5rem; font-weight: 800;
+  color: var(--text); line-height: 1;
+}
+.pf-health-lbl {
+  font-size: .6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .8px; margin-top: .4rem;
+}
+
+/* Top holdings */
+.pf-holdings-list { display: flex; flex-direction: column; gap: .5rem; }
+.pf-holding-row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .55rem .6rem; border-radius: 10px;
+  background: var(--surface2); transition: background .15s;
+}
+.pf-holding-row:hover { background: var(--border); }
+.pf-holding-badge {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .62rem; font-weight: 700; font-family: var(--font-head);
+}
+.pf-holding-info { flex: 1; min-width: 0; }
+.pf-holding-name {
+  font-size: .82rem; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pf-holding-meta { font-size: .62rem; color: var(--muted); margin-top: .1rem; }
+.pf-holding-right { text-align: right; flex-shrink: 0; }
+.pf-holding-val {
+  font-family: var(--font-head); font-size: .85rem; font-weight: 700; color: var(--accent);
+}
+.pf-holding-pct { font-size: .62rem; color: var(--muted); margin-top: .1rem; }
+.pf-empty { font-size: .75rem; color: var(--muted); padding: .25rem 0; }
+
+@media (max-width: 700px) {
+  .pf-summary-strip { grid-template-columns: repeat(2, 1fr); }
+  .pf-body-grid     { grid-template-columns: 1fr; }
+  .pf-donut-wrap    { width: 180px; height: 180px; }
 }

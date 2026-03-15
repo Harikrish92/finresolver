@@ -15,7 +15,7 @@
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="finresolver.png" />
-  <link rel="apple-touch-icon" sizes="192x192" href="finresolver.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="finresolver_maskable.jpg" />
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="css/variables.css" />
@@ -230,7 +230,7 @@
     <div class="home-stat-card" style="--card-accent:var(--accent4)">
       <div class="home-stat-label">Total Investments</div>
       <div class="home-stat-value" id="homeStatInvestments" style="color:var(--accent4)">—</div>
-      <div class="home-stat-sub">Portfolio cost basis</div>
+      <div class="home-stat-sub">Current portfolio value</div>
     </div>
     <div class="home-stat-card" style="--card-accent:var(--accent2)">
       <div class="home-stat-label">Total Loan Balance</div>
@@ -269,11 +269,11 @@
       <div class="home-nav-badge live">Live</div>
     </div>
 
-    <div class="home-nav-card portfolio coming-soon">
+    <div class="home-nav-card portfolio" onclick="goToPortfolio()">
       <div class="home-nav-icon">🗂️</div>
       <div class="home-nav-title">Portfolio Overview</div>
       <div class="home-nav-desc">Net worth &amp; asset allocation</div>
-      <div class="home-nav-badge">Coming Soon</div>
+      <div class="home-nav-badge live">Live</div>
     </div>
 
     <div class="home-nav-card lifestyle coming-soon">
@@ -284,6 +284,90 @@
     </div>
 
   </div>
+
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PORTFOLIO OVERVIEW SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="portfolioScreen" style="display:none">
+
+  <div class="pf-page-header">
+    <div>
+      <div class="pf-page-title">🗂️ Portfolio <span>Overview</span></div>
+      <div class="pf-page-sub">Your complete financial picture</div>
+    </div>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="pf-summary-strip">
+    <div class="pf-sum-card" style="--card-accent:var(--purple);--card-color:var(--purple)">
+      <div class="pf-sum-label">Net Worth</div>
+      <div class="pf-sum-value" id="pfNetWorth">—</div>
+      <div class="pf-sum-sub">Assets − Liabilities</div>
+    </div>
+    <div class="pf-sum-card" style="--card-accent:var(--accent4);--card-color:var(--accent4)">
+      <div class="pf-sum-label">Total Invested</div>
+      <div class="pf-sum-value" id="pfNWInvested">—</div>
+      <div class="pf-sum-sub">Portfolio value</div>
+    </div>
+    <div class="pf-sum-card" style="--card-accent:var(--accent2);--card-color:var(--accent2)">
+      <div class="pf-sum-label">Total Debt</div>
+      <div class="pf-sum-value" id="pfNWLoans">—</div>
+      <div class="pf-sum-sub">Loan outstanding</div>
+    </div>
+    <div class="pf-sum-card" style="--card-accent:var(--accent);--card-color:var(--accent)">
+      <div class="pf-sum-label">Cash Balance</div>
+      <div class="pf-sum-value" id="pfNWCash">—</div>
+      <div class="pf-sum-sub">Current month</div>
+    </div>
+    <div class="pf-sum-card" style="--card-accent:var(--accent3);--card-color:var(--accent3)">
+      <div class="pf-sum-label">YTD Savings Rate</div>
+      <div class="pf-sum-value" id="pfSavingsRate">—</div>
+      <div class="pf-sum-sub">Income saved this year</div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="pf-body-grid">
+
+    <!-- Left: Donut chart + legend -->
+    <div class="pf-panel pf-chart-panel">
+      <div class="pf-panel-label">Asset Allocation</div>
+      <div class="pf-donut-wrap">
+        <canvas id="pfAllocChart"></canvas>
+      </div>
+      <div class="pf-alloc-legend" id="pfAllocLegend"></div>
+    </div>
+
+    <!-- Right: Health metrics + Top holdings -->
+    <div class="pf-right-col">
+
+      <div class="pf-panel pf-health-panel">
+        <div class="pf-panel-label">Financial Health</div>
+        <div class="pf-health-grid">
+          <div class="pf-health-item">
+            <div class="pf-health-val" id="pfDebtRatio">—</div>
+            <div class="pf-health-lbl">Debt / Assets</div>
+          </div>
+          <div class="pf-health-item">
+            <div class="pf-health-val" id="pfSafetyMonths">—</div>
+            <div class="pf-health-lbl">Safety Months</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-panel pf-holdings-panel">
+        <div class="pf-panel-label">Top Holdings</div>
+        <div class="pf-holdings-list" id="pfTopHoldings">
+          <div class="pf-empty">No holdings to display</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -588,10 +672,6 @@
         <div class="inv-card-title">🗂 Asset Allocation</div>
         <div class="inv-donut-wrap">
           <canvas id="invDonutChart"></canvas>
-          <div class="inv-donut-center" id="invDonutCenter">
-            <div class="inv-donut-center-val">₹0</div>
-            <div class="inv-donut-center-sub">Portfolio</div>
-          </div>
         </div>
         <div class="inv-alloc-legend" id="invAllocLegend"></div>
       </div>
@@ -694,6 +774,44 @@
               <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREGainVal">—</div></div>
             <div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Return %</div>
               <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREReturnVal">—</div></div>
+          </div>
+        </div>
+
+        <!-- Gold: weight in grams -->
+        <div class="inv-form-field" id="invGramsRow" style="display:none">
+          <label class="inv-form-label">Weight (grams) *</label>
+          <input class="inv-form-input" id="invFormGrams" type="number" min="0" step="any"
+                 placeholder="e.g. 10" oninput="invCalcGoldPreview()" />
+        </div>
+
+        <!-- Gold: buy price per gram (optional) -->
+        <div class="inv-form-field" id="invBuyPerGramRow" style="display:none">
+          <label class="inv-form-label">Buy Price per gram (₹)
+            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> optional</span>
+          </label>
+          <input class="inv-form-input" id="invFormBuyPerGram" type="number" min="0" step="any"
+                 placeholder="e.g. 6200" oninput="invCalcGoldPreview()" />
+        </div>
+
+        <!-- Gold: live price preview -->
+        <div class="inv-form-field full" id="invGoldPreviewRow" style="display:none">
+          <div style="background:var(--surface2);border:1px solid rgba(240,180,41,.3);border-radius:8px;padding:.75rem 1rem;display:flex;flex-direction:column;gap:.5rem">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)">Live Gold Price</span>
+              <span id="invGoldLiveDot"></span>
+            </div>
+            <div style="font-family:var(--font-head);font-weight:700;font-size:1.05rem;color:#f0b429" id="invGoldPricePerGram">—</div>
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+              <div id="invGoldCurValWrap" style="display:none">
+                <div style="font-size:.6rem;color:var(--muted);margin-bottom:.1rem">Current Value</div>
+                <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem;color:var(--accent4)" id="invGoldCurVal">—</div>
+              </div>
+              <div id="invGoldUnrealWrap" style="display:none">
+                <div style="font-size:.6rem;color:var(--muted);margin-bottom:.1rem">Unrealised P&amp;L</div>
+                <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invGoldUnrealVal">—</div>
+              </div>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted)" id="invGoldPriceSource"></div>
           </div>
         </div>
 
