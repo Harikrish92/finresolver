@@ -240,7 +240,17 @@
 .pf-empty { font-size: .75rem; color: var(--muted); padding: .25rem 0; }
 
 @media (max-width: 700px) {
-  .pf-summary-strip { grid-template-columns: repeat(2, 1fr); }
-  .pf-body-grid     { grid-template-columns: 1fr; }
-  .pf-donut-wrap    { width: 180px; height: 180px; }
+  #portfolioScreen  { padding: 1.25rem .85rem 4rem; }
+  .pf-summary-strip { grid-template-columns: repeat(2, 1fr); gap: .6rem; margin-bottom: 1.25rem; }
+  .pf-summary-strip > *:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .pf-sum-card      { padding: .85rem 1rem; }
+  .pf-sum-value     { font-size: 1rem; }
+  .pf-page-title    { font-size: 1.15rem; }
+  .pf-body-grid     { grid-template-columns: 1fr; gap: .85rem; }
+  .pf-panel         { padding: 1rem 1rem; }
+  .pf-donut-wrap    { width: 170px; height: 170px; }
+  .pf-leg-val       { display: none; }
+  .pf-leg-item      { grid-template-columns: 10px 1fr auto; }
+  .pf-health-val    { font-size: 1.2rem; }
+  .pf-holding-val   { font-size: .78rem; }
 }

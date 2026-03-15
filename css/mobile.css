@@ -13,9 +13,10 @@
   }
   .header-right {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: .5rem;
   }
+  #headerTrackerControls { flex: 1; }
   .month-selector label { display: none; }
   select { font-size: .72rem; padding: .28rem .4rem; }
   #syncStatus { display: none; }
