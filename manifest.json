@@ -2,7 +2,8 @@
   "name": "FinResolver — Financial Tracker",
   "short_name": "FinResolver",
   "description": "Your personal finance command center — track expenses, investments, loans and more.",
-  "start_url": "/",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0a0d12",
   "theme_color": "#0a0d12",
@@ -12,15 +13,20 @@
       "src": "finresolver.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "finresolver.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "finresolver.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["finance", "productivity"],
-  "screenshots": []
+  "categories": ["finance", "productivity"]
 }

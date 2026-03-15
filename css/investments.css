@@ -395,6 +395,9 @@
 .inv-quote-price  { font-weight: 600; font-size: .85rem; }
 .inv-quote-name   { font-size: .65rem; color: var(--muted); }
 
+/* ── Mobile-only elements: hidden by default, shown in ≤700px block ── */
+.inv-mobile-card-body { display: none; }
+
 /* ── Responsive ─────────────────────────────────────────────── */
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE — Investment Tracker
@@ -566,7 +569,6 @@
 /* ── Detail body padding fix ────────────────────────────────── */
 .inv-detail-body { padding: 1.2rem 1.3rem; min-height: 120px; }
 
-/* duplicate 600px block removed *//* ── Mobile-only elements: hidden on desktop, shown in @media block ── */
-.inv-mobile-card-body { display: none; }
+/* duplicate 600px block removed */
 
 
