@@ -153,6 +153,7 @@
 .cat-mf       { background: rgba(77,171,247,.1); color: var(--accent4); border: 1px solid rgba(77,171,247,.2); }
 .cat-bond     { background: rgba(255,209,102,.1);color: var(--accent3); border: 1px solid rgba(255,209,102,.2); }
 .cat-realestate { background: rgba(167,139,250,.1);color: var(--purple);  border: 1px solid rgba(167,139,250,.2); }
+.cat-gold     { background: rgba(240,180,41,.1); color: #f0b429;        border: 1px solid rgba(240,180,41,.2);  }
 .cat-others   { background: rgba(255,107,107,.1);color: var(--accent2); border: 1px solid rgba(255,107,107,.2); }
 
 .inv-change-pos { color: var(--accent);  font-weight: 600; }
@@ -376,6 +377,7 @@
 .inv-cat-pill.active-bond     { background: rgba(255,209,102,.1);color: var(--accent3); border-color: rgba(255,209,102,.4); }
 .inv-cat-pill.active-fd       { background: rgba(255,209,102,.1);color: var(--accent3); border-color: rgba(255,209,102,.4); }
 .inv-cat-pill.active-realestate{ background: rgba(167,139,250,.1);color: var(--purple);  border-color: rgba(167,139,250,.4);}
+.inv-cat-pill.active-gold     { background: rgba(240,180,41,.1);  color: #f0b429;        border-color: rgba(240,180,41,.4);  }
 .inv-cat-pill.active-others   { background: rgba(255,107,107,.1);color: var(--accent2); border-color: rgba(255,107,107,.4);}
 
 .inv-ticker-hint {

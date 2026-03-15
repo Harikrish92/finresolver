@@ -15,7 +15,7 @@
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="finresolver.png" />
-  <link rel="apple-touch-icon" href="finresolver.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="finresolver.png" />
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="css/variables.css" />
@@ -622,6 +622,7 @@
           <button class="inv-cat-pill"              data-cat="Bond"        onclick="invSetCatPill('Bond')">📄 Bond</button>
           <button class="inv-cat-pill"              data-cat="FD"          onclick="invSetCatPill('FD')">🏧 FD</button>
           <button class="inv-cat-pill"              data-cat="RealEstate"  onclick="invSetCatPill('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill"              data-cat="Gold"        onclick="invSetCatPill('Gold')">🥇 Gold</button>
           <button class="inv-cat-pill"              data-cat="Others"      onclick="invSetCatPill('Others')">💼 Others</button>
         </div>
       </div>
@@ -734,6 +735,7 @@
           <button class="inv-cat-pill" data-cat="Bond"       onclick="setInvClearCat('Bond')">📄 Bond</button>
           <button class="inv-cat-pill" data-cat="FD"         onclick="setInvClearCat('FD')">🏧 FD</button>
           <button class="inv-cat-pill" data-cat="RealEstate" onclick="setInvClearCat('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill" data-cat="Gold"       onclick="setInvClearCat('Gold')">🥇 Gold</button>
           <button class="inv-cat-pill" data-cat="Others"     onclick="setInvClearCat('Others')">💼 Others</button>
         </div>
       </div>
@@ -776,7 +778,7 @@
         <div style="font-size:.63rem;color:var(--muted);line-height:1.6">
           Row 1 may be a header row — it will be auto-skipped. &nbsp;·&nbsp;
           Ticker column is optional for non-stock assets. &nbsp;·&nbsp;
-          Category values: <code>Stock</code>, <code>MF</code>, <code>Bond</code>, <code>RealEstate</code>, <code>Others</code> (defaults to <code>Stock</code> if blank). &nbsp;·&nbsp;
+          Category values: <code>Stock</code>, <code>MF</code>, <code>Bond</code>, <code>RealEstate</code>, <code>Gold</code>, <code>Others</code> (defaults to <code>Stock</code> if blank). &nbsp;·&nbsp;
           Duplicate tickers will <strong>merge</strong> — qty and cost averaged.
         </div>
       </div>
@@ -790,6 +792,7 @@
           <button class="inv-cat-pill"              data-cat="Bond"        onclick="setInvImportCat('Bond')">📄 Bond</button>
           <button class="inv-cat-pill"              data-cat="FD"          onclick="setInvImportCat('FD')">🏧 FD</button>
           <button class="inv-cat-pill"              data-cat="RealEstate"  onclick="setInvImportCat('RealEstate')">🏠 Real Estate</button>
+          <button class="inv-cat-pill"              data-cat="Gold"        onclick="setInvImportCat('Gold')">🥇 Gold</button>
           <button class="inv-cat-pill"              data-cat="Others"      onclick="setInvImportCat('Others')">💼 Others</button>
         </div>
       </div>

@@ -48,6 +48,7 @@ var CAT_META = {
   Bond:        { label:'Bond/FD',     class:'cat-bond',       color:'#ffd166', icon:'📄' },
   FD:          { label:'FD',          class:'cat-bond',       color:'#ffd166', icon:'🏧' },
   RealEstate:  { label:'Real Estate', class:'cat-realestate', color:'#a78bfa', icon:'🏠' },
+  Gold:        { label:'Gold',        class:'cat-gold',       color:'#f0b429', icon:'🥇' },
   Others:      { label:'Others',      class:'cat-others',     color:'#ff6b6b', icon:'💼' },
 };
 
@@ -366,8 +367,8 @@ function renderInvSummary() {
 function renderInvTabs() {
   var bar = document.getElementById('invTabBar');
   if (!bar) return;
-  var cats   = ['ALL', 'Stock', 'MF', 'Bond', 'FD', 'RealEstate', 'Others'];
-  var labels = { ALL:'All', Stock:'Stocks', MF:'Mutual Funds', Bond:'Bond', FD:'FD', RealEstate:'Real Estate', Others:'Others' };
+  var cats   = ['ALL', 'Stock', 'MF', 'Bond', 'FD', 'RealEstate', 'Gold', 'Others'];
+  var labels = { ALL:'All', Stock:'Stocks', MF:'Mutual Funds', Bond:'Bond', FD:'FD', RealEstate:'Real Estate', Gold:'Gold', Others:'Others' };
   bar.innerHTML = cats.map(function(c){
     var count = c === 'ALL' ? investmentsData.length : investmentsData.filter(function(h){ return h.category === c; }).length;
     return '<button class="inv-tab' + (invActiveCat === c ? ' active' : '') + '" onclick="invSetCat(\'' + c + '\')">'
@@ -423,8 +424,8 @@ function getFilteredHoldings() {
 }
 
 function getLiveValue(h) {
-  /* Real Estate: uses explicit curPrice field */
-  if (h.category === 'RealEstate') {
+  /* Real Estate / Gold: uses explicit curPrice field */
+  if (h.category === 'RealEstate' || h.category === 'Gold') {
     return h.curPrice || h.avgPrice || 0;
   }
   var qty = h.qty || 0;
@@ -497,12 +498,12 @@ function renderInvTable() {
            + '<div class="inv-ticker-icon" style="background:' + meta.color + '18;color:' + meta.color + '">'
            + (h.ticker ? h.ticker.slice(0,3) : initials) + '</div>'
            + '<div><div class="inv-ticker-name">' + invEsc(h.name) + '</div>'
-           + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
+           + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' && h.category !== 'Gold' ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
            + '</div></div>' + mobileBody + '</td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
            + '<td style="text-align:right">' + priceCell + '</td>'
            + '<td style="text-align:right">'
-           + (h.category === 'RealEstate'
+           + ((h.category === 'RealEstate' || h.category === 'Gold')
                ? '<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
                  + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : '')
                : (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—')
@@ -723,7 +724,7 @@ function invHoldingStats(h) {
   var q    = (h.category === 'Stock' || h.category === 'MF') && h.ticker && invQuoteCache[h.ticker];
   var today = q ? ((qChgPct(q) >= 0 ? '+' : '') + qChgPct(q).toFixed(2) + '%') : '—';
 
-  if (h.category === 'RealEstate') {
+  if (h.category === 'RealEstate' || h.category === 'Gold') {
     return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-top:.85rem">'
       + invStatBox('Buy Price',    fmtI(h.buyPrice || h.avgPrice || 0),  'var(--muted)')
       + invStatBox('Current Value',fmtI(h.curPrice || h.avgPrice || 0),  'var(--accent4)')
@@ -1212,7 +1213,7 @@ function openInvModal(id) {
   document.getElementById('invFormDate').value         = h ? (h.date||'')   : new Date().toISOString().slice(0,10);
   document.getElementById('invFormNotes').value        = h ? (h.notes||'')  : '';
 
-  var isRE = h ? (h.category === 'RealEstate') : false;
+  var isRE = h ? (h.category === 'RealEstate' || h.category === 'Gold') : false;
 
   if (isRE) {
     document.getElementById('invFormBuyPrice').value  = h ? (h.buyPrice||'')  : '';
@@ -1271,7 +1272,7 @@ function invSetCatPill(cat) {
     }
   });
 
-  var isRE      = (cat === 'RealEstate');
+  var isRE      = (cat === 'RealEstate' || cat === 'Gold');
   var isLive    = (cat === 'Stock' || cat === 'MF');
 
   // Ticker row: only Stock / MF
@@ -1356,7 +1357,7 @@ function saveInvHolding() {
   var name  = document.getElementById('invFormName').value.trim();
   var date  = document.getElementById('invFormDate').value;
   var notes = document.getElementById('invFormNotes').value.trim();
-  var isRE  = (invSelectedCat === 'RealEstate');
+  var isRE  = (invSelectedCat === 'RealEstate' || invSelectedCat === 'Gold');
 
   if (!name) { alert('Please enter a name for this holding.'); return; }
 
@@ -1369,7 +1370,7 @@ function saveInvHolding() {
     h = {
       id:        invEditId || invId(),
       name:      name,
-      category:  'RealEstate',
+      category:  invSelectedCat,
       ticker:    '',
       qty:       1,
       avgPrice:  buyPrice,
@@ -1457,7 +1458,7 @@ var INV_CAT_ALIASES = {
   mf: 'MF', 'mutual fund': 'MF', mutualfund: 'MF', fund: 'MF', etf: 'MF',
   bond: 'Bond', bonds: 'Bond', fd: 'FD', 'fixed deposit': 'FD', 'fixed-deposit': 'FD', debt: 'Bond',
   realestate: 'RealEstate', 'real estate': 'RealEstate', property: 'RealEstate', re: 'RealEstate',
-  others: 'Others', other: 'Others', misc: 'Others', commodity: 'Others', gold: 'Others',
+  others: 'Others', other: 'Others', misc: 'Others', commodity: 'Others', gold: 'Gold',
 };
 
 function openInvImport() {
