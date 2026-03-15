@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FinResolver — Financial Tracker</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FinResolver" />
+  <meta name="theme-color" content="#0a0d12" />
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="finresolver.png" />
   <link rel="apple-touch-icon" href="finresolver.png" />
@@ -1117,6 +1125,17 @@
   // Set default date for loan payment input
   const payDateEl = document.getElementById('paymentDate');
   if (payDateEl) payDateEl.value = new Date().toISOString().slice(0, 10);
+</script>
+
+<!-- PWA Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.info('[PWA] Service worker registered:', reg.scope))
+        .catch(err => console.warn('[PWA] Service worker failed:', err));
+    });
+  }
 </script>
 
 </body>

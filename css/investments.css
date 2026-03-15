@@ -396,34 +396,158 @@
 .inv-quote-name   { font-size: .65rem; color: var(--muted); }
 
 /* ── Responsive ─────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — Investment Tracker
+══════════════════════════════════════════════════════════ */
+
+/* ── Tablet (≤1200px): side panel stacks below ── */
 @media (max-width: 1200px) {
   .inv-summary-strip { grid-template-columns: repeat(3, 1fr); }
   .inv-body { grid-template-columns: 1fr; }
   .inv-side-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 }
+
+/* ── Small tablet (≤900px) ── */
 @media (max-width: 900px) {
   .inv-summary-strip { grid-template-columns: repeat(2, 1fr); }
-  .inv-side-panel { grid-template-columns: 1fr; }
-  /* Hide cost basis col on mid screens */
+  .inv-side-panel    { grid-template-columns: 1fr; }
   .inv-table th:nth-child(5),
-  .inv-table td:nth-child(5) { display: none; }
+  .inv-table td:nth-child(5) { display: none; } /* cost basis */
 }
+
+/* ── Mobile (≤700px): card-style rows replace the table ── */
 @media (max-width: 700px) {
-  .inv-summary-strip { grid-template-columns: 1fr 1fr; }
-  .inv-side-panel { grid-template-columns: 1fr; }
-  .inv-form-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 600px) {
-  .inv-page-header  { flex-direction: column; align-items: flex-start; }
-  /* Hide less critical cols on small screens */
-  .inv-table th:nth-child(3),
-  .inv-table td:nth-child(3) { display: none; }   /* Live Price */
-  .inv-table th:nth-child(8),
-  .inv-table td:nth-child(8) { display: none; }   /* Return % */
-  .inv-table th:nth-child(9),
-  .inv-table td:nth-child(9) { display: none; }   /* Actions — use row click */
-  .inv-detail-tabs { overflow-x: auto; white-space: nowrap; }
-  .inv-fin-table th, .inv-fin-table td { font-size: .62rem; padding: .4rem .5rem; }
+
+  /* Page header */
+  #investmentScreen { padding: 1rem .75rem 5rem; }
+  .inv-page-header  { flex-direction: column; align-items: stretch; gap: .6rem; }
+  .inv-page-title   { font-size: 1.1rem; }
+  .inv-header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .4rem;
+  }
+  .inv-header-actions .btn,
+  .inv-header-actions .btn-import {
+    width: 100%; text-align: center; justify-content: center;
+    font-size: .72rem; padding: .45rem .5rem;
+  }
+
+  /* Summary strip: 2 cols */
+  .inv-summary-strip { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .inv-sum-value     { font-size: 1rem; }
+
+  /* Category tabs: scrollable pill row */
+  .inv-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: .35rem;
+    border-bottom: none;
+    padding-bottom: .5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .inv-tabs::-webkit-scrollbar { display: none; }
+  .inv-tab {
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: .3rem .8rem;
+    font-size: .65rem;
+    bottom: 0;
+    background: var(--surface2);
+  }
+  .inv-tab.active {
+    background: rgba(77,171,247,.15);
+    border-color: var(--accent4);
+    color: var(--accent4);
+  }
+
+  /* Holdings head: stack title + search */
+  .inv-holdings-head { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .inv-search        { width: 100%; }
+
+  /* ── Card-style rows — replace dense table on mobile ── */
+  /* Hide all table columns except Name+Category (col 1,2) */
+  .inv-table { min-width: unset; font-size: .8rem; }
+  .inv-table thead { display: none; } /* hide header row entirely */
+
+  /* Show only name cell — hide all others */
+  .inv-table td { display: none; padding: 0; border: none; }
+  .inv-table td:nth-child(1) { display: block; padding: 0; }
+
+  /* Each row becomes a card */
+  .inv-table tr {
+    display: block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 0 0 .5rem;
+    padding: .75rem;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .inv-table tr:hover,
+  .inv-table tr.selected { border-color: var(--accent4); background: rgba(77,171,247,.06); }
+  .inv-table tr.selected { border-left: 3px solid var(--accent4); }
+  .inv-table tr:last-child td { border-bottom: none; }
+
+  /* Name cell: show full card content via JS-injected data attributes */
+  .inv-table td:nth-child(1) { width: 100%; }
+  .inv-ticker-cell { gap: .6rem; }
+  .inv-ticker-name { font-size: .82rem; }
+
+  /* Card body: inject extra info rows using CSS content from data-* */
+  /* We'll do this via a custom class added in JS */
+  .inv-mobile-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: .45rem;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .inv-mobile-stat {
+    display: flex; flex-direction: column; gap: .1rem;
+  }
+  .inv-mobile-stat-label {
+    font-size: .55rem; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+  }
+  .inv-mobile-stat-val {
+    font-size: .78rem; font-weight: 600;
+  }
+  .inv-mobile-edit-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--accent4); border-radius: 8px;
+    padding: .35rem .65rem; font-size: .7rem;
+    cursor: pointer; flex-shrink: 0;
+    transition: border-color .2s, background .2s;
+  }
+  .inv-mobile-edit-btn:hover { background: rgba(77,171,247,.1); border-color: var(--accent4); }
+
+  /* Detail panel */
+  .inv-detail-tabs    { overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .inv-detail-tabs::-webkit-scrollbar { display: none; }
+  .inv-detail-body    { padding: .85rem; }
+
+  /* Modal full-screen on mobile */
+  .inv-modal-overlay  { padding: 0; align-items: flex-end; }
+  .inv-modal {
+    max-width: 100%; width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 92vh;
+  }
+  .inv-form-grid      { grid-template-columns: 1fr; }
+
+  /* Financials table */
+  .inv-fin-table th, .inv-fin-table td { font-size: .62rem; padding: .4rem .45rem; }
+
+  /* Side panel full width */
+  .inv-side-panel     { grid-template-columns: 1fr; }
+  .inv-alloc-card,
+  .inv-live-card      { padding: .85rem 1rem; }
 }
 
 /* ── Toast (shared, in case app.css doesn't define it) ─────── */
@@ -442,13 +566,7 @@
 /* ── Detail body padding fix ────────────────────────────────── */
 .inv-detail-body { padding: 1.2rem 1.3rem; min-height: 120px; }
 
-/* ── Mobile: stack table, hide less-important cols ──────────── */
-@media (max-width: 600px) {
-  .inv-page-header  { flex-direction: column; align-items: flex-start; }
-  .inv-table th:nth-child(3),
-  .inv-table td:nth-child(3) { display: none; }      /* hide Live Price col */
-  .inv-table th:nth-child(8),
-  .inv-table td:nth-child(8) { display: none; }      /* hide Actions col — use row click */
-  .inv-detail-tabs { overflow-x: auto; white-space: nowrap; }
-  .inv-fin-table th, .inv-fin-table td { font-size: .62rem; padding: .4rem .5rem; }
-}
+/* duplicate 600px block removed *//* ── Mobile-only elements: hidden on desktop, shown in @media block ── */
+.inv-mobile-card-body { display: none; }
+
+

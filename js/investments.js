@@ -475,6 +475,21 @@ function renderInvTable() {
     var bg = isSelected ? '' : '';
     var initials = h.name.split(' ').slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase().slice(0,2);
 
+    /* Mobile card body — shown only ≤700px via CSS */
+    var mobileBody = '<div class="inv-mobile-card-body">'
+      + '<div class="inv-mobile-stat"><span class="inv-mobile-stat-label">Category</span>'
+      + '<span class="inv-mobile-stat-val"><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></span></div>'
+      + '<div class="inv-mobile-stat"><span class="inv-mobile-stat-label">Cur. Value</span>'
+      + '<span class="inv-mobile-stat-val">' + fmtI(liveVal) + '</span></div>'
+      + '<div class="inv-mobile-stat"><span class="inv-mobile-stat-label">P&L</span>'
+      + '<span class="inv-mobile-stat-val ' + (isPos ? 'inv-change-pos' : 'inv-change-neg') + '">'
+      + (isPos ? '+' : '') + fmtI(pnl) + ' <small>(' + fmtIPct(pnlPct) + ')</small></span></div>'
+      + (isLive && q ? '<div class="inv-mobile-stat"><span class="inv-mobile-stat-label">Live</span>'
+      + '<span class="inv-mobile-stat-val ' + (qChgPct(q) >= 0 ? 'inv-change-pos' : 'inv-change-neg') + '">'
+      + '<span class="inv-live-dot"></span>' + qPrice(q).toFixed(2) + '</span></div>' : '')
+      + '<button class="inv-mobile-edit-btn" onclick="event.stopPropagation();openInvModal(\'\'' + h.id + '\'\')">✏️ Edit</button>'
+      + '</div>';
+
     return '<tr class="' + (isSelected ? 'selected' : '') + '" onclick="invSelectRow(\'' + h.id + '\')" '
            + 'ondblclick="openInvModal(\'' + h.id + '\')">'
            + '<td><div class="inv-ticker-cell">'
@@ -482,7 +497,7 @@ function renderInvTable() {
            + (h.ticker ? h.ticker.slice(0,3) : initials) + '</div>'
            + '<div><div class="inv-ticker-name">' + invEsc(h.name) + '</div>'
            + (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '') + '</div>' : '')
-           + '</div></div></td>'
+           + '</div></div>' + mobileBody + '</td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
            + '<td style="text-align:right">' + priceCell + '</td>'
            + '<td style="text-align:right">'
