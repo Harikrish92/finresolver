@@ -5,6 +5,7 @@
 
 /** Navigate from home → tracker */
 function goToTracker() {
+  history.pushState({ screen: 'tracker' }, '');
   document.getElementById('homeScreen').style.display  = 'none';
   document.getElementById('appMain').style.display     = 'block';
   document.getElementById('btnBackHome').style.display = 'flex';
@@ -25,6 +26,7 @@ function goToTracker() {
 
 /** Navigate back to home */
 function goToHome() {
+  history.replaceState({ screen: 'home' }, '');
   document.getElementById('appMain').style.display     = 'none';
   document.getElementById('homeScreen').style.display  = 'block';
   document.getElementById('btnBackHome').style.display = 'none';
@@ -45,6 +47,7 @@ function goToHome() {
 
 /** Navigate home → portfolio overview */
 function goToPortfolio() {
+  history.pushState({ screen: 'portfolio' }, '');
   document.getElementById('homeScreen').style.display      = 'none';
   document.getElementById('portfolioScreen').style.display = 'block';
   document.getElementById('btnBackHome').style.display     = 'flex';
@@ -74,7 +77,7 @@ function pfFetchLivePricesAndRender() {
 
   const tickers = [...new Set(
     holdings
-      .filter(h => (h.category === 'Stock' || h.category === 'MF') && h.ticker)
+      .filter(h => (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP') && h.ticker)
       .map(h => h.ticker)
   )];
   const hasGold = holdings.some(h => h.category === 'Gold');
@@ -89,9 +92,15 @@ function pfFetchLivePricesAndRender() {
   if (hasGold && typeof fetchGoldPriceINR === 'function') {
     jobs.push(fetchGoldPriceINR().catch(() => {}));
   }
+  // Pre-fetch USD/INR rate so portfolio values are correctly converted to ₹
+  if (tickers.length && typeof fetchUsdInrRate === 'function') {
+    jobs.push(fetchUsdInrRate().catch(() => {}));
+  }
   if (!jobs.length) return;
 
+  setInvLiveDot(true);
   Promise.allSettled(jobs).then(() => {
+    setInvLiveDot(false);
     if (document.getElementById('portfolioScreen').style.display !== 'none') {
       renderPortfolioOverview();
     }
@@ -170,7 +179,7 @@ function renderHomeDashboard() {
         } else {
           const qty = h.qty || 0;
           const q   = (typeof invQuoteCache !== 'undefined') && h.ticker && invQuoteCache[h.ticker];
-          totalInvCurrentVal += q ? (q.price * qty) : qty * (h.avgPrice || 0);
+          totalInvCurrentVal += q ? (toInr(q.price, q.currency) * qty) : qty * (h.avgPrice || 0);
         }
       });
     }
@@ -247,7 +256,8 @@ function renderPortfolioOverview() {
 
   const CAT_COLORS = {
     Stock: '#00e5a0', MF: '#4dabf7', Bond: '#ffd166',
-    FD: '#f0b429', RealEstate: '#a78bfa', Gold: '#e9c46a', Others: '#ff6b6b'
+    FD: '#f0b429', RealEstate: '#a78bfa', Gold: '#e9c46a',
+    EPF: '#06b6d4', ESOP: '#c084fc', Others: '#ff6b6b'
   };
 
   // ── 1. Investment holdings ────────────────────────────────────
@@ -266,7 +276,8 @@ function renderPortfolioOverview() {
         } else if (h.category === 'RealEstate') {
           val = Number(h.curPrice || h.buyPrice || h.avgPrice || 0);
         } else if (h.ticker && typeof invQuoteCache !== 'undefined' && invQuoteCache[h.ticker]?.price) {
-          val = invQuoteCache[h.ticker].price * Number(h.qty || 0);
+          const _q = invQuoteCache[h.ticker];
+          val = toInr(_q.price, _q.currency) * Number(h.qty || 0);
         } else {
           val = Number(h.qty || 0) * Number(h.avgPrice || 0);
         }
@@ -511,6 +522,7 @@ function renderPortfolioOverview() {
 
 /** Called from applyUser — shows home instead of tracker directly */
 function showHomeScreen() {
+  history.replaceState({ screen: 'home' }, '');
   document.getElementById('loginScreen').style.display  = 'none';
   document.getElementById('appMain').style.display      = 'none';
   document.getElementById('homeScreen').style.display   = 'block';
@@ -557,14 +569,14 @@ function homeFetchLivePricesOnce() {
 
   const tickers  = [...new Set(
     holdings
-      .filter(h => (h.category === 'Stock' || h.category === 'MF') && h.ticker)
+      .filter(h => (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP') && h.ticker)
       .map(h => h.ticker)
   )];
   const hasGold  = holdings.some(h => h.category === 'Gold');
 
   const jobs = [];
 
-  // Fetch stock/MF quotes in batches of 5
+  // Fetch stock/MF/ESOP quotes in batches of 5
   const BATCH = 5;
   for (let i = 0; i < tickers.length; i += BATCH) {
     const batch = tickers.slice(i, i + BATCH);
@@ -580,12 +592,43 @@ function homeFetchLivePricesOnce() {
     jobs.push(fetchGoldPriceINR().catch(() => {}));
   }
 
+  // Pre-fetch USD/INR rate so home stat is correctly converted to ₹
+  if (tickers.length && typeof fetchUsdInrRate === 'function') {
+    jobs.push(fetchUsdInrRate().catch(() => {}));
+  }
+
   if (!jobs.length) return;
 
+  setInvLiveDot(true);
   Promise.allSettled(jobs).then(() => {
+    setInvLiveDot(false);
     // Only re-render if the home screen is still visible
     if (document.getElementById('homeScreen').style.display !== 'none') {
       renderHomeDashboard();
     }
   });
 }
+
+/* ── Live-fetch dot helper ──────────────────────────────────────────────────
+   Shows/hides the orange pulsing dot on the Total Investments / Current Value
+   cards across all three screens while live price data is being fetched. */
+function setInvLiveDot(show) {
+  ['invLoadDotHome', 'invLoadDotPf', 'invLoadDotInv'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = show ? 'block' : 'none';
+  });
+}
+
+/* ── Browser back-button support ────────────────────────────────────────────
+   Each tracker navigation pushes a history state; popstate fires when the
+   user presses the browser/device back button and routes back appropriately. */
+window.addEventListener('popstate', function(e) {
+  var s = e.state && e.state.screen;
+  if (s === 'loans') {
+    // Popped from loanDetail back to loans → show the loan list
+    if (typeof backToLoanList === 'function') backToLoanList();
+  } else {
+    // Popped back to home (or no state) from any tracker section
+    goToHome();
+  }
+});

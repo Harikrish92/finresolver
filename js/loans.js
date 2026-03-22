@@ -191,6 +191,7 @@ function loanStats(loan) {
    NAVIGATION
 ══════════════════════════════════════════════════════════ */
 function goToLoans() {
+  history.pushState({ screen: 'loans' }, '');
   document.getElementById('homeScreen').style.display       = 'none';
   document.getElementById('appMain').style.display          = 'none';
   document.getElementById('loanDetailScreen').style.display = 'none';
@@ -206,6 +207,7 @@ function goToLoans() {
 }
 
 function goToLoanDetail(id) {
+  history.pushState({ screen: 'loanDetail', id: id }, '');
   activeLoanId = id;
   document.getElementById('loanScreen').style.display       = 'none';
   document.getElementById('loanDetailScreen').style.display = 'block';

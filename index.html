@@ -228,6 +228,7 @@
       <div class="home-stat-sub">25× annual expenses</div>
     </div>
     <div class="home-stat-card" style="--card-accent:var(--accent4)">
+      <span class="inv-load-dot" id="invLoadDotHome"></span>
       <div class="home-stat-label">Total Investments</div>
       <div class="home-stat-value" id="homeStatInvestments" style="color:var(--accent4)">—</div>
       <div class="home-stat-sub">Current portfolio value</div>
@@ -308,6 +309,7 @@
       <div class="pf-sum-sub">Assets − Liabilities</div>
     </div>
     <div class="pf-sum-card" style="--card-accent:var(--accent4);--card-color:var(--accent4)">
+      <span class="inv-load-dot" id="invLoadDotPf"></span>
       <div class="pf-sum-label">Total Invested</div>
       <div class="pf-sum-value" id="pfNWInvested">—</div>
       <div class="pf-sum-sub">Portfolio value</div>
@@ -596,6 +598,7 @@
       <div class="inv-sum-sub">Cost basis</div>
     </div>
     <div class="inv-sum-card" style="--card-accent:var(--accent);--card-color:var(--accent)">
+      <span class="inv-load-dot" id="invLoadDotInv"></span>
       <div class="inv-sum-label">Current Value</div>
       <div class="inv-sum-value" id="invSumCurrent">₹0</div>
       <div class="inv-sum-sub">Live + manual</div>
@@ -701,6 +704,8 @@
           <button class="inv-cat-pill"              data-cat="MF"          onclick="invSetCatPill('MF')">🏦 Mutual Fund</button>
           <button class="inv-cat-pill"              data-cat="Bond"        onclick="invSetCatPill('Bond')">📄 Bond</button>
           <button class="inv-cat-pill"              data-cat="FD"          onclick="invSetCatPill('FD')">🏧 FD</button>
+          <button class="inv-cat-pill"              data-cat="EPF"         onclick="invSetCatPill('EPF')">🏛️ EPF</button>
+          <button class="inv-cat-pill"              data-cat="ESOP"        onclick="invSetCatPill('ESOP')">💎 ESOP</button>
           <button class="inv-cat-pill"              data-cat="RealEstate"  onclick="invSetCatPill('RealEstate')">🏠 Real Estate</button>
           <button class="inv-cat-pill"              data-cat="Gold"        onclick="invSetCatPill('Gold')">🥇 Gold</button>
           <button class="inv-cat-pill"              data-cat="Others"      onclick="invSetCatPill('Others')">💼 Others</button>
@@ -713,9 +718,9 @@
           <input class="inv-form-input" id="invFormName" type="text" placeholder="e.g. Reliance Industries, HDFC Nifty 50 Fund" />
         </div>
 
-        <!-- Ticker row (Stock/MF only) -->
+        <!-- Ticker row (Stock / MF / ESOP) -->
         <div class="inv-form-field full" id="invTickerRow">
-          <label class="inv-form-label">Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(for live prices)</span></label>
+          <label class="inv-form-label" id="invTickerLabel">Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(for live prices)</span></label>
           <input class="inv-form-input" id="invFormTicker" type="text"
                  placeholder="e.g. RELIANCE.NS / INFY.NS / 0P0001FOP8.BO"
                  oninput="invTickerInput()" style="text-transform:uppercase" />
@@ -735,7 +740,7 @@
         </div>
 
         <div class="inv-form-field" id="invAvgPriceRow">
-          <label class="inv-form-label">Avg Buy Price (₹) *
+          <label class="inv-form-label" id="invAvgPriceLabel">Avg Buy Price (₹) *
             <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit</span>
           </label>
           <input class="inv-form-input" id="invFormAvgPrice" type="number" min="0" step="any"
@@ -750,27 +755,23 @@
           </div>
         </div>
 
-        <!-- Real Estate: Buy Price + Current Price (no qty) -->
+        <!-- Real Estate / EPF: Buy Price + Current Value (no qty) -->
         <div class="inv-form-field" id="invBuyPriceRow" style="display:none">
-          <label class="inv-form-label">Buy Price (₹) *
-            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> total amount paid</span>
-          </label>
+          <label class="inv-form-label"><span id="invBuyPriceLabelText">Buy Price (₹) *</span></label>
           <input class="inv-form-input" id="invFormBuyPrice" type="number" min="0" step="any"
                  placeholder="e.g. 5000000" oninput="invCalcREPreview()" />
         </div>
 
         <div class="inv-form-field" id="invCurPriceRow" style="display:none">
-          <label class="inv-form-label">Current Market Value (₹)
-            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> optional</span>
-          </label>
+          <label class="inv-form-label" id="invCurPriceLabelText">Current Market Value (₹) <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> optional</span></label>
           <input class="inv-form-input" id="invFormCurPrice" type="number" min="0" step="any"
                  placeholder="e.g. 7500000" oninput="invCalcREPreview()" />
         </div>
 
-        <!-- Read-only RE preview -->
+        <!-- Read-only RE / EPF preview -->
         <div class="inv-form-field full" id="invREPreviewRow" style="display:none">
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
-            <div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Unrealised Gain</div>
+            <div><div id="invREGainLabel" style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Unrealised Gain</div>
               <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREGainVal">—</div></div>
             <div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Return %</div>
               <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="invREReturnVal">—</div></div>

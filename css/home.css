@@ -107,6 +107,20 @@
   border-color: rgba(0,229,160,.3);
 }
 
+/* ── Live-fetch indicator dot ───────────────────────────────── */
+.inv-load-dot {
+  display: none;
+  position: absolute; top: 8px; right: 8px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #ff9500;
+  animation: invDotPulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes invDotPulse {
+  0%, 100% { opacity: 1;  transform: scale(1); }
+  50%       { opacity: .35; transform: scale(.65); }
+}
+
 /* ── Portfolio Overview Screen ──────────────────────────────── */
 #portfolioScreen {
   display: none;
@@ -240,17 +254,47 @@
 .pf-empty { font-size: .75rem; color: var(--muted); padding: .25rem 0; }
 
 @media (max-width: 700px) {
-  #portfolioScreen  { padding: 1.25rem .85rem 4rem; }
-  .pf-summary-strip { grid-template-columns: repeat(2, 1fr); gap: .6rem; margin-bottom: 1.25rem; }
+  #portfolioScreen  { padding: .9rem .85rem 3.5rem; }
+
+  /* Page header */
+  .pf-page-header   { margin-bottom: .85rem; }
+  .pf-page-title    { font-size: 1.1rem; }
+  .pf-page-sub      { font-size: .7rem; }
+
+  /* Summary strip — compact 2-col with orphan-span */
+  .pf-summary-strip { grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-bottom: .9rem; }
   .pf-summary-strip > *:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .pf-sum-card      { padding: .85rem 1rem; }
-  .pf-sum-value     { font-size: 1rem; }
-  .pf-page-title    { font-size: 1.15rem; }
-  .pf-body-grid     { grid-template-columns: 1fr; gap: .85rem; }
-  .pf-panel         { padding: 1rem 1rem; }
-  .pf-donut-wrap    { width: 170px; height: 170px; }
+  .pf-sum-card      { padding: .7rem .85rem; }
+  .pf-sum-label     { font-size: .58rem; }
+  .pf-sum-value     { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pf-sum-sub       { font-size: .58rem; }
+
+  /* Body grid — single column stack on mobile */
+  .pf-body-grid     { grid-template-columns: 1fr; gap: .75rem; }
+  .pf-panel         { padding: .75rem .9rem; }
+  .pf-panel-label   { margin-bottom: .55rem; font-size: .6rem; }
+
+  /* Donut — centred, larger since panel is now full-width */
+  .pf-donut-wrap    { width: 160px; height: 160px; margin-bottom: .85rem; }
+
+  /* Legend — hide ₹ amounts, 3-col grid */
   .pf-leg-val       { display: none; }
-  .pf-leg-item      { grid-template-columns: 10px 1fr auto; }
-  .pf-health-val    { font-size: 1.2rem; }
-  .pf-holding-val   { font-size: .78rem; }
+  .pf-leg-item      { grid-template-columns: 7px 1fr auto; gap: .35rem; font-size: .62rem; }
+  .pf-leg-dot       { width: 7px; height: 7px; }
+
+  /* Health */
+  .pf-right-col     { gap: .5rem; }
+  .pf-health-grid   { gap: .4rem; }
+  .pf-health-item   { padding: .6rem .5rem; }
+  .pf-health-val    { font-size: 1rem; }
+  .pf-health-lbl    { font-size: .52rem; }
+
+  /* Holdings */
+  .pf-holdings-list { gap: .35rem; }
+  .pf-holding-row   { padding: .38rem .45rem; gap: .45rem; }
+  .pf-holding-badge { width: 26px; height: 26px; font-size: .52rem; border-radius: 6px; }
+  .pf-holding-name  { font-size: .72rem; }
+  .pf-holding-meta  { display: none; }
+  .pf-holding-val   { font-size: .7rem; }
+  .pf-holding-pct   { font-size: .55rem; }
 }
