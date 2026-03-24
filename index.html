@@ -586,7 +586,7 @@
       <button class="btn-import" onclick="openInvImport()">⬆ Import Sheet</button>
       <button class="btn-import" onclick="invRefreshQuotes()" id="invRefreshBtn">⟳ Refresh Prices</button>
       <button class="btn-import" onclick="openInvClearModal()" style="border-color:rgba(255,107,107,.3);color:var(--accent2)">🗑 Clear</button>
-      <button class="btn" onclick="openInvModal()">+ Add Holding</button>
+      <button class="btn" onclick="openInvModal(null, invActiveCat !== 'ALL' ? invActiveCat : null)">+ Add Holding</button>
     </div>
   </div>
 
@@ -632,7 +632,10 @@
       <div class="inv-holdings-card">
         <div class="inv-holdings-head">
           <span class="inv-holdings-title">Portfolio Holdings</span>
-          <input class="inv-search" id="invSearch" placeholder="🔍 Search holdings…" oninput="renderInvTable()" />
+          <div class="inv-holdings-head-right">
+            <button class="inv-add-inline-btn" onclick="openInvModal(null, invActiveCat !== 'ALL' ? invActiveCat : null)" title="Add holding">+ Add</button>
+            <input class="inv-search" id="invSearch" placeholder="🔍 Search holdings…" oninput="renderInvTable()" />
+          </div>
         </div>
         <div class="inv-table-wrap">
           <table class="inv-table">
@@ -732,26 +735,30 @@
           <div class="inv-quote-preview" id="invQuotePreview"></div>
         </div>
 
-        <!-- Standard: Qty + Avg Price (Stock / MF / Bond / FD / Others) -->
-        <div class="inv-form-field" id="invQtyRow">
-          <label class="inv-form-label">Units / Qty *</label>
-          <input class="inv-form-input" id="invFormQty" type="number" min="0" step="any"
-                 placeholder="e.g. 10" oninput="invQtyInput()" />
-        </div>
-
-        <div class="inv-form-field" id="invAvgPriceRow">
-          <label class="inv-form-label" id="invAvgPriceLabel">Avg Buy Price (₹) *
-            <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit</span>
-          </label>
-          <input class="inv-form-input" id="invFormAvgPrice" type="number" min="0" step="any"
-                 placeholder="e.g. 2450.50" oninput="invCalcInvestedPreview()" />
-        </div>
-
-        <!-- Read-only invested preview (Stock / MF / Bond / FD / Others) -->
-        <div class="inv-form-field full" id="invInvestedPreviewRow" style="display:none">
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Total Invested (auto)</span>
-            <span style="font-family:var(--font-head);font-weight:700;font-size:.9rem;color:var(--accent4)" id="invInvestedPreviewVal">—</span>
+        <!-- Purchase Records (Stock / MF / ESOP / Bond / FD / Others) -->
+        <div class="inv-form-field full inv-lots-section" id="invLotsSection">
+          <div class="inv-lots-header">
+            <label class="inv-form-label" id="invAvgPriceLabel" style="margin:0">Purchase Records *</label>
+            <button type="button" class="inv-btn-add-lot" onclick="invAddLot()">+ Add Record</button>
+          </div>
+          <div class="inv-lots-table-wrap">
+            <table class="inv-lots-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Qty *</th>
+                  <th id="invLotsThPrice">Avg Price (₹/unit) *</th>
+                  <th>Notes</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="invLotsBody"></tbody>
+            </table>
+          </div>
+          <div class="inv-lots-summary" id="invLotsSummary">
+            Total: <strong id="invLotsTotalQty">—</strong> units &nbsp;·&nbsp;
+            Avg: <strong id="invLotsAvgPrice">—</strong> &nbsp;·&nbsp;
+            Invested: <strong id="invLotsTotalInvested">—</strong>
           </div>
         </div>
 

@@ -97,6 +97,16 @@
   padding: 1rem 1.3rem; border-bottom: 1px solid var(--border);
   gap: .75rem; flex-wrap: wrap;
 }
+.inv-holdings-head-right {
+  display: flex; align-items: center; gap: .5rem;
+}
+.inv-add-inline-btn {
+  background: rgba(0,229,160,.1); border: 1px solid rgba(0,229,160,.3);
+  color: var(--accent); border-radius: 7px; padding: .3rem .75rem;
+  font-size: .72rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: background .15s;
+}
+.inv-add-inline-btn:hover { background: rgba(0,229,160,.2); }
 .inv-holdings-title {
   font-family: var(--font-head); font-size: .9rem; font-weight: 700;
 }
@@ -392,6 +402,21 @@
 .inv-quote-price  { font-weight: 600; font-size: .85rem; }
 .inv-quote-name   { font-size: .65rem; color: var(--muted); }
 
+/* Duplicate-ticker warning inside quote preview */
+.inv-dup-warn {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem; width: 100%; flex-wrap: wrap;
+  font-size: .75rem;
+}
+.inv-dup-icon { font-size: .85rem; }
+.inv-dup-edit-btn {
+  background: rgba(77,171,247,.12); border: 1px solid rgba(77,171,247,.35);
+  color: var(--accent4); border-radius: 6px; padding: .25rem .7rem;
+  font-size: .7rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: background .15s; flex-shrink: 0;
+}
+.inv-dup-edit-btn:hover { background: rgba(77,171,247,.25); }
+
 /* ── Mobile-only elements: hidden by default, shown in ≤700px block ── */
 .inv-mobile-card-body { display: none; }
 
@@ -465,8 +490,9 @@
   }
 
   /* Holdings head: stack title + search */
-  .inv-holdings-head { flex-direction: column; align-items: stretch; gap: .5rem; }
-  .inv-search        { width: 100%; }
+  .inv-holdings-head       { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .inv-holdings-head-right { width: 100%; }
+  .inv-search              { flex: 1; }
 
   /* ── Card-style rows — replace dense table on mobile ── */
   /* Hide all table columns except Name+Category (col 1,2) */
@@ -555,6 +581,65 @@
 .toast.success { border-color:rgba(0,229,160,.3); color:var(--accent); }
 .toast.error   { border-color:rgba(255,107,107,.3); color:var(--accent2); }
 .toast.hide    { animation:fadeOut .3s ease forwards; }
+
+/* ══════════════════════════════════════════════════════════
+   Purchase Records (lots) — inside Add/Edit modal
+═══════════════════════════════════════════════════════════ */
+.inv-lots-section { grid-column: 1 / -1; }
+
+.inv-lots-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .55rem;
+}
+.inv-btn-add-lot {
+  background: rgba(0,229,160,.1); border: 1px solid rgba(0,229,160,.3);
+  color: var(--accent); border-radius: 6px; padding: .28rem .7rem;
+  font-size: .7rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background .15s;
+}
+.inv-btn-add-lot:hover { background: rgba(0,229,160,.2); }
+
+.inv-lots-table-wrap {
+  overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;
+  max-height: 240px; overflow-y: auto;
+}
+.inv-lots-table {
+  width: 100%; border-collapse: collapse; font-size: .75rem;
+  table-layout: auto;
+}
+.inv-lots-table thead th {
+  background: var(--surface2); padding: .4rem .55rem;
+  text-align: left; font-size: .6rem; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted); white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+.inv-lots-table tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+.inv-lots-table td { padding: .3rem .45rem; vertical-align: middle; }
+.inv-lots-table .inv-form-input {
+  padding: .3rem .5rem; font-size: .75rem; border-radius: 5px;
+  min-width: 0;
+}
+.inv-lots-table td:nth-child(1) { min-width: 130px; }
+.inv-lots-table td:nth-child(2) { min-width: 70px; }
+.inv-lots-table td:nth-child(3) { min-width: 100px; }
+.inv-lots-table td:nth-child(4) { width: 100%; }
+.inv-lots-table td:nth-child(5) { width: 28px; }
+
+.inv-lot-del-btn {
+  background: rgba(255,107,107,.08); border: 1px solid rgba(255,107,107,.2);
+  color: var(--accent2); border-radius: 5px; width: 22px; height: 22px;
+  font-size: .65rem; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: background .15s;
+}
+.inv-lot-del-btn:hover:not(:disabled) { background: rgba(255,107,107,.2); }
+.inv-lot-del-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+.inv-lots-summary {
+  margin-top: .5rem; padding: .45rem .75rem;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  font-size: .7rem; color: var(--muted);
+}
+.inv-lots-summary strong { color: var(--accent4); font-weight: 700; }
 
 /* ── Missing utility used in overview tab inline icon ───────── */
 .inv-ticker-icon {

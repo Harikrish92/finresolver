@@ -25,6 +25,7 @@ var invAllocChartInst = null;
 var invRefreshTimer   = null;
 var invLiveEnabled    = true;   // persisted in localStorage
 var invEditId         = null;     // null = new, string = editing
+var invLots           = [];       // active lots while add/edit modal is open
 
 /* ══════════════════════════════════════════════════════════
    HELPERS
@@ -43,7 +44,88 @@ function fmtICr(n)    {
 }
 function invEsc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function invId()      { return 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+function invLotId()   { return 'lot_' + Date.now() + '_' + Math.random().toString(36).slice(2,5); }
 function invNow()     { return Date.now(); }
+
+/* Categories that support multiple purchase records/lots */
+var INV_LOTS_CATS = ['Stock', 'MF', 'ESOP', 'Bond', 'FD', 'Others'];
+
+/* Returns the lots array for a holding; synthesises a single lot from
+   legacy qty/avgPrice fields if the holding pre-dates this feature. */
+function getHoldingLots(h) {
+  if (h.lots && h.lots.length > 0) return h.lots;
+  if ((h.qty > 0 || h.avgPrice > 0) && INV_LOTS_CATS.indexOf(h.category) >= 0) {
+    return [{ id: h.id + '_l0', qty: h.qty || 0, avgPrice: h.avgPrice || 0, date: h.date || '', notes: '' }];
+  }
+  return [];
+}
+function getTotalQtyFromLots(lots) {
+  return lots.reduce(function(s, l){ return s + (parseFloat(l.qty) || 0); }, 0);
+}
+function getWeightedAvgFromLots(lots) {
+  var totalQty = getTotalQtyFromLots(lots);
+  if (!totalQty) return 0;
+  var totalCost = lots.reduce(function(s, l){ return s + (parseFloat(l.qty)||0) * (parseFloat(l.avgPrice)||0); }, 0);
+  return totalCost / totalQty;
+}
+
+/* ── Lots UI helpers (used by modal) ──────────────────────────── */
+function invRenderLots() {
+  var tbody = document.getElementById('invLotsBody');
+  if (!tbody) return;
+  var isESOPOpt = (invSelectedCat === 'ESOP');
+  tbody.innerHTML = invLots.map(function(lot, i) {
+    return '<tr>'
+      + '<td><input type="date" class="inv-form-input inv-lot-date" value="' + invEsc(lot.date || '') + '" oninput="invUpdateLotsSummary()" /></td>'
+      + '<td><input type="number" class="inv-form-input inv-lot-qty" min="0" step="any" value="' + (lot.qty || '') + '" placeholder="10" oninput="invUpdateLotsSummary()" /></td>'
+      + '<td><input type="number" class="inv-form-input inv-lot-price" min="0" step="any" value="' + (lot.avgPrice || '') + '" placeholder="' + (isESOPOpt ? 'optional' : '0.00') + '" oninput="invUpdateLotsSummary()" /></td>'
+      + '<td><input type="text" class="inv-form-input inv-lot-notes" value="' + invEsc(lot.notes || '') + '" placeholder="optional" /></td>'
+      + '<td><button type="button" class="inv-lot-del-btn" onclick="invRemoveLot(' + i + ')"'
+      + (invLots.length <= 1 ? ' disabled' : '') + '>✕</button></td>'
+      + '</tr>';
+  }).join('');
+  invUpdateLotsSummary();
+}
+
+function invReadLotsFromDOM() {
+  var rows = document.querySelectorAll('#invLotsBody tr');
+  rows.forEach(function(row, i) {
+    if (!invLots[i]) return;
+    var inputs = row.querySelectorAll('input');
+    if (inputs[0]) invLots[i].date     = inputs[0].value;
+    if (inputs[1]) invLots[i].qty      = parseFloat(inputs[1].value) || 0;
+    if (inputs[2]) invLots[i].avgPrice = parseFloat(inputs[2].value) || 0;
+    if (inputs[3]) invLots[i].notes    = inputs[3].value;
+  });
+}
+
+function invUpdateLotsSummary() {
+  invReadLotsFromDOM();
+  var totalQty  = invLots.reduce(function(s, l){ return s + (l.qty || 0); }, 0);
+  var totalCost = invLots.reduce(function(s, l){ return s + (l.qty || 0) * (l.avgPrice || 0); }, 0);
+  var avgPrice  = totalQty ? totalCost / totalQty : 0;
+  var qtyEl = document.getElementById('invLotsTotalQty');
+  var avgEl = document.getElementById('invLotsAvgPrice');
+  var invEl = document.getElementById('invLotsTotalInvested');
+  if (qtyEl) qtyEl.textContent = totalQty ? totalQty.toLocaleString('en-IN', {maximumFractionDigits:4}) : '—';
+  if (avgEl) avgEl.textContent = totalQty ? ('₹' + avgPrice.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})) : '—';
+  if (invEl) invEl.textContent = totalCost > 0 ? ('₹' + Math.round(totalCost).toLocaleString('en-IN')) : '—';
+}
+
+function invAddLot() {
+  invReadLotsFromDOM();
+  invLots.push({ id: invLotId(), qty: 0, avgPrice: 0, date: new Date().toISOString().slice(0,10), notes: '' });
+  invRenderLots();
+  var tbody = document.getElementById('invLotsBody');
+  if (tbody) { var rows = tbody.querySelectorAll('tr'); if (rows.length) rows[rows.length-1].querySelector('input').focus(); }
+}
+
+function invRemoveLot(idx) {
+  if (invLots.length <= 1) return;
+  invReadLotsFromDOM();
+  invLots.splice(idx, 1);
+  invRenderLots();
+}
 
 var CAT_META = {
   Stock:       { label:'Stock',       class:'cat-stock',      color:'#00e5a0', icon:'📈' },
@@ -515,10 +597,12 @@ function getLiveValue(h) {
   if (h.category === 'RealEstate' || h.category === 'EPF') {
     return h.curPrice || h.buyPrice || h.avgPrice || 0;
   }
-  var qty = h.qty || 0;
-  var q   = (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP') && h.ticker && invQuoteCache[h.ticker];
+  var lots = (h.lots && h.lots.length) ? h.lots : null;
+  var qty  = lots ? getTotalQtyFromLots(lots) : (h.qty || 0);
+  var q    = (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP') && h.ticker && invQuoteCache[h.ticker];
   if (q && qty) return toInr(qPrice(q), q.currency) * qty;
-  return (h.avgPrice || 0) * qty;
+  var avgP = lots ? getWeightedAvgFromLots(lots) : (h.avgPrice || 0);
+  return avgP * qty;
 }
 
 function getCostBasis(h) {
@@ -530,6 +614,8 @@ function getCostBasis(h) {
     cost = h.buyPrice || 0;
   } else if (h.category === 'RealEstate') {
     cost = h.buyPrice || h.avgPrice || 0;
+  } else if (h.lots && h.lots.length) {
+    cost = h.lots.reduce(function(s, l){ return s + (parseFloat(l.qty)||0) * (parseFloat(l.avgPrice)||0); }, 0);
   } else {
     cost = (h.avgPrice || 0) * (h.qty || 0);
   }
@@ -608,7 +694,10 @@ function renderInvTable() {
            + '<div><div class="inv-ticker-name">' + invEsc(h.name) + '</div>'
            + (h.category === 'Gold'
                ? '<div class="inv-ticker-sub">' + (h.grams||h.qty||0) + ' g</div>'
-               : (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker) + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '') + '</div>' : ''))
+               : (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker)
+                    + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '')
+                    + (h.lots && h.lots.length > 1 ? ' · <span style="color:var(--accent4)">' + h.lots.length + ' lots</span>' : '')
+                    + '</div>' : ''))
            + '</div></div>' + mobileBody + '</td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
            + '<td style="text-align:right">'
@@ -625,7 +714,12 @@ function renderInvTable() {
                : h.category === 'RealEstate'
                ? ('<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
                  + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : ''))
-               : (h.qty ? '<div style="font-weight:600">' + h.qty + ' units</div><div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>' : '—'))
+               : (h.qty
+                  ? ('<div style="font-weight:600">' + h.qty.toLocaleString('en-IN',{maximumFractionDigits:4}) + ' units</div>'
+                    + (h.lots && h.lots.length > 1
+                      ? '<div style="font-size:.62rem;color:var(--accent4)">' + h.lots.length + ' lots · avg ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'
+                      : '<div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'))
+                  : '—'))
            + '</td>'
            + '<td style="text-align:right">' + fmtI(getCostBasis(h)) + '</td>'
            + '<td style="text-align:right;font-weight:600">' + fmtI(liveVal) + '</td>'
@@ -1355,7 +1449,7 @@ function invTimeAgo(date) {
 /* ══════════════════════════════════════════════════════════
    ADD / EDIT MODAL
 ══════════════════════════════════════════════════════════ */
-function openInvModal(id) {
+function openInvModal(id, defaultCat) {
   invEditId = id || null;
   var h = id ? investmentsData.find(function(x){ return x.id === id; }) : null;
   var modal = document.getElementById('invModal');
@@ -1367,37 +1461,42 @@ function openInvModal(id) {
   document.getElementById('invFormDate').value         = h ? (h.date||'')   : new Date().toISOString().slice(0,10);
   document.getElementById('invFormNotes').value        = h ? (h.notes||'')  : '';
 
-  var _cat   = h ? h.category : 'Stock';
+  // When adding new: honour caller-supplied defaultCat (e.g. active filter tab), else 'Stock'
+  var _cat   = h ? h.category : (defaultCat || 'Stock');
   var _isRE  = _cat === 'RealEstate';
   var _isEPF = _cat === 'EPF';
   var _isGold= _cat === 'Gold';
 
   if (_isRE || _isEPF) {
-    document.getElementById('invFormBuyPrice').value   = h ? (h.buyPrice||'')         : '';
-    document.getElementById('invFormCurPrice').value   = h ? (h.curPrice||'')         : '';
-    document.getElementById('invFormQty').value        = '';
-    document.getElementById('invFormAvgPrice').value   = '';
+    document.getElementById('invFormBuyPrice').value   = h ? (h.buyPrice||'')  : '';
+    document.getElementById('invFormCurPrice').value   = h ? (h.curPrice||'')  : '';
     document.getElementById('invFormGrams').value      = '';
     document.getElementById('invFormBuyPerGram').value = '';
+    invLots = [];
   } else if (_isGold) {
     document.getElementById('invFormGrams').value      = h ? (h.grams || h.qty || '') : '';
     document.getElementById('invFormBuyPerGram').value = h ? (h.buyPricePerGram || '') : '';
-    document.getElementById('invFormQty').value        = '';
-    document.getElementById('invFormAvgPrice').value   = '';
     document.getElementById('invFormBuyPrice').value   = '';
     document.getElementById('invFormCurPrice').value   = '';
+    invLots = [];
   } else {
-    document.getElementById('invFormQty').value        = h ? (h.qty||'')       : '';
-    document.getElementById('invFormAvgPrice').value   = h ? (h.avgPrice||'')  : '';
+    // Standard lots-based categories: initialise invLots from saved data or create a blank first lot
     document.getElementById('invFormBuyPrice').value   = '';
     document.getElementById('invFormCurPrice').value   = '';
     document.getElementById('invFormGrams').value      = '';
     document.getElementById('invFormBuyPerGram').value = '';
+    if (h && h.lots && h.lots.length > 0) {
+      invLots = h.lots.map(function(l){ return { id: l.id, qty: l.qty, avgPrice: l.avgPrice || 0, date: l.date || '', notes: l.notes || '' }; });
+    } else if (h) {
+      // Migrate legacy single qty/avgPrice entry to a lot
+      invLots = [{ id: h.id + '_l0', qty: h.qty || 0, avgPrice: h.avgPrice || 0, date: h.date || '', notes: '' }];
+    } else {
+      invLots = [{ id: invLotId(), qty: 0, avgPrice: 0, date: new Date().toISOString().slice(0,10), notes: '' }];
+    }
   }
 
-  invCalcInvestedPreview();
   invCalcREPreview();
-  invSetCatPill(h ? h.category : 'Stock');
+  invSetCatPill(_cat);
   invHideQuotePreview();
   modal.classList.remove('hidden');
 }
@@ -1461,20 +1560,24 @@ function invSetCatPill(cat) {
     ? 'e.g. INFY.NS (leave blank for manual value)'
     : 'e.g. RELIANCE.NS / INFY.NS / 0P0001FOP8.BO';
 
-  // Standard qty + avgPrice rows: hide for RE / Gold / EPF
-  var qtyRow        = document.getElementById('invQtyRow');
-  var avgPriceRow   = document.getElementById('invAvgPriceRow');
+  // Purchase records (lots) section: show for Stock / MF / ESOP / Bond / FD / Others
+  var lotsSection   = document.getElementById('invLotsSection');
   var avgPriceLabel = document.getElementById('invAvgPriceLabel');
-  var previewRow    = document.getElementById('invInvestedPreviewRow');
-  if (qtyRow)      qtyRow.style.display     = isSpecial ? 'none' : '';
-  if (avgPriceRow) avgPriceRow.style.display = isSpecial ? 'none' : '';
-  if (previewRow)  previewRow.style.display  = 'none';
-  // For ESOP the avg buy price (grant price) is optional
+  var thPrice       = document.getElementById('invLotsThPrice');
+  if (lotsSection) lotsSection.style.display = isSpecial ? 'none' : '';
+  // Section header label
   if (avgPriceLabel) {
     avgPriceLabel.innerHTML = isESOPOpt
-      ? 'Avg Buy Price (₹) <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit (optional)</span>'
-      : 'Avg Buy Price (₹) * <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem"> per unit</span>';
+      ? 'Purchase Records <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(grant price optional)</span>'
+      : 'Purchase Records *';
   }
+  // Price column header in the lots table
+  if (thPrice) thPrice.textContent = isESOPOpt ? 'Grant Price (₹/unit)' : 'Avg Price (₹/unit) *';
+  // When switching to a lots category and invLots is empty, seed one blank lot
+  if (!isSpecial && invLots.length === 0) {
+    invLots = [{ id: invLotId(), qty: 0, avgPrice: 0, date: new Date().toISOString().slice(0,10), notes: '' }];
+  }
+  if (!isSpecial) invRenderLots();
 
   // RE / EPF shared rows (buy price + current value)
   var buyPriceRow      = document.getElementById('invBuyPriceRow');
@@ -1522,6 +1625,26 @@ function invTickerInput() {
   clearTimeout(invQuoteDebounce);
   var ticker = document.getElementById('invFormTicker').value.trim().toUpperCase();
   if (!ticker) { invHideQuotePreview(); return; }
+
+  // Immediate duplicate check — only when adding a new holding
+  if (!invEditId) {
+    var dup = investmentsData.find(function(x){ return x.ticker && x.ticker.toUpperCase() === ticker; });
+    if (dup) {
+      var preview = document.getElementById('invQuotePreview');
+      if (preview) {
+        preview.className = 'inv-quote-preview show';
+        preview.innerHTML =
+          '<div class="inv-dup-warn">'
+          + '<div><span class="inv-dup-icon">⚠</span>'
+          + ' <strong>' + invEsc(dup.name) + '</strong> (' + invEsc(dup.category) + ') is already in your portfolio.</div>'
+          + '<button class="inv-dup-edit-btn" onclick="openInvModal(\'' + dup.id + '\')">'
+          + 'Switch to Edit →</button>'
+          + '</div>';
+      }
+      return; // Skip the API fetch
+    }
+  }
+
   invQuoteDebounce = setTimeout(function(){ invFetchModalQuote(ticker); }, 700);
 }
 
@@ -1557,11 +1680,11 @@ function invFetchModalQuote(ticker) {
 
       // Auto-fill avg buy price with the INR-equivalent so the field (which
       // is always stored in ₹) receives the correct value regardless of the
-      // stock's native currency.
-      var avgPriceEl = document.getElementById('invFormAvgPrice');
-      if (avgPriceEl && !avgPriceEl.value) {
-        avgPriceEl.value = inrPrice.toFixed(2);
-        invCalcInvestedPreview();
+      // stock's native currency — auto-fill first lot's price if it is blank
+      var firstLotPrice = document.querySelector('#invLotsBody tr:first-child .inv-lot-price');
+      if (firstLotPrice && !firstLotPrice.value) {
+        firstLotPrice.value = inrPrice.toFixed(2);
+        invUpdateLotsSummary();
       }
     }
   }).catch(function() {
@@ -1628,22 +1751,9 @@ function invCalcGoldPreview() {
 }
 
 
-function invCalcInvestedPreview() {
-  var qty      = parseFloat(document.getElementById('invFormQty').value)      || 0;
-  var avgPrice = parseFloat(document.getElementById('invFormAvgPrice').value) || 0;
-  var row = document.getElementById('invInvestedPreviewRow');
-  var val = document.getElementById('invInvestedPreviewVal');
-  if (qty > 0 && avgPrice > 0) {
-    var total = qty * avgPrice;
-    if (val) val.textContent = '₹' + total.toLocaleString('en-IN', {maximumFractionDigits: 2});
-    if (row) row.style.display = '';
-  } else {
-    if (row) row.style.display = 'none';
-  }
-}
-
-/* Also called invQtyInput for backward compat */
-function invQtyInput() { invCalcInvestedPreview(); }
+/* Kept for backward compat — now delegates to the lots summary */
+function invCalcInvestedPreview() { invUpdateLotsSummary(); }
+function invQtyInput() { invUpdateLotsSummary(); }
 
 function saveInvHolding() {
   var name  = document.getElementById('invFormName').value.trim();
@@ -1719,22 +1829,28 @@ function saveInvHolding() {
         : Date.now(),
     };
   } else {
-    /* ── Standard: qty + avgPrice (Stock / MF / Bond / FD / ESOP / Others) ── */
-    var ticker   = document.getElementById('invFormTicker').value.trim().toUpperCase();
-    var qty      = parseFloat(document.getElementById('invFormQty').value)      || 0;
-    var avgPrice = parseFloat(document.getElementById('invFormAvgPrice').value) || 0;
+    /* ── Standard (lots): Stock / MF / ESOP / Bond / FD / Others ── */
+    var ticker = document.getElementById('invFormTicker').value.trim().toUpperCase();
     var isOptionalAvg = (invSelectedCat === 'ESOP');
-    if (qty <= 0) { alert('Please enter the number of units / qty.'); return; }
-    if (avgPrice <= 0 && !isOptionalAvg) { alert('Please enter the average buy price per unit.'); return; }
+    invReadLotsFromDOM();
+    var validLots = invLots.filter(function(l){ return (parseFloat(l.qty) || 0) > 0; });
+    if (!validLots.length) { alert('Please enter the quantity for at least one purchase record.'); return; }
+    if (!isOptionalAvg && validLots.some(function(l){ return !(parseFloat(l.avgPrice) > 0); })) {
+      alert('Please enter the avg buy price for all purchase records.'); return;
+    }
     var saveTicker = (invSelectedCat === 'Stock' || invSelectedCat === 'MF' || invSelectedCat === 'ESOP') ? ticker : '';
+    var totalQty   = validLots.reduce(function(s, l){ return s + (parseFloat(l.qty) || 0); }, 0);
+    var totalCost  = validLots.reduce(function(s, l){ return s + (parseFloat(l.qty)||0) * (parseFloat(l.avgPrice)||0); }, 0);
+    var weightedAvg = totalQty ? totalCost / totalQty : 0;
     h = {
       id:        invEditId || invId(),
       name:      name,
       category:  invSelectedCat,
       ticker:    saveTicker,
-      qty:       qty,
-      avgPrice:  avgPrice,
-      date:      date,
+      lots:      validLots.map(function(l){ return { id: l.id || invLotId(), qty: parseFloat(l.qty)||0, avgPrice: parseFloat(l.avgPrice)||0, date: l.date||'', notes: l.notes||'' }; }),
+      qty:       totalQty,        // kept for backward compat / aggregations
+      avgPrice:  weightedAvg,     // kept for backward compat
+      date:      validLots[0].date || date,
       notes:     notes,
       createdAt: invEditId
         ? ((investmentsData.find(function(x){ return x.id === invEditId; }) || {}).createdAt || Date.now())
