@@ -371,12 +371,12 @@ select.loan-form-input { cursor: pointer; }
 }
 
 /* ── Light theme overrides ──────────────────────────────────── */
-body.theme-light .loan-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.1); }
-body.theme-light .amort-table tr:hover td { background: #f8f9fc; }
-body.theme-light .loan-sum-card,
-body.theme-light .detail-metric { box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-body.theme-light .amort-table td { border-bottom-color: rgba(221,225,236,.7); }
-body.theme-light .payment-log-item:hover { background: #f8f9fc; }
-body.theme-light .loan-modal { box-shadow: 0 24px 64px rgba(0,0,0,.12); }
-body.theme-light .loan-form-input { background: var(--surface); }
-body.theme-light .add-payment-row input { background: var(--surface); }
+html.theme-light .loan-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.1); }
+html.theme-light .amort-table tr:hover td { background: #f8f9fc; }
+html.theme-light .loan-sum-card,
+html.theme-light .detail-metric { box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+html.theme-light .amort-table td { border-bottom-color: rgba(221,225,236,.7); }
+html.theme-light .payment-log-item:hover { background: #f8f9fc; }
+html.theme-light .loan-modal { box-shadow: 0 24px 64px rgba(0,0,0,.12); }
+html.theme-light .loan-form-input { background: var(--surface); }
+html.theme-light .add-payment-row input { background: var(--surface); }

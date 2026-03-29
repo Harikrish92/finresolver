@@ -1888,6 +1888,54 @@ function invDeleteHolding(id) {
   renderInvLivePanel();
 }
 
+/* ── Quick-add (inline add-row — mirrors monthly tracker pattern) ──────── */
+function invQuickAdd() {
+  var catEl  = document.getElementById('invQACat');
+  var nameEl = document.getElementById('invQAName');
+  var valEl  = document.getElementById('invQAValue');
+  var cat    = catEl  ? catEl.value.trim()          : 'Others';
+  var name   = nameEl ? nameEl.value.trim()          : '';
+  var val    = valEl  ? parseFloat(valEl.value) || 0 : 0;
+
+  if (!name) { nameEl && nameEl.focus(); return; }
+  if (val <= 0) { valEl && valEl.focus(); return; }
+
+  var h = {
+    id:        invId(),
+    name:      name,
+    category:  cat,
+    ticker:    '',
+    qty:       1,
+    avgPrice:  val,
+    buyPrice:  val,
+    curPrice:  val,
+    lots:      [{ id: invLotId(), qty: 1, avgPrice: val, date: new Date().toISOString().slice(0,10), notes: '' }],
+    date:      new Date().toISOString().slice(0,10),
+    notes:     '',
+    createdAt: Date.now(),
+  };
+
+  /* Gold & RealEstate/EPF don't use lots — use value-only approach */
+  if (cat === 'Gold') {
+    h.grams = 0; h.buyPricePerGram = 0; h.lots = undefined;
+    /* Treat entered value as total cost; leave grams=0 (user can edit later) */
+    h.qty = 0; h.avgPrice = 0; h.buyPrice = val; h.curPrice = val;
+  } else if (cat === 'RealEstate' || cat === 'EPF') {
+    h.lots = undefined;
+  }
+
+  investmentsData.push(h);
+  saveInvestments();
+
+  /* Clear inputs */
+  if (nameEl) nameEl.value = '';
+  if (valEl)  valEl.value  = '';
+  if (nameEl) nameEl.focus();
+
+  renderInvSummary(); renderInvTabs(); renderInvTable(); renderInvAlloc(); renderInvLivePanel();
+  showToast(name + ' added', 'success');
+}
+
 /* ══════════════════════════════════════════════════════════
    INVESTMENT SHEET IMPORT
    Columns: Name | Ticker | Quantity | Avg Price | Category (opt) | Date (opt)
@@ -2284,7 +2332,13 @@ function confirmInvClear() {
 }
 
 function initInvestments() {
-  // Called on page load — nothing to do until goToInvestments()
+  /* Wire Enter key for the inline quick-add row */
+  ['invQAName', 'invQAValue'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') invQuickAdd();
+    });
+  });
 }
 
 

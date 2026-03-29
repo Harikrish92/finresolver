@@ -85,6 +85,31 @@
   min-width: 0;
 }
 
+/* ── Quick-add row (inline, mirrors monthly tracker add-row) ── */
+.inv-quick-add-row {
+  /* inherits .add-row layout; just add category select + full-form link */
+  flex-wrap: wrap;
+}
+.inv-qa-select {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-mono);
+  font-size: .76rem; padding: .38rem .55rem;
+  border-radius: 6px; cursor: pointer; flex-shrink: 0;
+  max-width: 138px; transition: border-color .2s;
+}
+.inv-qa-select:focus { outline: none; border-color: var(--accent4); }
+.inv-qa-full-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--font-mono);
+  font-size: .72rem; padding: .38rem .7rem;
+  border-radius: 6px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: border-color .2s, color .2s, background .2s;
+}
+.inv-qa-full-btn:hover {
+  border-color: var(--accent4); color: var(--accent4);
+  background: rgba(77,171,247,.07);
+}
+
 /* ── Holdings table card ────────────────────────────────────── */
 .inv-holdings-card {
   background: var(--surface); border: 1px solid var(--border);

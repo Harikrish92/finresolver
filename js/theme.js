@@ -22,12 +22,12 @@ const CHART_COLORS = {
 };
 
 function getCurrentTheme() {
-  return localStorage.getItem(THEME_KEY) || 'dark';
+  return localStorage.getItem(THEME_KEY) || 'light';
 }
 
 function applyTheme(theme, skipCharts = false) {
   const isDark = theme === 'dark';
-  document.body.classList.toggle('theme-light', !isDark);
+  document.documentElement.classList.toggle('theme-light', !isDark);
 
   // Update toggle icon
   const btn = document.getElementById('themeToggle');

@@ -132,7 +132,7 @@ main {
 }
 .card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 1.1rem 1.25rem;
+  border-radius: var(--radius); padding: 1rem 1.2rem;
   position: relative; overflow: hidden;
   transition: border-color .2s, transform .15s;
   animation: fadeUp .35s ease both;
@@ -218,6 +218,39 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 4px; transition: background .15s; font-family: var(--font-mono);
 }
 .btn-del:hover { background: rgba(255,107,107,.15); }
+
+/* ── Row edit controls ── */
+.btn-row-edit {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: .78rem; padding: .1rem .3rem;
+  border-radius: 4px; opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+}
+tbody tr:hover .btn-row-edit { opacity: 1; }
+.btn-row-edit:hover { background: rgba(77,171,247,.14); color: var(--accent4); }
+
+.btn-row-save {
+  background: var(--accent); color: #000; border: none;
+  font-size: .72rem; font-weight: 700; padding: .22rem .55rem;
+  border-radius: 5px; cursor: pointer; font-family: var(--font-head);
+  transition: opacity .15s;
+}
+.btn-row-save:hover { opacity: .85; }
+
+/* Inline edit row inputs */
+tbody tr.editing { background: var(--surface2) !important; }
+.row-edit-fields {
+  display: flex; gap: .4rem; align-items: center;
+}
+.row-edit-input {
+  background: var(--surface); border: 1px solid var(--accent4);
+  color: var(--text); font-family: var(--font-mono);
+  font-size: .76rem; padding: .28rem .5rem;
+  border-radius: 5px; outline: none; flex: 1;
+  transition: border-color .15s;
+}
+.row-edit-input:focus { border-color: var(--accent); }
+.row-edit-amt { max-width: 100px; flex: 0 0 auto; }
 
 /* ── Checklist ── */
 .checklist-grid {

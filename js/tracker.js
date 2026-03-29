@@ -23,6 +23,51 @@ function delRow(type, idx) {
   saveData(); render();
 }
 
+/* ── Inline row editing ───────────────────────────────────── */
+function startEditRow(type, idx) {
+  const row = document.getElementById(`tr-${type}-${idx}`);
+  if (!row) return;
+  const r = data[type][idx];
+  row.classList.add('editing');
+  row.innerHTML = `
+    <td colspan="2">
+      <div class="row-edit-fields">
+        <input class="row-edit-input" id="edit-desc-${type}-${idx}"
+               value="${escHtml(r.desc)}" placeholder="Description" />
+        <input class="row-edit-input row-edit-amt" type="number"
+               id="edit-amt-${type}-${idx}" value="${r.amount}" placeholder="Amount" />
+      </div>
+    </td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn-row-save" onclick="saveEditRow('${type}',${idx})" title="Save">✓</button>
+    </td>
+    <td>
+      <button class="btn-del" onclick="cancelEditRow('${type}',${idx})" title="Cancel">✕</button>
+    </td>`;
+  const descEl = document.getElementById(`edit-desc-${type}-${idx}`);
+  const amtEl  = document.getElementById(`edit-amt-${type}-${idx}`);
+  if (descEl) { descEl.focus(); descEl.select(); }
+  [descEl, amtEl].forEach(el => {
+    if (!el) return;
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  saveEditRow(type, idx);
+      if (e.key === 'Escape') cancelEditRow(type, idx);
+    });
+  });
+}
+
+function saveEditRow(type, idx) {
+  const desc   = (document.getElementById(`edit-desc-${type}-${idx}`) || {}).value?.trim();
+  const amount = Number((document.getElementById(`edit-amt-${type}-${idx}`) || {}).value);
+  if (!desc || !amount || amount <= 0) return;
+  data[type][idx] = { desc, amount };
+  saveData(); render();
+}
+
+function cancelEditRow(type, idx) {
+  render();
+}
+
 /* ── Checklist ────────────────────────────────────────────── */
 function toggleCheck(i) {
   data.checklist[i].done = !data.checklist[i].done;

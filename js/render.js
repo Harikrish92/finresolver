@@ -63,14 +63,17 @@ function renderTable(type, bodyId, amtClass) {
   const rows  = data[type];
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty">No entries yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">No entries yet</td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.map((r, i) => `
-    <tr>
+    <tr id="tr-${type}-${i}">
       <td>${escHtml(r.desc)}</td>
       <td class="${amtClass}">${fmt(r.amount)}</td>
+      <td>
+        <button class="btn-row-edit" onclick="startEditRow('${type}',${i})" title="Edit entry">✏️</button>
+      </td>
       <td>
         <button class="btn-del" onclick="delRow('${type}',${i})" title="Delete entry">✕</button>
       </td>

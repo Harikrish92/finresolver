@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="FinResolver" />
-  <meta name="theme-color" content="#0a0d12" />
+  <meta name="theme-color" content="#eeecea" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="finresolver.png" />
@@ -655,6 +655,24 @@
             <tbody id="invTbody"></tbody>
           </table>
         </div>
+        <!-- Inline quick-add row — mirrors monthly tracker add-row pattern -->
+        <div class="add-row inv-quick-add-row">
+          <select id="invQACat" class="inv-qa-select" title="Category">
+            <option value="Stock">📈 Stock</option>
+            <option value="MF">🏦 Mutual Fund</option>
+            <option value="FD">🏧 FD</option>
+            <option value="Bond">📄 Bond</option>
+            <option value="EPF">🏛️ EPF</option>
+            <option value="ESOP">💎 ESOP</option>
+            <option value="RealEstate">🏠 Real Estate</option>
+            <option value="Gold">🥇 Gold</option>
+            <option value="Others">💼 Others</option>
+          </select>
+          <input type="text"   id="invQAName"  placeholder="Name / Description" />
+          <input type="number" id="invQAValue" placeholder="Current value (₹)" style="max-width:160px" />
+          <button class="btn" onclick="invQuickAdd()">+ Add</button>
+          <button class="inv-qa-full-btn" onclick="openInvModal(null, (document.getElementById('invQACat')||{}).value)" title="Open full form for ticker, lots, buy price…">Full Form ↗</button>
+        </div>
       </div>
 
       <!-- Detail panel (overview / chart / financials / news) -->
@@ -1038,7 +1056,7 @@
         <span class="total-row">Total: <span class="total-val amount-neg" id="expTotal">₹0</span></span>
       </div>
       <table>
-        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="28"></th><th width="28"></th></tr></thead>
         <tbody id="expBody"></tbody>
       </table>
       <div class="add-row">
@@ -1054,7 +1072,7 @@
         <span class="total-row">Total: <span class="total-val amount-pos" id="incTotal">₹0</span></span>
       </div>
       <table>
-        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="28"></th><th width="28"></th></tr></thead>
         <tbody id="incBody"></tbody>
       </table>
       <div class="add-row">
@@ -1082,7 +1100,7 @@
         <span class="total-row">Total: <span class="total-val amount-inv" id="invTotal">₹0</span></span>
       </div>
       <table>
-        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="28"></th><th width="28"></th></tr></thead>
         <tbody id="invBody"></tbody>
       </table>
       <div class="add-row">
@@ -1098,7 +1116,7 @@
         <span class="total-row">Total: <span class="total-val amount-loan" id="loanTotal">₹0</span></span>
       </div>
       <table>
-        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="32"></th></tr></thead>
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th><th width="28"></th><th width="28"></th></tr></thead>
         <tbody id="loanBody"></tbody>
       </table>
       <div class="add-row">
