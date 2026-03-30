@@ -110,7 +110,8 @@
   .home-nav-card { padding: 1.25rem 1rem !important; }
   .home-nav-icon { font-size: 1.8rem !important; }
   .home-nav-title { font-size: .85rem !important; }
-  .home-stats-row { grid-template-columns: 1fr 1fr !important; }
+  .home-nav-stat { font-size: 1.2rem !important; }
+  .home-nav-stat-label { font-size: .56rem !important; }
 }
 
 /* ── Guest banner ───────────────────────────────────────────── */

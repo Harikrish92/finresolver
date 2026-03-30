@@ -786,13 +786,16 @@ function renderInvAlloc() {
       var _ctx = chart.ctx, ca = chart.chartArea;
       var cx = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
       var label = total >= 1e5 ? (total / 1e5).toFixed(1) + 'L' : fmtI(total);
+      var cs = getComputedStyle(document.documentElement);
+      var textColor  = cs.getPropertyValue('--text').trim()  || '#e8edf5';
+      var mutedColor = cs.getPropertyValue('--muted').trim() || '#6b7a99';
       _ctx.save();
       _ctx.textAlign = 'center'; _ctx.textBaseline = 'middle';
       _ctx.font = '700 13px Syne, sans-serif';
-      _ctx.fillStyle = '#e8edf5';
+      _ctx.fillStyle = textColor;
       _ctx.fillText(label, cx, cy - 8);
       _ctx.font = '400 9px DM Mono, monospace';
-      _ctx.fillStyle = '#6b7a99';
+      _ctx.fillStyle = mutedColor;
       _ctx.fillText('Portfolio', cx, cy + 9);
       _ctx.restore();
     }

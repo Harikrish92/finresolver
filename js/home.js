@@ -371,6 +371,16 @@ function renderPortfolioOverview() {
       : savingsRate >= 10 ? 'var(--accent3)' : 'var(--accent2)';
   }
 
+  // FIRE panel
+  const fireNumber = avgMonthlyExp * 12 * 25;
+  const pfFireEl = document.getElementById('pfFireNumber');
+  if (pfFireEl) {
+    pfFireEl.textContent = fireNumber > 0 ? fmt(fireNumber) : '—';
+    pfFireEl.style.color = fireNumber > 0 ? 'var(--accent3)' : 'var(--muted)';
+  }
+  setText('pfFireMonthly', avgMonthlyExp > 0 ? fmt(avgMonthlyExp) : '—');
+  setText('pfFireAnnual',  avgMonthlyExp > 0 ? fmt(avgMonthlyExp * 12) : '—');
+
   // Health panel
   const drEl = document.getElementById('pfDebtRatio');
   if (drEl) {
@@ -405,14 +415,17 @@ function renderPortfolioOverview() {
         const { ctx, chartArea } = chart;
         const cx = (chartArea.left + chartArea.right) / 2;
         const cy = (chartArea.top + chartArea.bottom) / 2;
+        const cs = getComputedStyle(document.documentElement);
+        const textColor  = cs.getPropertyValue('--text').trim()  || '#e8edf5';
+        const mutedColor = cs.getPropertyValue('--muted').trim() || '#6b7a99';
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = '700 13px Syne, sans-serif';
-        ctx.fillStyle = '#e8edf5';
+        ctx.fillStyle = textColor;
         ctx.fillText(totalInvValue > 0 ? fmt(totalInvValue) : '—', cx, cy - 9);
         ctx.font = '400 9px DM Mono, monospace';
-        ctx.fillStyle = '#6b7a99';
+        ctx.fillStyle = mutedColor;
         ctx.fillText('INVESTED', cx, cy + 9);
         ctx.restore();
       }

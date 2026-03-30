@@ -59,12 +59,12 @@ function renderFIRE() {
   const progress = fireNumber > 0 ? Math.min((currentBalance / fireNumber) * 100, 100) : 0;
   const monthsOfData = allMonths.length;
 
-  document.getElementById('fireNumber').textContent     = fmtCrore(fireNumber);
-  const fn2 = document.getElementById('fireNumber2');
-  if (fn2) fn2.textContent = fmtCrore(fireNumber);
-  document.getElementById('fireAnnualExp').textContent  = fmt(annualExp);
-  document.getElementById('fireMonthlyExp').textContent = fmt(avgMonthlyExp);
-  document.getElementById('fireDataMonths').textContent = monthsOfData + (monthsOfData === 1 ? ' month' : ' months');
+  const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setT('fireNumber',    fmtCrore(fireNumber));
+  setT('fireNumber2',   fmtCrore(fireNumber));
+  setT('fireAnnualExp', fmt(annualExp));
+  setT('fireMonthlyExp', fmt(avgMonthlyExp));
+  setT('fireDataMonths', monthsOfData + (monthsOfData === 1 ? ' month' : ' months'));
 
   // Progress bar
   const bar = document.getElementById('fireProgressBar');

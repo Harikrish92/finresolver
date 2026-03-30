@@ -7,14 +7,20 @@
 function addRow(type) {
   const descId = { expense:'expDesc', income:'incDesc', investment:'invDesc', loan:'loanDesc' }[type];
   const amtId  = { expense:'expAmt',  income:'incAmt',  investment:'invAmt',  loan:'loanAmt'  }[type];
+  const dateId = { expense:'expDate', income:'incDate', investment:'invDate', loan:'loanDate' }[type];
 
   const desc   = document.getElementById(descId).value.trim();
   const amount = Number(document.getElementById(amtId).value);
   if (!desc || !amount || amount <= 0) return;
 
-  data[type].push({ desc, amount });
+  const dateEl = document.getElementById(dateId);
+  const date   = dateEl ? dateEl.value : '';
+  const entry  = date ? { desc, amount, date } : { desc, amount };
+
+  data[type].push(entry);
   document.getElementById(descId).value = '';
   document.getElementById(amtId).value  = '';
+  if (dateEl) dateEl.value = '';
   saveData(); render();
 }
 
@@ -36,6 +42,8 @@ function startEditRow(type, idx) {
                value="${escHtml(r.desc)}" placeholder="Description" />
         <input class="row-edit-input row-edit-amt" type="number"
                id="edit-amt-${type}-${idx}" value="${r.amount}" placeholder="Amount" />
+        <input class="row-edit-input row-edit-date" type="date"
+               id="edit-date-${type}-${idx}" value="${r.date || ''}" title="Date (optional)" />
       </div>
     </td>
     <td style="text-align:right;white-space:nowrap">
@@ -60,7 +68,8 @@ function saveEditRow(type, idx) {
   const desc   = (document.getElementById(`edit-desc-${type}-${idx}`) || {}).value?.trim();
   const amount = Number((document.getElementById(`edit-amt-${type}-${idx}`) || {}).value);
   if (!desc || !amount || amount <= 0) return;
-  data[type][idx] = { desc, amount };
+  const date   = (document.getElementById(`edit-date-${type}-${idx}`) || {}).value || '';
+  data[type][idx] = date ? { desc, amount, date } : { desc, amount };
   saveData(); render();
 }
 
@@ -100,10 +109,10 @@ function initTrackerEvents() {
     .addEventListener('input', onInitialAmountChange);
 
   const enterMap = {
-    expDesc: 'expense',  expAmt: 'expense',
-    incDesc: 'income',   incAmt: 'income',
-    invDesc: 'investment', invAmt: 'investment',
-    loanDesc: 'loan',    loanAmt: 'loan',
+    expDesc: 'expense',  expAmt: 'expense',  expDate: 'expense',
+    incDesc: 'income',   incAmt: 'income',   incDate: 'income',
+    invDesc: 'investment', invAmt: 'investment', invDate: 'investment',
+    loanDesc: 'loan',    loanAmt: 'loan',    loanDate: 'loan',
   };
   Object.entries(enterMap).forEach(([id, type]) => {
     document.getElementById(id).addEventListener('keydown', e => {

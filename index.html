@@ -58,10 +58,26 @@
     </div>
 
     <div class="login-features">
-      <div class="login-feat"><strong>📊 Monthly Tracker</strong>Expenses, income, investments &amp; loan payments in one place</div>
-      <div class="login-feat"><strong>📈 Investment Tracker</strong>Live prices for stocks &amp; MFs, financials &amp; portfolio</div>
-      <div class="login-feat"><strong>🏦 Loan Tracker</strong>EMI schedule, amortization &amp; payoff timeline</div>
-      <div class="login-feat"><strong>🔥 FIRE &amp; Insights</strong>FIRE number, YTD savings &amp; spending insights</div>
+      <div class="login-feat tracker">
+        <div class="login-feat-icon">📊</div>
+        <strong>Monthly Tracker</strong>
+        Expenses, income, investments &amp; loan payments in one place
+      </div>
+      <div class="login-feat investment">
+        <div class="login-feat-icon">📈</div>
+        <strong>Investment Tracker</strong>
+        Live prices for stocks &amp; MFs, financials &amp; portfolio
+      </div>
+      <div class="login-feat loan">
+        <div class="login-feat-icon">🏦</div>
+        <strong>Loan Tracker</strong>
+        EMI schedule, amortization &amp; payoff timeline
+      </div>
+      <div class="login-feat fire">
+        <div class="login-feat-icon">🔥</div>
+        <strong>FIRE &amp; Insights</strong>
+        FIRE number, YTD savings &amp; spending insights
+      </div>
     </div>
 
     <button id="btnGoogleLogin" class="btn-google" onclick="loginWithGoogle()">
@@ -220,45 +236,25 @@
     <div class="home-welcome-sub">Here's your financial overview for <span id="homeMonthName"></span></div>
   </div>
 
-  <!-- Quick stats -->
-  <div class="home-stats-row">
-    <div class="home-stat-card" style="--card-accent:var(--accent3)">
-      <div class="home-stat-label">FIRE Number</div>
-      <div class="home-stat-value" id="homeStatFire" style="color:var(--accent3)">—</div>
-      <div class="home-stat-sub">25× annual expenses</div>
-    </div>
-    <div class="home-stat-card" style="--card-accent:var(--accent4)">
-      <span class="inv-load-dot" id="invLoadDotHome"></span>
-      <div class="home-stat-label">Total Investments</div>
-      <div class="home-stat-value" id="homeStatInvestments" style="color:var(--accent4)">—</div>
-      <div class="home-stat-sub">Current portfolio value</div>
-    </div>
-    <div class="home-stat-card" style="--card-accent:var(--accent2)">
-      <div class="home-stat-label">Total Loan Balance</div>
-      <div class="home-stat-value" id="homeStatLoans" style="color:var(--accent2)">—</div>
-      <div class="home-stat-sub">Outstanding across all loans</div>
-    </div>
-    <div class="home-stat-card" style="--card-accent:var(--accent)">
-      <div class="home-stat-label">YTD Savings</div>
-      <div class="home-stat-value" id="homeStatYTD" style="color:var(--accent)">₹0</div>
-      <div class="home-stat-sub">Income − Expenses − Loan repayments</div>
-    </div>
-  </div>
-
-  <!-- Navigation cards -->
+  <!-- Tracker cards with core stats -->
   <div class="home-section-label">Your Modules</div>
   <div class="home-nav-grid">
 
     <div class="home-nav-card tracker" onclick="goToTracker()">
       <div class="home-nav-icon">📊</div>
       <div class="home-nav-title">Monthly Tracker</div>
+      <div class="home-nav-stat" id="homeStatYTD" style="color:var(--accent)">—</div>
+      <div class="home-nav-stat-label">YTD Savings</div>
       <div class="home-nav-desc">Expenses, income, investments &amp; loans</div>
       <div class="home-nav-badge live">Live</div>
     </div>
 
     <div class="home-nav-card investment" onclick="goToInvestments()">
+      <span class="inv-load-dot" id="invLoadDotHome"></span>
       <div class="home-nav-icon">📈</div>
       <div class="home-nav-title">Investment Tracker</div>
+      <div class="home-nav-stat" id="homeStatInvestments" style="color:var(--accent4)">—</div>
+      <div class="home-nav-stat-label">Portfolio Value</div>
       <div class="home-nav-desc">Stocks, MF, FD &amp; portfolio returns</div>
       <div class="home-nav-badge live">Live</div>
     </div>
@@ -266,22 +262,19 @@
     <div class="home-nav-card loan" onclick="goToLoans()">
       <div class="home-nav-icon">🏦</div>
       <div class="home-nav-title">Loan Tracker</div>
+      <div class="home-nav-stat" id="homeStatLoans" style="color:var(--accent2)">—</div>
+      <div class="home-nav-stat-label">Outstanding Balance</div>
       <div class="home-nav-desc">EMIs, interest &amp; payoff timeline</div>
       <div class="home-nav-badge live">Live</div>
     </div>
 
     <div class="home-nav-card portfolio" onclick="goToPortfolio()">
-      <div class="home-nav-icon">🗂️</div>
-      <div class="home-nav-title">Portfolio Overview</div>
-      <div class="home-nav-desc">Net worth &amp; asset allocation</div>
+      <div class="home-nav-icon">🔥</div>
+      <div class="home-nav-title">FIRE &amp; Insights</div>
+      <div class="home-nav-stat" id="homeStatFire" style="color:var(--accent3)">—</div>
+      <div class="home-nav-stat-label">FIRE Number</div>
+      <div class="home-nav-desc">Net worth, savings rate &amp; FIRE progress</div>
       <div class="home-nav-badge live">Live</div>
-    </div>
-
-    <div class="home-nav-card lifestyle coming-soon">
-      <div class="home-nav-icon">🌿</div>
-      <div class="home-nav-title">Lifestyle Tracker</div>
-      <div class="home-nav-desc">Goals, habits &amp; spending quality</div>
-      <div class="home-nav-badge">Coming Soon</div>
     </div>
 
   </div>
@@ -346,9 +339,19 @@
     <!-- Right: Health metrics + Top holdings -->
     <div class="pf-right-col">
 
-      <div class="pf-panel pf-health-panel">
-        <div class="pf-panel-label">Financial Health</div>
-        <div class="pf-health-grid">
+      <div class="pf-panel pf-fire-panel">
+        <div class="pf-panel-label">🔥 FIRE &amp; Financial Health</div>
+        <div class="pf-fire-number" id="pfFireNumber">—</div>
+        <div class="pf-fire-sub">FIRE Number &nbsp;·&nbsp; 25× annual expenses</div>
+        <div class="pf-health-grid" style="margin-top:1rem">
+          <div class="pf-health-item">
+            <div class="pf-health-val" id="pfFireMonthly">—</div>
+            <div class="pf-health-lbl">Avg Monthly Exp</div>
+          </div>
+          <div class="pf-health-item">
+            <div class="pf-health-val" id="pfFireAnnual">—</div>
+            <div class="pf-health-lbl">Annual Expenses</div>
+          </div>
           <div class="pf-health-item">
             <div class="pf-health-val" id="pfDebtRatio">—</div>
             <div class="pf-health-lbl">Debt / Assets</div>
@@ -1062,6 +1065,7 @@
       <div class="add-row">
         <input type="text"   id="expDesc" placeholder="Description" />
         <input type="number" id="expAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="date"   id="expDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('expense')">+ Add</button>
       </div>
     </div>
@@ -1078,6 +1082,7 @@
       <div class="add-row">
         <input type="text"   id="incDesc" placeholder="Description" />
         <input type="number" id="incAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="date"   id="incDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('income')">+ Add</button>
       </div>
     </div>
@@ -1106,6 +1111,7 @@
       <div class="add-row">
         <input type="text"   id="invDesc" placeholder="Description" />
         <input type="number" id="invAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="date"   id="invDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('investment')">+ Add</button>
       </div>
     </div>
@@ -1122,6 +1128,7 @@
       <div class="add-row">
         <input type="text"   id="loanDesc" placeholder="Description" />
         <input type="number" id="loanAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="date"   id="loanDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('loan')">+ Add</button>
       </div>
     </div>
@@ -1160,38 +1167,12 @@
     <div class="chart-card"><h4>3-Month Balance Trend</h4><div class="chart-wrap"><canvas id="lineChart"></canvas></div></div>
   </div>
 
-  <!-- ── FIRE Number + Insights ── -->
+  <!-- ── Insights ── -->
   <div class="section-header" style="margin-top:2rem">
-    <span class="section-title" style="color:var(--accent3)">FIRE & Insights</span>
+    <span class="section-title" style="color:var(--accent3)">Pattern Insights</span>
     <div class="section-line"></div>
   </div>
-  <div class="insights-grid">
-
-    <!-- FIRE Card -->
-    <div class="fire-card">
-      <div class="fire-card-header">
-        <span class="fire-emoji">🔥</span>
-        <span class="fire-card-title">FIRE Number</span>
-      </div>
-      <div class="fire-number" id="fireNumber">—</div>
-      <div class="fire-sub">Based on 3-month avg expenses × 12 × 25<br/>
-        <span id="fireDataMonths" style="color:var(--accent3);font-size:.7rem"></span>
-      </div>
-      <div class="fire-breakdown">
-        <div class="fire-stat">
-          <div class="fire-stat-label">Avg Monthly</div>
-          <div class="fire-stat-value" id="fireMonthlyExp">—</div>
-        </div>
-        <div class="fire-stat">
-          <div class="fire-stat-label">Annual Exp</div>
-          <div class="fire-stat-value" id="fireAnnualExp">—</div>
-        </div>
-        <div class="fire-stat">
-          <div class="fire-stat-label">FIRE Target</div>
-          <div class="fire-stat-value" id="fireNumber2" style="color:var(--accent3)">—</div>
-        </div>
-      </div>
-    </div>
+  <div class="insights-grid insights-grid-single">
 
     <!-- Insights Card -->
     <div class="insights-card">

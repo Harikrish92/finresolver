@@ -69,7 +69,7 @@ function renderTable(type, bodyId, amtClass) {
 
   tbody.innerHTML = rows.map((r, i) => `
     <tr id="tr-${type}-${i}">
-      <td>${escHtml(r.desc)}</td>
+      <td>${escHtml(r.desc)}${r.date ? `<br><span class="row-date">${fmtDate(r.date)}</span>` : ''}</td>
       <td class="${amtClass}">${fmt(r.amount)}</td>
       <td>
         <button class="btn-row-edit" onclick="startEditRow('${type}',${i})" title="Edit entry">✏️</button>

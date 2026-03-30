@@ -9,6 +9,9 @@
   grid-template-columns: 1fr 1fr;
   gap: .85rem; margin-top: .5rem;
 }
+.insights-grid.insights-grid-single {
+  grid-template-columns: 1fr;
+}
 
 /* FIRE card */
 .fire-card {

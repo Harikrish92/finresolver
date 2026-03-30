@@ -303,6 +303,7 @@ html.theme-light .pf-panel { background: var(--surface); }
 html.theme-light .pf-health-item { background: #f5f4f0; }
 html.theme-light .pf-holding-row { background: #f5f4f0; }
 html.theme-light .pf-holding-row:hover { background: #eeecea; }
+html.theme-light .pf-fire-number { color: var(--accent3); }
 
 /* ── FIRE & Insights cards ── */
 html.theme-light .fire-card,

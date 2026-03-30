@@ -250,7 +250,11 @@ tbody tr.editing { background: var(--surface2) !important; }
   transition: border-color .15s;
 }
 .row-edit-input:focus { border-color: var(--accent); }
-.row-edit-amt { max-width: 100px; flex: 0 0 auto; }
+.row-edit-amt  { max-width: 100px; flex: 0 0 auto; }
+.row-edit-date { max-width: 130px; flex: 0 0 auto; }
+
+/* Date badge under description */
+.row-date { font-size: .68rem; color: var(--muted); letter-spacing: .01em; }
 
 /* ── Checklist ── */
 .checklist-grid {

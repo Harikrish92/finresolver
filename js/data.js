@@ -171,3 +171,4 @@ function onMonthChange() {
 const fmt     = n => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const sumArr  = arr => arr.reduce((a, b) => a + Number(b.amount), 0);
 const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtDate = s => { if (!s) return ''; const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); };
