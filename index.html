@@ -111,7 +111,7 @@
 ════════════════════════════════════════════════════════════ -->
 <header>
   <div style="display:flex;align-items:center;gap:.85rem;">
-    <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer"><img src="finresolver.png" alt="" class="header-logo-img" />Fin<span>Resolver</span></div>
+    <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer"><img src="finresolver.png" alt="" class="header-logo-img" /><span class="logo-fin">Fin</span><span>Resolver</span></div>
     <button id="btnBackHome" onclick="goToHome()" style="display:none;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.32rem .7rem;border-radius:6px;cursor:pointer;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Home</button>
   </div>
 
@@ -120,8 +120,6 @@
     <!-- Tracker-only controls: hidden on home screen, revealed by goToTracker() -->
     <div id="headerTrackerControls" style="display:none;align-items:center;gap:.85rem;flex-wrap:wrap;">
     </div>
-
-    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Switch to light theme">☀️</button>
 
     <div class="user-pill" id="userPill" onclick="toggleUserMenu()">
       <div class="user-avatar" id="userAvatar">?</div>
@@ -140,6 +138,8 @@
         </div>
       </div>
     </div>
+
+    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Switch theme">☀️</button>
   </div>
 </header>
 
@@ -658,24 +658,7 @@
             <tbody id="invTbody"></tbody>
           </table>
         </div>
-        <!-- Inline quick-add row — mirrors monthly tracker add-row pattern -->
-        <div class="add-row inv-quick-add-row">
-          <select id="invQACat" class="inv-qa-select" title="Category">
-            <option value="Stock">📈 Stock</option>
-            <option value="MF">🏦 Mutual Fund</option>
-            <option value="FD">🏧 FD</option>
-            <option value="Bond">📄 Bond</option>
-            <option value="EPF">🏛️ EPF</option>
-            <option value="ESOP">💎 ESOP</option>
-            <option value="RealEstate">🏠 Real Estate</option>
-            <option value="Gold">🥇 Gold</option>
-            <option value="Others">💼 Others</option>
-          </select>
-          <input type="text"   id="invQAName"  placeholder="Name / Description" />
-          <input type="number" id="invQAValue" placeholder="Current value (₹)" style="max-width:160px" />
-          <button class="btn" onclick="invQuickAdd()">+ Add</button>
-          <button class="inv-qa-full-btn" onclick="openInvModal(null, (document.getElementById('invQACat')||{}).value)" title="Open full form for ticker, lots, buy price…">Full Form ↗</button>
-        </div>
+
       </div>
 
       <!-- Detail panel (overview / chart / financials / news) -->
@@ -694,12 +677,10 @@
     <!-- Right column: side panel -->
     <div class="inv-side-panel">
 
-      <!-- Allocation donut -->
+      <!-- Allocation bar -->
       <div class="inv-alloc-card">
         <div class="inv-card-title">🗂 Asset Allocation</div>
-        <div class="inv-donut-wrap">
-          <canvas id="invDonutChart"></canvas>
-        </div>
+        <div class="inv-alloc-bar" id="invAllocBar"></div>
         <div class="inv-alloc-legend" id="invAllocLegend"></div>
       </div>
 

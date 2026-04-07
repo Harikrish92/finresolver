@@ -13,8 +13,8 @@ header {
   display: flex; align-items: center; justify-content: space-between;
   height: 60px; gap: 1rem;
 }
-.logo { font-family: var(--font-head); font-size: 1.3rem; font-weight: 800; color: var(--accent); }
-.logo span { color: var(--text); }
+.logo { font-family: var(--font-head); font-size: 1.3rem; font-weight: 800; color: var(--text); display: inline-flex; align-items: center; gap: 0; }
+.logo-fin { color: var(--accent); }
 .header-right { display: flex; align-items: center; gap: .85rem; flex-wrap: wrap; }
 
 /* Month selector */
@@ -326,9 +326,8 @@ tbody tr.editing { background: var(--surface2) !important; }
 .header-logo-img {
   width: 28px; height: 28px;
   object-fit: contain;
-  vertical-align: middle;
   margin-right: .45rem;
   border-radius: 0;
   background: transparent;
-  position: relative; top: -1px;
+  flex-shrink: 0;
 }

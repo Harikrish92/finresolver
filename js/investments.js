@@ -21,7 +21,6 @@ var invDetailTab      = 'chart';  // chart | financials | news
 var invSortCol        = 'value';
 var invSortAsc        = false;
 var invPriceChartInst = null;
-var invAllocChartInst = null;
 var invRefreshTimer   = null;
 var invLiveEnabled    = true;   // persisted in localStorage
 var invEditId         = null;     // null = new, string = editing
@@ -763,7 +762,7 @@ function invSelectRow(id) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ALLOCATION DONUT
+   ALLOCATION BAR
 ══════════════════════════════════════════════════════════ */
 function renderInvAlloc() {
   var totals = {};
@@ -771,70 +770,60 @@ function renderInvAlloc() {
   investmentsData.forEach(function(h){ totals[h.category] = (totals[h.category]||0) + getLiveValue(h); });
   var total = Object.values(totals).reduce(function(a,b){ return a+b; }, 0);
 
-  var ctx = document.getElementById('invDonutChart');
-  if (!ctx) return;
-
   var catKeys = Object.keys(CAT_META).filter(function(c){ return totals[c] > 0; });
-  var colors  = catKeys.map(function(c){ return CAT_META[c].color; });
-  var values  = catKeys.map(function(c){ return totals[c]; });
 
-  if (invAllocChartInst) { invAllocChartInst.destroy(); invAllocChartInst = null; }
-
-  var invCenterTextPlugin = {
-    id: 'invCenterText',
-    afterDatasetsDraw: function(chart) {
-      var _ctx = chart.ctx, ca = chart.chartArea;
-      var cx = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
-      var label = total >= 1e5 ? (total / 1e5).toFixed(1) + 'L' : fmtI(total);
-      var cs = getComputedStyle(document.documentElement);
-      var textColor  = cs.getPropertyValue('--text').trim()  || '#e8edf5';
-      var mutedColor = cs.getPropertyValue('--muted').trim() || '#6b7a99';
-      _ctx.save();
-      _ctx.textAlign = 'center'; _ctx.textBaseline = 'middle';
-      _ctx.font = '700 13px Syne, sans-serif';
-      _ctx.fillStyle = textColor;
-      _ctx.fillText(label, cx, cy - 8);
-      _ctx.font = '400 9px DM Mono, monospace';
-      _ctx.fillStyle = mutedColor;
-      _ctx.fillText('Portfolio', cx, cy + 9);
-      _ctx.restore();
+  // Stacked horizontal bar
+  var bar = document.getElementById('invAllocBar');
+  if (bar) {
+    if (!catKeys.length) {
+      bar.innerHTML = '';
+    } else {
+      bar.innerHTML = catKeys.map(function(c){
+        var pct = total ? ((totals[c] / total) * 100) : 0;
+        var label = CAT_META[c].label;
+        return '<div class="inv-alloc-seg" data-cat="' + c + '" style="width:' + pct.toFixed(2) + '%;background:' + CAT_META[c].color + '" title="' + label + ': ' + pct.toFixed(1) + '%"></div>';
+      }).join('');
+      bar.querySelectorAll('.inv-alloc-seg').forEach(function(seg){
+        seg.addEventListener('click', function(){ invAllocSelect(seg.dataset.cat); });
+      });
     }
-  };
+  }
 
-  invAllocChartInst = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels:   catKeys.map(function(c){ return CAT_META[c].label; }),
-      datasets: [{ data: values, backgroundColor: colors.map(function(c){ return c + 'cc'; }),
-                   borderColor: colors, borderWidth: 2, hoverOffset: 4 }]
-    },
-    options: {
-      cutout: '70%', responsive: true, maintainAspectRatio: true,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: {
-          label: function(ctx){
-            var pct = total ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-            return ' ' + fmtI(ctx.raw) + '  (' + pct + '%)';
-          }
-        }
-      }}
-    },
-    plugins: [invCenterTextPlugin]
-  });
-
+  // Legend chips
   var legend = document.getElementById('invAllocLegend');
   if (legend) {
     legend.innerHTML = catKeys.map(function(c){
       var pct = total ? ((totals[c] / total) * 100).toFixed(1) : 0;
-      return '<div class="inv-alloc-item">'
-        + '<div class="inv-alloc-dot-label">'
+      return '<div class="inv-alloc-item" data-cat="' + c + '">'
         + '<div class="inv-alloc-dot" style="background:' + CAT_META[c].color + '"></div>'
-        + '<span>' + CAT_META[c].label + '</span></div>'
-        + '<div style="display:flex;gap:.75rem;align-items:center">'
-        + '<span style="font-weight:600">' + fmtI(totals[c]) + '</span>'
-        + '<span class="inv-alloc-pct">' + pct + '%</span></div></div>';
-    }).join('') || '<div style="color:var(--muted);font-size:.72rem;text-align:center;padding:.75rem 0">No holdings yet</div>';
+        + '<span class="inv-alloc-name">' + CAT_META[c].label + '</span>'
+        + '<span class="inv-alloc-val">' + fmtI(totals[c]) + '</span>'
+        + '<span class="inv-alloc-pct">' + pct + '%</span>'
+        + '</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:.72rem;padding:.5rem 0">No holdings yet</div>';
+    legend.querySelectorAll('.inv-alloc-item').forEach(function(chip){
+      chip.addEventListener('click', function(){ invAllocSelect(chip.dataset.cat); });
+    });
   }
+}
+
+function invAllocSelect(cat) {
+  var segs  = document.querySelectorAll('#invAllocBar .inv-alloc-seg');
+  var chips = document.querySelectorAll('#invAllocLegend .inv-alloc-item');
+  var activeSeg  = document.querySelector('#invAllocBar .inv-alloc-seg[data-cat="' + cat + '"]');
+  var isActive   = activeSeg && activeSeg.classList.contains('inv-alloc-active');
+
+  segs.forEach(function(s)  { s.classList.remove('inv-alloc-active', 'inv-alloc-dim'); });
+  chips.forEach(function(c) { c.classList.remove('inv-alloc-active', 'inv-alloc-dim'); });
+
+  if (isActive) return; // clicking same → deselect
+
+  segs.forEach(function(s){
+    s.classList.add(s.dataset.cat === cat ? 'inv-alloc-active' : 'inv-alloc-dim');
+  });
+  chips.forEach(function(c){
+    c.classList.add(c.dataset.cat === cat ? 'inv-alloc-active' : 'inv-alloc-dim');
+  });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1891,53 +1880,6 @@ function invDeleteHolding(id) {
   renderInvLivePanel();
 }
 
-/* ── Quick-add (inline add-row — mirrors monthly tracker pattern) ──────── */
-function invQuickAdd() {
-  var catEl  = document.getElementById('invQACat');
-  var nameEl = document.getElementById('invQAName');
-  var valEl  = document.getElementById('invQAValue');
-  var cat    = catEl  ? catEl.value.trim()          : 'Others';
-  var name   = nameEl ? nameEl.value.trim()          : '';
-  var val    = valEl  ? parseFloat(valEl.value) || 0 : 0;
-
-  if (!name) { nameEl && nameEl.focus(); return; }
-  if (val <= 0) { valEl && valEl.focus(); return; }
-
-  var h = {
-    id:        invId(),
-    name:      name,
-    category:  cat,
-    ticker:    '',
-    qty:       1,
-    avgPrice:  val,
-    buyPrice:  val,
-    curPrice:  val,
-    lots:      [{ id: invLotId(), qty: 1, avgPrice: val, date: new Date().toISOString().slice(0,10), notes: '' }],
-    date:      new Date().toISOString().slice(0,10),
-    notes:     '',
-    createdAt: Date.now(),
-  };
-
-  /* Gold & RealEstate/EPF don't use lots — use value-only approach */
-  if (cat === 'Gold') {
-    h.grams = 0; h.buyPricePerGram = 0; h.lots = undefined;
-    /* Treat entered value as total cost; leave grams=0 (user can edit later) */
-    h.qty = 0; h.avgPrice = 0; h.buyPrice = val; h.curPrice = val;
-  } else if (cat === 'RealEstate' || cat === 'EPF') {
-    h.lots = undefined;
-  }
-
-  investmentsData.push(h);
-  saveInvestments();
-
-  /* Clear inputs */
-  if (nameEl) nameEl.value = '';
-  if (valEl)  valEl.value  = '';
-  if (nameEl) nameEl.focus();
-
-  renderInvSummary(); renderInvTabs(); renderInvTable(); renderInvAlloc(); renderInvLivePanel();
-  showToast(name + ' added', 'success');
-}
 
 /* ══════════════════════════════════════════════════════════
    INVESTMENT SHEET IMPORT
@@ -2334,15 +2276,7 @@ function confirmInvClear() {
   showInvToast('Deleted ' + deleted + ' holding' + (deleted !== 1 ? 's' : ''), 'success');
 }
 
-function initInvestments() {
-  /* Wire Enter key for the inline quick-add row */
-  ['invQAName', 'invQAValue'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') invQuickAdd();
-    });
-  });
-}
+function initInvestments() {}
 
 
 // Close modal on overlay click

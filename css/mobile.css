@@ -66,10 +66,23 @@
   .table-card-title { font-size: .75rem; }
 }
 
-/* ── Add row — stack on very small ─────────────────────────── */
-@media (max-width: 400px) {
+/* ── Add row — stack on mobile ──────────────────────────────── */
+@media (max-width: 640px) {
   .add-row { flex-wrap: wrap; }
-  .add-row input[style*="max-width"] { max-width: 100% !important; }
+  /* Description takes its own full-width line */
+  .add-row > input:not([style*="max-width"]) { flex: 1 1 100%; }
+  /* Amount and date shrink/grow to share the second line with the button */
+  .add-row input[style*="max-width"] { flex: 1 1 auto; max-width: none !important; }
+}
+
+/* ── Inline row edit — wrap inputs so they don't overflow ───── */
+@media (max-width: 640px) {
+  .row-edit-fields { flex-wrap: wrap; }
+  /* Description takes its own full line */
+  .row-edit-fields .row-edit-input:not(.row-edit-amt):not(.row-edit-date) { flex: 1 1 100%; }
+  /* Amount and date share the second line */
+  .row-edit-amt  { flex: 1; max-width: none; }
+  .row-edit-date { flex: 1; max-width: none; }
 }
 
 /* ── Checklist — 1 col on mobile ───────────────────────────── */
