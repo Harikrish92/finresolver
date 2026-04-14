@@ -89,10 +89,15 @@
 /* ── Holdings table card ────────────────────────────────────── */
 .inv-holdings-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden;
+  border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden;
   animation: fadeUp .35s ease both;
   min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.inv-holdings-card::-webkit-scrollbar        { height: 5px; }
+.inv-holdings-card::-webkit-scrollbar-track  { background: transparent; }
+.inv-holdings-card::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 4px; }
 .inv-holdings-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 1.3rem; border-bottom: 1px solid var(--border);
@@ -119,7 +124,16 @@
 }
 .inv-search:focus { border-color: var(--accent4); }
 
-.inv-table-wrap { overflow-x: auto; overflow-y: auto; max-height: 480px; }
+.inv-table-wrap {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 480px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.inv-table-wrap::-webkit-scrollbar       { width: 5px; }
+.inv-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.inv-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .inv-table {
   width: 100%; min-width: 720px; border-collapse: collapse; font-size: .75rem;
   table-layout: fixed;
@@ -132,7 +146,10 @@
 .inv-table th:nth-child(6) { width: 100px; }  /* Cur. Value */
 .inv-table th:nth-child(7) { width: 105px; }  /* P&L */
 .inv-table th:nth-child(8) { width: 75px; }   /* Return */
-.inv-table th:nth-child(9) { width: 60px; }   /* Actions */
+.inv-table th:nth-child(9) { width: 90px; }   /* Actions */
+/* Tighter horizontal padding for the actions cell so buttons fit */
+.inv-table th:nth-child(9),
+.inv-table td:nth-child(9) { padding-left: .4rem; padding-right: .5rem; }
 /* Sticky header so column labels stay visible when scrolling the table */
 .inv-table thead th {
   position: sticky; top: 0; z-index: 2;
@@ -154,7 +171,15 @@
 .inv-table tr:hover td { background: rgba(77,171,247,.04); }
 .inv-table tr.selected td { background: rgba(77,171,247,.08); }
 .inv-table tr.selected td:first-child { border-left: 3px solid var(--accent4); }
+.inv-table tr.inv-no-ticker td { background: rgba(255,209,102,.04); }
+.inv-table tr.inv-no-ticker td:first-child { border-left: 3px solid rgba(255,209,102,.45); }
 .inv-table tr:last-child td { border-bottom: none; }
+.inv-no-ticker-badge {
+  display: inline-flex; align-items: center; gap: .2rem;
+  font-size: .55rem; font-weight: 600; color: var(--accent3);
+  background: rgba(255,209,102,.12); border: 1px solid rgba(255,209,102,.3);
+  border-radius: 10px; padding: .08rem .35rem; margin-top: .18rem;
+}
 
 .inv-ticker-cell { display: flex; align-items: flex-start; gap: .6rem; min-width: 0; }
 .inv-ticker-cell > div:last-child { min-width: 0; } /* text wrapper — allows flex shrink */
@@ -356,6 +381,72 @@
   width: 16px; height: 16px; border: 2px solid var(--border);
   border-top-color: var(--accent4); border-radius: 50%;
   animation: spin .7s linear infinite;
+}
+
+/* ── Broker selector ──────────────────────────────────────── */
+.inv-broker-section { margin-bottom: 1rem; }
+.inv-broker-label {
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .7px;
+  color: var(--muted); font-weight: 600; margin-bottom: .6rem;
+}
+.inv-broker-grid {
+  display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem;
+}
+.inv-broker-card {
+  display: flex; flex-direction: column; align-items: center; gap: .3rem;
+  padding: .55rem .6rem; min-width: 64px; cursor: pointer;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; transition: border-color .18s, background .18s, box-shadow .18s;
+  user-select: none;
+}
+.inv-broker-card:hover  { border-color: var(--accent4); background: rgba(77,171,247,.06); }
+.inv-broker-card.active { border-color: var(--accent4); background: rgba(77,171,247,.1); box-shadow: 0 0 0 1px var(--accent4); }
+.inv-broker-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--bk, #6b7a99);
+  color: #fff; font-weight: 700; font-size: .8rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-family: var(--font-head);
+}
+.inv-broker-card span {
+  font-size: .6rem; color: var(--muted); font-weight: 500;
+  text-align: center; white-space: nowrap; max-width: 70px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.inv-broker-card.active span { color: var(--accent4); }
+
+/* Instructions box */
+.inv-broker-steps-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .9rem 1.1rem;
+  font-size: .72rem; line-height: 1.65;
+}
+.inv-broker-steps-box:empty { display: none; }
+.inv-broker-steps-title {
+  font-family: var(--font-head); font-weight: 700; font-size: .8rem;
+  margin-bottom: .65rem;
+}
+.inv-broker-steps-section { margin-bottom: .75rem; }
+.inv-broker-steps-section:last-child { margin-bottom: 0; }
+.inv-broker-steps-sub {
+  font-weight: 600; font-size: .68rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: .35rem;
+}
+.inv-broker-steps-list {
+  margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .2rem;
+}
+.inv-broker-steps-list li { color: var(--text); }
+.inv-broker-steps-list code {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: .05rem .35rem; font-size: .67rem;
+}
+.inv-broker-steps-note {
+  margin-top: .6rem; font-size: .66rem; color: var(--accent3);
+  font-family: var(--font-mono);
+}
+.inv-broker-detected {
+  font-size: .7rem; color: var(--accent); margin-bottom: .65rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--border);
 }
 
 /* ── Add / Edit Investment Modal ────────────────────────────── */
@@ -608,8 +699,8 @@
   .inv-alloc-card,
   .inv-live-card      { padding: .85rem 1rem; }
 
-  /* Table wrap: card layout doesn't need horizontal scroll */
-  .inv-table-wrap { overflow-x: hidden; }
+  /* Card layout doesn't need horizontal scroll */
+  .inv-holdings-card { overflow-x: hidden; }
   /* Reset white-space on the visible card cell so sub-text can wrap */
   .inv-table td:nth-child(1) { white-space: normal; }
   /* Restore readable font size for name in card layout */

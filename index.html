@@ -892,28 +892,26 @@
 
     <div class="inv-modal-body">
 
-      <!-- Format info -->
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:1.1rem">
-        <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:.55rem;font-weight:600">Expected Column Layout</div>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
-          <span style="background:rgba(0,229,160,.1);color:var(--accent);border:1px solid rgba(0,229,160,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col A — Name</span>
-          <span style="background:rgba(77,171,247,.1);color:var(--accent4);border:1px solid rgba(77,171,247,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col B — Ticker</span>
-          <span style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col C — Quantity</span>
-          <span style="background:rgba(255,209,102,.1);color:var(--accent3);border:1px solid rgba(255,209,102,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col D — Avg Price (₹)</span>
-          <span style="background:rgba(255,107,107,.1);color:var(--accent2);border:1px solid rgba(255,107,107,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col E — Category (optional)</span>
-          <span style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.65rem;padding:.2rem .6rem;font-weight:600">Col F — Date (optional)</span>
+      <!-- Broker selector -->
+      <div class="inv-broker-section">
+        <div class="inv-broker-label">Select Broker</div>
+        <div class="inv-broker-grid" id="invBrokerGrid">
+          <div class="inv-broker-card active" data-broker="auto"     onclick="setInvImportBroker('auto')">    <div class="inv-broker-icon" style="--bk:#6b7a99">?</div><span>Auto</span></div>
+          <div class="inv-broker-card"        data-broker="zerodha"  onclick="setInvImportBroker('zerodha')"> <div class="inv-broker-icon" style="--bk:#387ed1">Z</div><span>Zerodha</span></div>
+          <div class="inv-broker-card"        data-broker="groww"    onclick="setInvImportBroker('groww')">   <div class="inv-broker-icon" style="--bk:#00b386">G</div><span>Groww</span></div>
+          <div class="inv-broker-card"        data-broker="upstox"   onclick="setInvImportBroker('upstox')">  <div class="inv-broker-icon" style="--bk:#5367ff">U</div><span>Upstox</span></div>
+          <div class="inv-broker-card"        data-broker="angelone" onclick="setInvImportBroker('angelone')"><div class="inv-broker-icon" style="--bk:#e03131">A</div><span>Angel One</span></div>
+          <div class="inv-broker-card"        data-broker="indmoney" onclick="setInvImportBroker('indmoney')"><div class="inv-broker-icon" style="--bk:#7c3aed">IN</div><span>INDmoney</span></div>
+          <div class="inv-broker-card"        data-broker="icici"    onclick="setInvImportBroker('icici')">   <div class="inv-broker-icon" style="--bk:#f97316">IC</div><span>ICICI Direct</span></div>
+          <div class="inv-broker-card"        data-broker="kuvera"   onclick="setInvImportBroker('kuvera')">  <div class="inv-broker-icon" style="--bk:#2d7dd2">K</div><span>Kuvera</span></div>
+          <div class="inv-broker-card"        data-broker="generic"  onclick="setInvImportBroker('generic')"> <div class="inv-broker-icon" style="--bk:#6b7a99">⚙</div><span>Generic</span></div>
         </div>
-        <div style="font-size:.63rem;color:var(--muted);line-height:1.6">
-          Row 1 may be a header row — it will be auto-skipped. &nbsp;·&nbsp;
-          Ticker column is optional for non-stock assets. &nbsp;·&nbsp;
-          Category values: <code>Stock</code>, <code>MF</code>, <code>Bond</code>, <code>RealEstate</code>, <code>Gold</code>, <code>Others</code> (defaults to <code>Stock</code> if blank). &nbsp;·&nbsp;
-          Duplicate tickers will <strong>merge</strong> — qty and cost averaged.
-        </div>
+        <div class="inv-broker-steps-box" id="invBrokerSteps"></div>
       </div>
 
-      <!-- Category override -->
-      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
-        <span style="font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;white-space:nowrap">Default Category if blank:</span>
+      <!-- Category override (shown only for generic) -->
+      <div id="invImportCatRow" style="display:none;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+        <span style="font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;white-space:nowrap">Default Category:</span>
         <div style="display:flex;gap:.35rem;flex-wrap:wrap" id="invImportCatPills">
           <button class="inv-cat-pill active-stock" data-cat="Stock"       onclick="setInvImportCat('Stock')">📈 Stock</button>
           <button class="inv-cat-pill"              data-cat="MF"          onclick="setInvImportCat('MF')">🏦 MF</button>

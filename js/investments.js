@@ -45,6 +45,14 @@ function invEsc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt
 function invId()      { return 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 function invLotId()   { return 'lot_' + Date.now() + '_' + Math.random().toString(36).slice(2,5); }
 function invNow()     { return Date.now(); }
+function showInvToast(msg, type) {
+  if (typeof showToast === 'function') { showToast(msg, type === 'info' ? 'success' : (type || 'success')); return; }
+  var t = document.createElement('div');
+  t.className = 'toast ' + (type === 'info' ? 'success' : (type || 'success'));
+  t.innerHTML = '<span>' + (type === 'error' ? '⚠' : '✓') + '</span><span>' + msg + '</span>';
+  document.body.appendChild(t);
+  setTimeout(function(){ t.classList.add('hide'); setTimeout(function(){ t.remove(); }, 350); }, 3500);
+}
 
 /* Categories that support multiple purchase records/lots */
 var INV_LOTS_CATS = ['Stock', 'MF', 'ESOP', 'Bond', 'FD', 'Others'];
@@ -667,6 +675,8 @@ function renderInvTable() {
     }
 
     var bg = isSelected ? '' : '';
+    var needsTicker = (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP');
+    var isUnidentified = needsTicker && !h.ticker;
     var initials = h.name.split(' ').slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase().slice(0,2);
 
     /* Mobile card body — display:none on desktop, flex on ≤700px */
@@ -685,7 +695,7 @@ function renderInvTable() {
       + '<button class="inv-mobile-edit-btn" onclick="event.stopPropagation();' + _mobileEditFn + '">✏️ Edit</button>'
       + '</div>';
 
-    return '<tr class="' + (isSelected ? 'selected' : '') + '" onclick="invSelectRow(\'' + h.id + '\')" '
+    return '<tr class="' + (isSelected ? 'selected' : '') + (isUnidentified ? ' inv-no-ticker' : '') + '" onclick="invSelectRow(\'' + h.id + '\')" '
            + 'ondblclick="openInvModal(\'' + h.id + '\')">'
            + '<td><div class="inv-ticker-cell">'
            + '<div class="inv-ticker-icon" style="background:' + meta.color + '18;color:' + meta.color + '">'
@@ -694,9 +704,9 @@ function renderInvTable() {
            + (h.category === 'Gold'
                ? '<div class="inv-ticker-sub">' + (h.grams||h.qty||0) + ' g</div>'
                : (h.ticker ? '<div class="inv-ticker-sub">' + invEsc(h.ticker)
-                    + (h.qty && h.category !== 'RealEstate' ? ' · ' + h.qty + ' units' : '')
+                    + (function(){ var _q = getTotalQtyFromLots(getHoldingLots(h)); return (_q && h.category !== 'RealEstate') ? ' · ' + _q.toLocaleString('en-IN',{maximumFractionDigits:4}) + ' units' : ''; })()
                     + (h.lots && h.lots.length > 1 ? ' · <span style="color:var(--accent4)">' + h.lots.length + ' lots</span>' : '')
-                    + '</div>' : ''))
+                    + '</div>' : (isUnidentified ? '<div class="inv-no-ticker-badge">⚠ No ticker</div>' : '')))
            + '</div></div>' + mobileBody + '</td>'
            + '<td><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
            + '<td style="text-align:right">'
@@ -713,12 +723,16 @@ function renderInvTable() {
                : h.category === 'RealEstate'
                ? ('<div style="font-weight:600">Buy: ₹' + (h.buyPrice||h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
                  + (h.curPrice ? '<div style="font-size:.62rem;color:var(--muted)">Now: ₹' + h.curPrice.toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>' : ''))
-               : (h.qty
-                  ? ('<div style="font-weight:600">' + h.qty.toLocaleString('en-IN',{maximumFractionDigits:4}) + ' units</div>'
-                    + (h.lots && h.lots.length > 1
-                      ? '<div style="font-size:.62rem;color:var(--accent4)">' + h.lots.length + ' lots · avg ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'
-                      : '<div style="font-size:.62rem;color:var(--muted)">@ ₹' + (h.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'))
-                  : '—'))
+               : (function(){
+                    var lots    = getHoldingLots(h);
+                    var totalQty = getTotalQtyFromLots(lots);
+                    var wavg    = getWeightedAvgFromLots(lots);
+                    if (!totalQty && !wavg) return '—';
+                    return '<div style="font-weight:600">' + totalQty.toLocaleString('en-IN',{maximumFractionDigits:4}) + ' units</div>'
+                      + (lots.length > 1
+                        ? '<div style="font-size:.62rem;color:var(--accent4)">' + lots.length + ' lots · avg ₹' + wavg.toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>'
+                        : '<div style="font-size:.62rem;color:var(--muted)">@ ₹' + wavg.toLocaleString('en-IN',{maximumFractionDigits:2}) + '</div>');
+                  })())
            + '</td>'
            + '<td style="text-align:right">' + fmtI(getCostBasis(h)) + '</td>'
            + '<td style="text-align:right;font-weight:600">' + fmtI(liveVal) + '</td>'
@@ -1888,6 +1902,7 @@ function invDeleteHolding(id) {
 
 var invImportParsed  = null;   // parsed rows ready to confirm
 var invImportDefCat  = 'Stock'; // default category when col E is blank
+var invImportBroker  = 'auto';  // selected broker key or 'auto'
 
 /* ── Column map — matches header keywords case-insensitively ── */
 var INV_IMPORT_COLS = {
@@ -1908,6 +1923,109 @@ var INV_CAT_ALIASES = {
   others: 'Others', other: 'Others', misc: 'Others', commodity: 'Others', gold: 'Gold',
 };
 
+/* Broker meta — names, colors, step-by-step export instructions */
+var INV_BROKER_META = {
+  auto: {
+    name: 'Auto-detect',
+    steps: null,
+    note: 'Upload any CSV or XLSX — the platform will be identified automatically from the file headers.'
+  },
+  zerodha: {
+    name: 'Zerodha',
+    steps: [
+      { title: 'Holdings (current positions)',
+        items: ['Go to <strong>console.zerodha.com</strong>', 'Navigate to <strong>Portfolio → Holdings</strong>', 'Click the <strong>CSV ↓</strong> download icon at the top-right of the table', 'Upload the downloaded <code>.csv</code> file below'] },
+      { title: 'Tradebook (full buy history — recommended)',
+        items: ['Go to <strong>console.zerodha.com</strong>', 'Navigate to <strong>Reports → Tradebook</strong>', 'Set your date range → click <strong>Download</strong>', 'Upload the <code>.csv</code> — each individual buy trade becomes a separate lot'] },
+    ]
+  },
+  groww: {
+    name: 'Groww',
+    steps: [
+      { title: 'For Mutual Fund Holdings',
+        items: ['Click on your <strong>profile photo</strong> (top right)', 'Click <strong>Reports</strong>', 'Go to <strong>Holdings → Mutual Funds Holdings Statement</strong>', 'Click <strong>Download</strong> on the right side', 'Upload the downloaded XLSX file below'] },
+      { title: 'For Stock Holdings',
+        items: ['Click on your <strong>profile photo</strong> (top right)', 'Click <strong>Reports</strong>', 'Go to <strong>Holdings → Stock Holdings Statement</strong>', 'Click <strong>Download</strong> on the right side', 'Upload the downloaded XLSX file below'] },
+    ],
+    note: 'Upload one file at a time — stocks and mutual funds are imported separately.'
+  },
+  upstox: {
+    name: 'Upstox',
+    steps: [
+      { title: 'Holdings',
+        items: ['Login to <strong>upstox.com</strong>', 'Go to <strong>Reports → Portfolio</strong>', 'Click <strong>Download Holdings</strong> (CSV)', 'Upload the file below'] },
+    ]
+  },
+  angelone: {
+    name: 'Angel One',
+    steps: [
+      { title: 'Holdings',
+        items: ['Login to <strong>angelone.in</strong>', 'Go to <strong>Portfolio → Holdings</strong>', 'Click <strong>Export</strong> / download CSV icon', 'Upload the file below'] },
+    ]
+  },
+  indmoney: {
+    name: 'INDmoney',
+    steps: [
+      { title: 'Stock Holdings',
+        items: ['Login to <strong>indmoney.com</strong>', 'Go to <strong>Investments → Stocks</strong>', 'Click the <strong>Export / Download</strong> icon', 'Upload the CSV file below'] },
+    ]
+  },
+  icici: {
+    name: 'ICICI Direct',
+    steps: [
+      { title: 'Portfolio Holdings',
+        items: ['Login to <strong>icicidirect.com</strong>', 'Go to <strong>My Portfolio → Holdings</strong>', 'Click <strong>Download</strong> → CSV', 'Upload the file below'] },
+    ]
+  },
+  kuvera: {
+    name: 'Kuvera',
+    steps: [
+      { title: 'Mutual Fund Portfolio',
+        items: ['Login to <strong>kuvera.in</strong>', 'Go to <strong>Portfolio</strong>', 'Click the <strong>Export</strong> icon (top-right)', 'Download as CSV', 'Upload the file below'] },
+    ]
+  },
+  generic: {
+    name: 'Generic CSV',
+    steps: [
+      { title: 'Required columns (any order, header row auto-detected)',
+        items: ['<strong>Name</strong> — stock or fund name (required)', '<strong>Ticker / Symbol</strong> — NSE symbol e.g. RELIANCE (for live prices)', '<strong>Qty / Units</strong> — quantity purchased', '<strong>Avg Price</strong> — average purchase price in ₹', '<strong>Category</strong> — Stock / MF / Bond / Gold / etc. (optional)', '<strong>Date</strong> — purchase date YYYY-MM-DD (optional)'] },
+    ]
+  },
+};
+
+function setInvImportBroker(key) {
+  invImportBroker = key;
+  document.querySelectorAll('#invBrokerGrid .inv-broker-card').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.broker === key);
+  });
+
+  // Show/hide generic category row
+  var catRow = document.getElementById('invImportCatRow');
+  if (catRow) catRow.style.display = (key === 'generic' || key === 'auto') ? 'flex' : 'none';
+
+  // Render step-by-step instructions
+  var stepsEl = document.getElementById('invBrokerSteps');
+  var meta = INV_BROKER_META[key] || INV_BROKER_META.auto;
+  if (stepsEl) {
+    if (!meta.steps) {
+      stepsEl.innerHTML = '<div class="inv-broker-steps-note">' + (meta.note || '') + '</div>';
+    } else {
+      var html = '<div class="inv-broker-steps-title">How to Export from ' + meta.name + '</div>';
+      html += meta.steps.map(function(section) {
+        return '<div class="inv-broker-steps-section">'
+          + '<div class="inv-broker-steps-sub">' + section.title + '</div>'
+          + '<ol class="inv-broker-steps-list">'
+          + section.items.map(function(item){ return '<li>' + item + '</li>'; }).join('')
+          + '</ol></div>';
+      }).join('');
+      if (meta.note) html += '<div class="inv-broker-steps-note">' + meta.note + '</div>';
+      stepsEl.innerHTML = html;
+    }
+  }
+
+  if (invImportParsed) renderInvImportPreview(invImportParsed);
+}
+
 function openInvImport() {
   invImportParsed = null;
   document.getElementById('invImportModal').classList.remove('hidden');
@@ -1915,6 +2033,7 @@ function openInvImport() {
   document.getElementById('invImportConfirmBtn').disabled = true;
   document.getElementById('invImportFileInput').value = '';
   setInvImportCat('Stock');
+  setInvImportBroker('auto');
 
   // Wire drag-drop (once)
   var dz = document.getElementById('invImportDropzone');
@@ -1948,7 +2067,7 @@ function processInvImportFile(file) {
   var ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
     var reader = new FileReader();
-    reader.onload = function(ev) { parseInvImportRows(invCsvToRows(ev.target.result)); };
+    reader.onload = function(ev) { parseBrokerRows(invCsvToRows(ev.target.result)); };
     reader.readAsText(file);
   } else if (ext === 'xlsx' || ext === 'xls') {
     var reader = new FileReader();
@@ -1957,7 +2076,7 @@ function processInvImportFile(file) {
         var wb   = XLSX.read(ev.target.result, { type: 'array' });
         var ws   = wb.Sheets[wb.SheetNames[0]];
         var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        parseInvImportRows(rows);
+        parseBrokerRows(rows);
       } catch(err) {
         showInvToast('Error reading file: ' + err.message, 'error');
       }
@@ -2008,6 +2127,290 @@ function positionalColMap() {
 function invCleanNum(v) {
   var n = parseFloat(String(v).replace(/[₹,\s₹]/g, ''));
   return isNaN(n) ? 0 : n;
+}
+
+/* ══════════════════════════════════════════════════════════
+   BROKER PLATFORM DETECTION
+══════════════════════════════════════════════════════════ */
+function detectInvPlatform(headerRow) {
+  var h = headerRow.map(function(c){ return String(c).toLowerCase().trim().replace(/\s+/g,' '); });
+  var has  = function(kw) { return h.some(function(x){ return x.includes(kw); }); };
+  var hasAll = function(kws) { return kws.every(function(kw){ return has(kw); }); };
+
+  // Zerodha Tradebook: trade_date + trade_type + symbol
+  if (hasAll(['trade_date','trade_type','symbol'])) return 'zerodha-tb';
+  // Zerodha Holdings: instrument/tradingsymbol + avg cost
+  if ((has('instrument') || has('tradingsymbol')) && (has('avg cost') || has('avg_cost'))) return 'zerodha';
+  // Groww MF: scheme name or fund name + (units or avg. nav or average nav)
+  if ((has('scheme name') || has('fund name')) && (has('units') || has('avg. nav') || has('average nav') || has('purchase nav'))) return 'groww-mf';
+  // Groww Stocks: stock/company col + any average price/cost column
+  if ((has('stock') || has('company') || has('scrip')) && (has('avg. cost') || has('average cost') || has('avg cost') || has('average buy') || has('avg buy') || has('avg. buy'))) return 'groww';
+  // Kuvera: folio no or purchase nav (before Angel One so "units" doesn't confuse)
+  if (has('folio no') || has('folio number') || has('purchase nav')) return 'kuvera';
+  // Angel One: net qty (distinctive)
+  if (has('net qty') || has('net quantity')) return 'angelone';
+  // Upstox: symbol + isin + avg buy price
+  if (hasAll(['isin','avg buy price','symbol'])) return 'upstox';
+  // INDmoney: current market price
+  if (has('current market price') && (has('stock name') || has('symbol'))) return 'indmoney';
+  // ICICI Direct: nse code or scrip name + avg cost
+  if ((has('nse code') || has('scrip name') || has('scrip')) && (has('avg cost') || has('avg. cost'))) return 'icici';
+
+  return 'generic';
+}
+
+/* ── Date normalizer: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD → YYYY-MM-DD ── */
+function _invNormalizeDate(s) {
+  if (!s) return '';
+  s = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  var m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  return s;
+}
+
+/* ── Column finder helper (returns first matching index) ── */
+function _invCol(h, keywords) {
+  for (var i = 0; i < keywords.length; i++) {
+    var idx = -1;
+    for (var j = 0; j < h.length; j++) {
+      if (h[j].includes(keywords[i])) { idx = j; break; }
+    }
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   BROKER-SPECIFIC PARSERS
+   All return: [{name, ticker, isin, qty, avgPrice, category, date}]
+   ticker may be '' for brokers that don't export NSE symbol.
+   isin  may be '' when not available.
+══════════════════════════════════════════════════════════ */
+function _invParseRows(rows, platformId) {
+  var h    = rows[0].map(function(c){ return String(c).toLowerCase().trim().replace(/\s+/g,' '); });
+  var data = rows.slice(1).filter(function(r){
+    return r.some(function(c){ return String(c).trim() !== ''; });
+  });
+  var C = function(kws) { return _invCol(h, kws); };
+
+  switch (platformId) {
+
+    /* ── Zerodha Holdings ───────────────────────────────────────
+       Columns: Instrument | Qty | Avg cost | LTP | Cur val | …  */
+    case 'zerodha': {
+      var nameI  = C(['instrument','tradingsymbol']);
+      var qtyI   = C(['qty','quantity']);
+      var priceI = C(['avg cost','avg_cost','average cost']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        if (!name || name.toLowerCase() === 'instrument') return null;
+        return { name:name, ticker:name, isin:'', qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Zerodha Tradebook ──────────────────────────────────────
+       Columns: symbol | isin | trade_date | … | trade_type | … | quantity | price  */
+    case 'zerodha-tb': {
+      var symI   = C(['symbol']);
+      var dateI  = C(['trade_date','date']);
+      var typeI  = C(['trade_type']);
+      var qtyI   = C(['quantity','qty']);
+      var priceI = C(['price']);
+      var segI   = C(['segment']);
+      return data
+        .filter(function(r){ return String(r[typeI]||'').toLowerCase().trim() === 'buy'; })
+        .map(function(r) {
+          var name = String(r[symI] || '').trim();
+          if (!name) return null;
+          var seg = String(r[segI] || '').toLowerCase();
+          var cat = seg.includes('mf') ? 'MF' : 'Stock';
+          return { name:name, ticker:name, isin:'', qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:cat, date:_invNormalizeDate(String(r[dateI]||'')) };
+        }).filter(Boolean);
+    }
+
+    /* ── Groww Stock Holdings ───────────────────────────────────
+       Columns: Stock / Company | ISIN | Qty. | Avg. Cost Price | LTP | …
+       NOTE: Groww does NOT export NSE ticker — stored as ''    */
+    case 'groww': {
+      var nameI  = C(['stock name','company name','stock','company','scrip name','scrip']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['qty.','qty','quantity','units']);
+      var priceI = C(['average buy price','avg buy price','avg. buy price','avg. cost price','average cost price','avg. cost price','avg. cost','average cost','avg cost price','avg cost']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name || /^stock$/i.test(name) || /^company$/i.test(name)) return null;
+        return { name:name, ticker:'', isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Groww Mutual Fund Holdings ─────────────────────────────
+       Columns: Scheme Name / Fund Name | ISIN | Folio | Units | Avg NAV | …  */
+    case 'groww-mf': {
+      var nameI  = C(['scheme name','fund name','scheme','fund','name']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['units','qty','quantity']);
+      var priceI = C(['average nav','avg. nav','avg nav','purchase nav','nav']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name || /^scheme$/i.test(name) || /^fund$/i.test(name)) return null;
+        return { name:name, ticker:'', isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'MF', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Upstox Holdings ────────────────────────────────────────
+       Columns: Symbol | ISIN | Qty | Avg Buy Price | LTP | …    */
+    case 'upstox': {
+      var symI   = C(['symbol']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['qty','quantity']);
+      var priceI = C(['avg buy price','average buy price','avg. buy price']);
+      return data.map(function(r) {
+        var name = String(r[symI] || '').trim();
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name) return null;
+        return { name:name, ticker:name, isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Angel One Holdings ─────────────────────────────────────
+       Columns: Symbol | ISIN | Net Qty | Avg Buy Price | …       */
+    case 'angelone': {
+      var symI   = C(['symbol','nse symbol']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['net qty','net quantity','qty','quantity']);
+      var priceI = C(['avg buy price','average buy price','average price']);
+      return data.map(function(r) {
+        var name = String(r[symI] || '').trim();
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name) return null;
+        return { name:name, ticker:name, isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Kuvera MF ──────────────────────────────────────────────
+       Columns: Fund Name | ISIN | Folio No. | Units | Purchase NAV | …  */
+    case 'kuvera': {
+      var nameI  = C(['fund name','scheme name','fund','name']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['units','qty','quantity']);
+      var priceI = C(['purchase nav','average nav','avg nav','nav']);
+      var dateI  = C(['date','purchase date','transaction date']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name) return null;
+        var date = dateI >= 0 ? _invNormalizeDate(String(r[dateI] || '')) : '';
+        return { name:name, ticker:'', isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'MF', date:date };
+      }).filter(Boolean);
+    }
+
+    /* ── INDmoney Stocks ────────────────────────────────────────
+       Columns: Stock Name | Symbol | Exchange | Quantity | Average Price | …  */
+    case 'indmoney': {
+      var nameI  = C(['stock name','name']);
+      var symI   = C(['symbol','ticker']);
+      var qtyI   = C(['quantity','qty']);
+      var priceI = C(['average price','avg price','invested price','avg buy price']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        var tick = symI >= 0 ? String(r[symI] || '').trim().toUpperCase() : '';
+        if (!name) return null;
+        return { name:name, ticker:tick, isin:'', qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── ICICI Direct Holdings ──────────────────────────────────
+       Columns: Stock Name / Scrip | Symbol | Quantity | Avg Cost | …  */
+    case 'icici': {
+      var nameI  = C(['stock name','scrip name','scrip','name']);
+      var symI   = C(['symbol','ticker','nse code']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['quantity','qty','net qty']);
+      var priceI = C(['avg cost','average cost','avg. cost','buy avg price','average price']);
+      return data.map(function(r) {
+        var name = String(r[nameI] || '').trim();
+        var tick = symI >= 0 ? String(r[symI] || '').trim().toUpperCase() : '';
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        if (!name) return null;
+        return { name:name, ticker:tick, isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    default:
+      return null;
+  }
+}
+
+/* ── Smart header-row finder ─────────────────────────────────
+   Scans first N rows to find the one with ≥3 non-numeric,
+   non-empty cells — skips title/subtitle rows that brokers
+   (e.g. Groww) insert above the actual column headers.
+────────────────────────────────────────────────────────── */
+function _invFindHeaderRow(rows) {
+  for (var i = 0; i < Math.min(rows.length, 12); i++) {
+    var row = rows[i];
+    if (!row || !row.length) continue;
+    var nonEmpty = row.filter(function(c){ return String(c).trim() !== ''; });
+    if (nonEmpty.length < 3) continue;
+    var headerLike = nonEmpty.filter(function(c) {
+      var s = String(c).trim();
+      if (/^[\d,₹.()\- %]+$/.test(s)) return false;       // pure numbers/symbols
+      if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(s)) return false; // date
+      return true;
+    });
+    if (headerLike.length >= 3) return i;
+  }
+  return 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   BROKER-AWARE ORCHESTRATOR
+══════════════════════════════════════════════════════════ */
+function parseBrokerRows(rows) {
+  if (!rows || !rows.length) { showInvToast('File is empty', 'error'); return; }
+
+  // Skip to actual header row (handles brokers that add title rows at top)
+  var headerIdx = _invFindHeaderRow(rows);
+
+  // Detect or use selected platform
+  var platform = invImportBroker === 'auto'
+    ? detectInvPlatform(rows[headerIdx])
+    : invImportBroker;
+
+  // If auto-detect found a platform, highlight it in the grid and show instructions
+  if (invImportBroker === 'auto') {
+    var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '');
+    var suffix = platform.endsWith('-tb') ? ' · Tradebook (each buy = lot)' : platform.endsWith('-mf') ? ' · Mutual Funds' : ' · Holdings';
+    var detectedName = (INV_BROKER_META[basePlatform] || INV_BROKER_META.generic).name;
+    var stepsEl = document.getElementById('invBrokerSteps');
+    if (stepsEl) {
+      var prev = stepsEl.innerHTML;
+      stepsEl.innerHTML = '<div class="inv-broker-detected">✓ Detected: <strong>' + detectedName + suffix + '</strong></div>' + prev;
+    }
+  }
+
+  // Try broker-specific parser
+  var normalized = platform !== 'generic' ? _invParseRows(rows.slice(headerIdx), platform) : null;
+
+  if (normalized) {
+    var warnings = [];
+    normalized.forEach(function(r, i) {
+      if (!r.qty || r.qty <= 0) {
+        warnings.push('Row ' + (i + 2) + ': "' + r.name + '" — qty missing/zero, defaulted to 1');
+        r.qty = 1;
+      }
+      if (!r.avgPrice || r.avgPrice <= 0) {
+        warnings.push('Row ' + (i + 2) + ': "' + r.name + '" — avg price missing or zero');
+      }
+    });
+    invImportParsed = { rows: normalized, warnings: warnings, platform: platform };
+    renderInvImportPreview(invImportParsed);
+  } else {
+    parseInvImportRows(rows.slice(headerIdx));
+  }
 }
 
 function parseInvImportRows(rows) {
@@ -2075,92 +2478,116 @@ function renderInvImportPreview(parsed) {
 
   document.getElementById('invImportPreview').style.display = 'block';
 
+  var hasIsin    = rows.some(function(r){ return r.isin; });
+  var hasDate    = rows.some(function(r){ return r.date; });
+  var noTicker   = rows.filter(function(r){ return !r.ticker; }).length;
+
   /* Table head */
-  var head = document.getElementById('invImportPreviewHead');
-  var thStyle = 'padding:.55rem .75rem;text-align:left;font-size:.6rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
-  head.innerHTML = '<tr>'
-    + ['Name','Ticker','Qty','Avg Price','Cost Basis','Category','Date'].map(function(h){
-        return '<th style="' + thStyle + '">' + h + '</th>';
-      }).join('')
-    + '</tr>';
+  var head     = document.getElementById('invImportPreviewHead');
+  var thStyle  = 'padding:.5rem .65rem;text-align:left;font-size:.59rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
+  var cols     = ['Name', hasIsin ? 'ISIN' : null, 'Ticker / Live', 'Qty', 'Avg Price', 'Cost Basis', 'Category', hasDate ? 'Date' : null].filter(Boolean);
+  head.innerHTML = '<tr>' + cols.map(function(c){ return '<th style="' + thStyle + '">' + c + '</th>'; }).join('') + '</tr>';
 
   /* Table body */
-  var tbody = document.getElementById('invImportPreviewBody');
-  var tdStyle = 'padding:.55rem .75rem;border-bottom:1px solid rgba(35,45,63,.4);font-size:.72rem;white-space:nowrap';
-
-  /* Check for duplicate tickers in import */
-  var tickerCount = {};
-  rows.forEach(function(r){ if(r.ticker) tickerCount[r.ticker] = (tickerCount[r.ticker]||0)+1; });
+  var tbody   = document.getElementById('invImportPreviewBody');
+  var tdStyle = 'padding:.5rem .65rem;border-bottom:1px solid rgba(35,45,63,.35);font-size:.71rem;white-space:nowrap';
 
   tbody.innerHTML = rows.slice(0, 30).map(function(r) {
     var meta      = CAT_META[r.category] || CAT_META.Others;
     var costBasis = r.qty * r.avgPrice;
-    var isDup     = r.ticker && tickerCount[r.ticker] > 1;
-    var rowBg     = isDup ? 'background:rgba(255,209,102,.04)' : '';
-    return '<tr style="' + rowBg + '">'
-      + '<td style="' + tdStyle + ';font-weight:600">' + invEsc(r.name) + '</td>'
-      + '<td style="' + tdStyle + ';color:var(--accent4);font-family:var(--font-mono)">' + (r.ticker || '<span style="color:var(--muted)">—</span>') + '</td>'
-      + '<td style="' + tdStyle + ';text-align:right">' + r.qty.toLocaleString('en-IN') + '</td>'
-      + '<td style="' + tdStyle + ';text-align:right">₹' + r.avgPrice.toLocaleString('en-IN',{maximumFractionDigits:2}) + '</td>'
-      + '<td style="' + tdStyle + ';text-align:right;font-weight:600">₹' + Math.round(costBasis).toLocaleString('en-IN') + '</td>'
-      + '<td style="' + tdStyle + '"><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>'
-      + '<td style="' + tdStyle + ';color:var(--muted)">' + (r.date || '—') + '</td>'
-      + '</tr>';
+    var tickerCell = r.ticker
+      ? '<span style="color:var(--accent4);font-family:var(--font-mono)">' + invEsc(r.ticker) + '</span>'
+      : '<span style="color:var(--accent3);font-size:.63rem">⚠ set after import</span>';
+    var cells = [
+      '<td style="' + tdStyle + ';font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + invEsc(r.name) + '</td>',
+      hasIsin  ? '<td style="' + tdStyle + ';color:var(--muted);font-family:var(--font-mono);font-size:.63rem">' + (r.isin || '—') + '</td>' : '',
+      '<td style="' + tdStyle + '">' + tickerCell + '</td>',
+      '<td style="' + tdStyle + ';text-align:right">' + (r.qty||0).toLocaleString('en-IN', {maximumFractionDigits:4}) + '</td>',
+      '<td style="' + tdStyle + ';text-align:right">₹' + (r.avgPrice||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</td>',
+      '<td style="' + tdStyle + ';text-align:right;font-weight:600">₹' + Math.round(costBasis).toLocaleString('en-IN') + '</td>',
+      '<td style="' + tdStyle + '"><span class="cat-badge ' + meta.class + '">' + meta.label + '</span></td>',
+      hasDate  ? '<td style="' + tdStyle + ';color:var(--muted)">' + (r.date || '—') + '</td>' : '',
+    ].filter(function(c){ return c !== ''; });
+    return '<tr>' + cells.join('') + '</tr>';
   }).join('') + (rows.length > 30
-    ? '<tr><td colspan="7" style="' + tdStyle + ';color:var(--muted);text-align:center">…and ' + (rows.length-30) + ' more rows</td></tr>'
+    ? '<tr><td colspan="' + cols.length + '" style="' + tdStyle + ';color:var(--muted);text-align:center">…and ' + (rows.length - 30) + ' more rows</td></tr>'
     : '');
 
   /* Summary */
-  var totalInvested = rows.reduce(function(s,r){ return s + r.qty*r.avgPrice; }, 0);
-  var withTickers   = rows.filter(function(r){ return r.ticker; }).length;
-  var dupTickers    = Object.keys(tickerCount).filter(function(t){ return tickerCount[t]>1; });
-
+  var totalInvested = rows.reduce(function(s,r){ return s + (r.qty||0) * (r.avgPrice||0); }, 0);
+  var withTickers   = rows.length - noTicker;
   var sumEl = document.getElementById('invImportSummary');
-  sumEl.innerHTML = '<strong style="color:var(--text)">' + rows.length + ' holdings</strong>'
+  sumEl.innerHTML = '<strong style="color:var(--text)">' + rows.length + ' holding' + (rows.length !== 1 ? 's' : '') + '</strong>'
     + ' &nbsp;·&nbsp; Total invested: <strong style="color:var(--accent4)">₹' + Math.round(totalInvested).toLocaleString('en-IN') + '</strong>'
-    + ' &nbsp;·&nbsp; ' + withTickers + ' with live ticker'
-    + (dupTickers.length ? ' &nbsp;·&nbsp; <span style="color:var(--accent3)">⚠ ' + dupTickers.length + ' duplicate ticker(s) will be merged</span>' : '');
+    + ' &nbsp;·&nbsp; <span style="color:var(--accent)">' + withTickers + ' with live ticker</span>'
+    + (noTicker ? ' &nbsp;·&nbsp; <span style="color:var(--accent3)">' + noTicker + ' without ticker — set manually after import</span>' : '');
 
   /* Warnings */
   var warnEl = document.getElementById('invImportWarnings');
-  warnEl.innerHTML = warnings.length
-    ? warnings.map(function(w){ return '⚠ ' + invEsc(w); }).join('<br>')
+  var allWarnings = warnings.slice();
+  if (noTicker > 0) {
+    allWarnings.unshift('Live prices unavailable for ' + noTicker + ' holding(s) — open each holding after import to set the NSE/BSE ticker symbol.');
+  }
+  warnEl.innerHTML = allWarnings.length
+    ? allWarnings.map(function(w){ return '<div style="margin-bottom:.2rem">⚠ ' + w + '</div>'; }).join('')
     : '';
 
-  /* Enable/disable confirm */
   document.getElementById('invImportConfirmBtn').disabled = rows.length === 0;
 }
 
 function confirmInvImport() {
   if (!invImportParsed || !invImportParsed.rows.length) return;
 
-  var imported = 0, merged = 0, skipped = 0;
+  var imported = 0, lotsAdded = 0, skipped = 0;
+  var platform = invImportParsed.platform || 'generic';
+  var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '');
+  var source = (INV_BROKER_META[basePlatform] || INV_BROKER_META.generic).name;
 
   invImportParsed.rows.forEach(function(r) {
     if (!r.name) { skipped++; return; }
 
-    /* Check if a holding with same ticker already exists → merge by weighted avg */
-    var existing = r.ticker
-      ? investmentsData.find(function(h){ return h.ticker && h.ticker.toUpperCase() === r.ticker; })
-      : null;
+    /* Normalize ticker for matching — strip exchange suffixes (.NS / .BO / .BSE) */
+    var tickerNorm = r.ticker
+      ? r.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase()
+      : '';
+
+    /* Find existing holding by ticker, or by name+category if no ticker */
+    var existing = tickerNorm
+      ? investmentsData.find(function(h) {
+          if (!h.ticker) return false;
+          return h.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase() === tickerNorm;
+        })
+      : investmentsData.find(function(h) {
+          return h.name.toLowerCase() === r.name.toLowerCase() && h.category === r.category;
+        });
+
+    var newLot = {
+      id:       invLotId(),
+      qty:      r.qty,
+      avgPrice: r.avgPrice,
+      date:     r.date || '',
+      notes:    'via ' + source,
+    };
 
     if (existing) {
-      /* Weighted average price, sum quantities */
-      var oldCost   = existing.qty * existing.avgPrice;
-      var newCost   = r.qty * r.avgPrice;
-      var totalQty  = existing.qty + r.qty;
-      existing.avgPrice = totalQty > 0 ? (oldCost + newCost) / totalQty : existing.avgPrice;
-      existing.qty      = totalQty;
-      merged++;
+      /* Migrate legacy qty/avgPrice fields into a proper lots array first */
+      if (!existing.lots || !existing.lots.length) {
+        var synthLots = getHoldingLots(existing);
+        existing.lots = synthLots.slice(); // copy
+        delete existing.qty;
+        delete existing.avgPrice;
+        delete existing.date;
+      }
+      existing.lots.push(newLot);
+      lotsAdded++;
     } else {
       investmentsData.push({
         id:        invId(),
         name:      r.name,
-        ticker:    r.ticker,
-        qty:       r.qty,
-        avgPrice:  r.avgPrice,
+        ticker:    r.ticker || '',
+        isin:      r.isin   || '',
         category:  r.category,
-        date:      r.date,
+        lots:      [newLot],
         notes:     '',
         createdAt: Date.now(),
       });
@@ -2170,20 +2597,103 @@ function confirmInvImport() {
 
   saveInvestments();
   closeInvImport();
-
   renderInvSummary();
   renderInvTabs();
   renderInvTable();
   renderInvAlloc();
   renderInvLivePanel();
 
-  /* Auto-fetch live prices for newly imported tickers */
-  invRefreshQuotes();
+  var msg = '';
+  if (imported)  msg += imported + ' new holding' + (imported > 1 ? 's' : '') + ' added';
+  if (lotsAdded) msg += (msg ? ', ' : '') + lotsAdded + ' lot' + (lotsAdded > 1 ? 's' : '') + ' recorded';
+  if (skipped)   msg += (msg ? ', ' : '') + skipped + ' skipped';
+  showInvToast('✓ ' + msg + ' (' + source + ')', 'success');
 
-  var msg = imported + ' imported';
-  if (merged)  msg += ', ' + merged + ' merged';
-  if (skipped) msg += ', ' + skipped + ' skipped';
-  showInvToast('✓ ' + msg, 'success');
+  /* Auto-resolve tickers for holdings that don't have one yet */
+  var noTickerHoldings = investmentsData.filter(function(h) {
+    return !h.ticker && (h.category === 'Stock' || h.category === 'MF' || h.category === 'ESOP');
+  });
+  if (noTickerHoldings.length) {
+    showInvToast('🔍 Looking up tickers for ' + noTickerHoldings.length + ' holding(s)…', 'success');
+    invResolveTickers(noTickerHoldings).then(function(resolved) {
+      if (resolved > 0) {
+        saveInvestments();
+        renderInvTable();
+        renderInvLivePanel();
+        invRefreshQuotes();
+        showInvToast('✓ Tickers resolved for ' + resolved + ' holding(s) — live prices loading', 'success');
+      } else {
+        invRefreshQuotes();
+      }
+    });
+  } else {
+    invRefreshQuotes();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   TICKER RESOLVER
+   Uses Yahoo Finance /v1/finance/search to find NSE/BSE
+   symbols from company names exported by Groww / Kuvera.
+══════════════════════════════════════════════════════════ */
+function invResolveTickers(holdings) {
+  /* Rate-limit: resolve one at a time with a small delay to avoid hammering */
+  var resolved = 0;
+  var queue = holdings.slice();
+
+  function resolveNext() {
+    if (!queue.length) return Promise.resolve(resolved);
+    var h = queue.shift();
+    return invFetchTickerForName(h.name, h.category, h.isin)
+      .then(function(ticker) {
+        if (ticker) {
+          h.ticker = ticker;
+          resolved++;
+        }
+      })
+      .catch(function() { /* silently skip */ })
+      .then(function() {
+        return new Promise(function(res){ setTimeout(res, 200); }); // 200ms gap
+      })
+      .then(resolveNext);
+  }
+
+  return resolveNext();
+}
+
+function invFetchTickerForName(name, category, isin) {
+  /* Build search query: prefer ISIN if available, else company name */
+  var query = (isin && isin.length > 5) ? isin : name;
+  var searchUrl = 'https://query1.finance.yahoo.com/v1/finance/search?q='
+    + encodeURIComponent(query)
+    + '&quotesCount=5&newsCount=0&enableFuzzyQuery=false&enableCb=false';
+
+  return invProxyFetch(searchUrl)
+    .then(function(data) {
+      var quotes = data && data.finance && data.finance.result && data.finance.result[0]
+        ? data.finance.result[0].quotes || []
+        : (data && data.quotes ? data.quotes : []);
+
+      if (!quotes.length) return null;
+
+      /* Prefer Indian exchanges: .NS (NSE) > .BO (BSE) */
+      var isMF = category === 'MF';
+      var preferred = quotes.filter(function(q) {
+        if (!q.symbol) return false;
+        if (isMF) return q.quoteType === 'MUTUALFUND' || q.symbol.endsWith('.NS');
+        return q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO');
+      });
+
+      /* Fall back to any Indian equity result */
+      if (!preferred.length) {
+        preferred = quotes.filter(function(q) {
+          return q.exchange === 'NSI' || q.exchange === 'BSE' || q.exchange === 'BSI';
+        });
+      }
+
+      var best = preferred[0] || quotes[0];
+      return best && best.symbol ? best.symbol : null;
+    });
 }
 
 /* ══════════════════════════════════════════════════════════
