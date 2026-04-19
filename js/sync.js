@@ -183,22 +183,33 @@ async function syncLoadData() {
 
   console.info('[Sync] Reading: users/' + uid + '/months/' + key);
 
+  const email = currentUser?.email || null;
+
   try {
     const docRef = db.collection('users').doc(uid).collection('months').doc(key);
     const snap   = await docRef.get();
 
     if (snap.exists) {
-      const cloudData = snap.data();
-      data = cloudData;
-      localStorage.setItem(`fr_data_${uid}_${year}_${month}`, JSON.stringify(cloudData));
-      render();
-      showSyncStatus('synced');
-      console.info('[Sync] ✅ Loaded:', key);
+      const d = snap.data();
+      // Support both new encrypted format { _enc: "ENC1:..." } and legacy plain docs
+      const encStr   = d._enc || JSON.stringify(d);
+      const cloudData = await decryptFromStorage(encStr, email);
+      if (cloudData) {
+        data = cloudData;
+        _monthCache.set(`${uid}_${year}_${month}`, cloudData);
+        localStorage.setItem(`fr_data_${uid}_${year}_${month}`, encStr);
+        render();
+        showSyncStatus('synced');
+        console.info('[Sync] ✅ Loaded:', key);
+      }
     } else {
       // No cloud record — push local data up if it exists
       const localRaw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
       if (localRaw) {
-        await docRef.set(JSON.parse(localRaw));
+        const encStr = localRaw.startsWith('ENC1:')
+          ? localRaw
+          : await encryptForStorage(JSON.parse(localRaw), email);
+        await docRef.set({ _enc: encStr });
         console.info('[Sync] ✅ Pushed local → Firestore:', key);
       }
       showSyncStatus('synced');
@@ -225,21 +236,27 @@ async function syncLoadData() {
 async function syncLoadConfig(uid) {
   if (!db || !syncReady) return;
 
+  const email    = currentUser?.email || null;
   const promises = [];
 
   // ── Loans ──
   promises.push(
     db.collection('users').doc(uid).collection('config').doc('loans').get()
-      .then(snap => {
-        if (snap.exists && Array.isArray(snap.data().loans)) {
-          const loans = snap.data().loans;
-          localStorage.setItem('fr_loans_' + uid, JSON.stringify(loans));
-          // Update in-memory loansData if loans.js is loaded
-          if (typeof loansData !== 'undefined') {
-            loansData = loans;
-          }
-          console.info('[Sync] ✅ Loans loaded from Firestore:', loans.length);
+      .then(async snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        // Support new encrypted format { _enc: "ENC1:..." } and legacy { loans: [...] }
+        let loans;
+        if (d._enc) {
+          const dec = await decryptFromStorage(d._enc, email);
+          loans = dec?.loans;
+        } else {
+          loans = d.loans;
         }
+        if (!Array.isArray(loans)) return;
+        localStorage.setItem('fr_loans_' + uid, await encryptForStorage(loans, email));
+        if (typeof loansData !== 'undefined') loansData = loans;
+        console.info('[Sync] ✅ Loans loaded from Firestore:', loans.length);
       })
       .catch(e => console.warn('[Sync] Loans load failed:', e.message))
   );
@@ -247,16 +264,20 @@ async function syncLoadConfig(uid) {
   // ── Investments ──
   promises.push(
     db.collection('users').doc(uid).collection('config').doc('investments').get()
-      .then(snap => {
-        if (snap.exists && Array.isArray(snap.data().investments)) {
-          const holdings = snap.data().investments;
-          localStorage.setItem('fr_investments_' + uid, JSON.stringify(holdings));
-          // Update in-memory investmentsData if investments.js is loaded
-          if (typeof investmentsData !== 'undefined') {
-            investmentsData = holdings;
-          }
-          console.info('[Sync] ✅ Investments loaded from Firestore:', holdings.length);
+      .then(async snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        let holdings;
+        if (d._enc) {
+          const dec = await decryptFromStorage(d._enc, email);
+          holdings = dec?.investments;
+        } else {
+          holdings = d.investments;
         }
+        if (!Array.isArray(holdings)) return;
+        localStorage.setItem('fr_investments_' + uid, await encryptForStorage(holdings, email));
+        if (typeof investmentsData !== 'undefined') investmentsData = holdings;
+        console.info('[Sync] ✅ Investments loaded from Firestore:', holdings.length);
       })
       .catch(e => console.warn('[Sync] Investments load failed:', e.message))
   );
@@ -278,13 +299,14 @@ async function syncLoadConfig(uid) {
 async function syncPrefetchPastMonths(uid, year, month) {
   if (!db || !syncReady) return;
 
+  const email   = currentUser?.email || null;
   const fetches = [];
   for (let i = 1; i <= 3; i++) {
     let m = month - i;
     let y = year;
     while (m < 0) { m += 12; y--; }
 
-    const localKey = `fr_data_${uid}_${y}_${m}`;
+    const localKey     = `fr_data_${uid}_${y}_${m}`;
     const firestoreKey = `${y}_${m}`;
 
     // Only fetch from Firestore if not already cached locally
@@ -292,9 +314,14 @@ async function syncPrefetchPastMonths(uid, year, month) {
       fetches.push(
         db.collection('users').doc(uid).collection('months').doc(firestoreKey)
           .get()
-          .then(snap => {
+          .then(async snap => {
             if (snap.exists) {
-              localStorage.setItem(localKey, JSON.stringify(snap.data()));
+              const d      = snap.data();
+              const encStr = d._enc || JSON.stringify(d);
+              localStorage.setItem(localKey, encStr);
+              // Populate decrypted cache so getMonthBalance() works synchronously
+              const parsed = await decryptFromStorage(encStr, email);
+              if (parsed) _monthCache.set(`${uid}_${y}_${m}`, parsed);
               console.info('[Sync] ✅ Prefetched past month:', firestoreKey);
             }
           })
@@ -324,11 +351,13 @@ async function syncPrefetchPastMonths(uid, year, month) {
 async function syncSaveData(monthKey, monthData) {
   if (!syncReady || !db || !currentUser) return;
 
-  const uid = fbAuth?.currentUser?.uid || currentUser.uid;
+  const uid   = fbAuth?.currentUser?.uid || currentUser.uid;
+  const email = currentUser.email || null;
   showSyncStatus('syncing');
 
   try {
-    await db.collection('users').doc(uid).collection('months').doc(monthKey).set(monthData);
+    const encStr = await encryptForStorage(monthData, email);
+    await db.collection('users').doc(uid).collection('months').doc(monthKey).set({ _enc: encStr });
     showSyncStatus('synced');
   } catch (err) {
     console.error('[Sync] ❌ Save failed:', err.code, err.message);

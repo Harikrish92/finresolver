@@ -53,13 +53,15 @@ function getLoanStorageKey() {
   return 'fr_loans_' + uid;
 }
 
-function loadLoans() {
-  var raw = localStorage.getItem(getLoanStorageKey());
-  loansData = raw ? JSON.parse(raw) : [];
+async function loadLoans() {
+  var raw   = localStorage.getItem(getLoanStorageKey());
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  loansData = raw ? ((await decryptFromStorage(raw, email)) || []) : [];
 }
 
-function saveLoans() {
-  localStorage.setItem(getLoanStorageKey(), JSON.stringify(loansData));
+async function saveLoans() {
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  localStorage.setItem(getLoanStorageKey(), await encryptForStorage(loansData, email));
   syncSaveLoans();
 }
 
@@ -69,9 +71,12 @@ function syncSaveLoans() {
     ? fbAuth.currentUser.uid
     : (typeof currentUser !== 'undefined' && currentUser && currentUser.uid ? currentUser.uid : null);
   if (!uid) return;
-  db.collection('users').doc(uid).collection('config').doc('loans')
-    .set({ loans: loansData })
-    .catch(function (e) { console.warn('[Loans] Firestore save failed:', e.message); });
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  encryptForStorage({ loans: loansData }, email).then(function (encStr) {
+    db.collection('users').doc(uid).collection('config').doc('loans')
+      .set({ _enc: encStr })
+      .catch(function (e) { console.warn('[Loans] Firestore save failed:', e.message); });
+  });
 }
 
 function syncLoadLoans() {
@@ -80,12 +85,21 @@ function syncLoadLoans() {
     ? fbAuth.currentUser.uid
     : (typeof currentUser !== 'undefined' && currentUser && currentUser.uid ? currentUser.uid : null);
   if (!uid) return Promise.resolve();
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
   return db.collection('users').doc(uid).collection('config').doc('loans').get()
-    .then(function (snap) {
-      if (snap.exists && Array.isArray(snap.data().loans)) {
-        loansData = snap.data().loans;
-        localStorage.setItem(getLoanStorageKey(), JSON.stringify(loansData));
+    .then(async function (snap) {
+      if (!snap.exists) return;
+      var d = snap.data();
+      var loans;
+      if (d._enc) {
+        var dec = await decryptFromStorage(d._enc, email);
+        loans = dec && dec.loans;
+      } else {
+        loans = d.loans;
       }
+      if (!Array.isArray(loans)) return;
+      loansData = loans;
+      localStorage.setItem(getLoanStorageKey(), await encryptForStorage(loansData, email));
     })
     .catch(function (e) { console.warn('[Loans] Firestore load failed:', e.message); });
 }

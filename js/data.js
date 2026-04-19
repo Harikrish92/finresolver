@@ -16,6 +16,11 @@ const MONTHS = [
 
 let data = emptyData();
 
+// Decrypted monthly data cache — keyed by `${uid}_${year}_${month}`.
+// Populated on every load so that getMonthBalance() can work synchronously
+// without re-decrypting from localStorage on each chart/dashboard render.
+const _monthCache = new Map();
+
 function emptyData() {
   return {
     initialAmount: 0,
@@ -55,7 +60,7 @@ function getMonthKey(year, month) {
  * the currently selected year/month, for this user.
  * Used to auto-populate the initial balance of a new month.
  */
-function getPrevMonthBalance() {
+async function getPrevMonthBalance() {
   const uid   = currentUser?.uid || 'guest';
   let year  = Number(document.getElementById('yearSelect').value);
   let month = Number(document.getElementById('monthSelect').value);
@@ -64,26 +69,42 @@ function getPrevMonthBalance() {
   month -= 1;
   if (month < 0) { month = 11; year -= 1; }
 
-  return getMonthBalance(uid, year, month);
+  const cacheKey = `${uid}_${year}_${month}`;
+  if (_monthCache.has(cacheKey)) return calcBalance(_monthCache.get(cacheKey));
+
+  const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
+  if (!raw) return 0;
+
+  // If encrypted, decrypt asynchronously
+  const email = currentUser?.email || null;
+  const d = await decryptFromStorage(raw, email);
+  if (d) { _monthCache.set(cacheKey, d); return calcBalance(d); }
+  return 0;
 }
 
 /* ── Load ─────────────────────────────────────────────────── */
-function loadData() {
-  const raw = localStorage.getItem(getDataKey());
+async function loadData() {
+  const key   = getDataKey();
+  const raw   = localStorage.getItem(key);
+  const email = currentUser?.email || null;
+  const uid   = currentUser?.uid   || 'guest';
+  const year  = document.getElementById('yearSelect').value;
+  const month = document.getElementById('monthSelect').value;
 
   if (raw) {
-    // Existing month — load as-is
-    data = JSON.parse(raw);
+    // Existing month — decrypt and load
+    data = (await decryptFromStorage(raw, email)) || emptyData();
     // Migrate: older saves may not have a notes array
     if (!Array.isArray(data.notes)) data.notes = [];
+    _monthCache.set(`${uid}_${year}_${month}`, data);
   } else {
     // New month — seed initial balance from previous month's closing balance
-    const prev = getPrevMonthBalance();
+    const prev = await getPrevMonthBalance();
     data = emptyData();
     if (prev !== 0) {
       data.initialAmount = prev;
       // Save immediately so the pre-fill persists
-      localStorage.setItem(getDataKey(), JSON.stringify(data));
+      localStorage.setItem(key, await encryptForStorage(data, email));
     }
   }
 
@@ -91,15 +112,19 @@ function loadData() {
 }
 
 /* ── Save ─────────────────────────────────────────────────── */
-function saveData() {
+async function saveData() {
   if (!currentUser) return;
-  const key = getDataKey();
-  localStorage.setItem(key, JSON.stringify(data));
+  const key   = getDataKey();
+  const email = currentUser.email || null;
+  const uid   = currentUser.uid   || 'guest';
+  const year  = document.getElementById('yearSelect').value;
+  const month = document.getElementById('monthSelect').value;
+
+  localStorage.setItem(key, await encryptForStorage(data, email));
+  _monthCache.set(`${uid}_${year}_${month}`, data);
 
   // Push to cloud if sync is available (sync.js)
   if (typeof syncSaveData === 'function') {
-    const year  = document.getElementById('yearSelect').value;
-    const month = document.getElementById('monthSelect').value;
     syncSaveData(getMonthKey(year, month), data);
   }
 }
@@ -120,11 +145,9 @@ function clearMonthData() {
 }
 
 /* ── Balance helpers ──────────────────────────────────────── */
-function getMonthBalance(uid, year, month) {
-  // uid here is already the Firebase uid passed from render.js
-  const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
-  if (!raw) return 0;
-  const d = JSON.parse(raw);
+
+// Compute closing balance from a data object.
+function calcBalance(d) {
   return (
     (Number(d.initialAmount) || 0)
     + sumArr(d.income)
@@ -132,6 +155,25 @@ function getMonthBalance(uid, year, month) {
     - sumArr(d.investment)
     - sumArr(d.loan)
   );
+}
+
+function getMonthBalance(uid, year, month) {
+  // Check in-memory cache first (populated by loadData / sync prefetch).
+  const cacheKey = `${uid}_${year}_${month}`;
+  if (_monthCache.has(cacheKey)) return calcBalance(_monthCache.get(cacheKey));
+
+  const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
+  if (!raw) return 0;
+
+  // Encrypted data cannot be decoded synchronously here.
+  // Return 0 — the caller will re-render once the async sync completes
+  // and populates _monthCache via syncPrefetchPastMonths / loadData.
+  if (raw.startsWith('ENC1:')) return 0;
+
+  // Legacy plain-JSON (pre-encryption) — parse, cache, return.
+  const d = JSON.parse(raw);
+  _monthCache.set(cacheKey, d);
+  return calcBalance(d);
 }
 
 /* ── Selectors ────────────────────────────────────────────── */
@@ -165,6 +207,23 @@ function onMonthChange() {
   } else {
     loadData();
   }
+}
+
+/**
+ * Returns the decrypted data object for any month, using _monthCache first.
+ * Falls back to plain-JSON localStorage for legacy (unencrypted) entries.
+ * Returns null when the month has no data or is encrypted but not yet cached
+ * (caller should wait for syncPrefetchPastMonths to populate the cache).
+ */
+function getCachedMonthData(uid, year, month) {
+  const cacheKey = `${uid}_${year}_${month}`;
+  if (_monthCache.has(cacheKey)) return _monthCache.get(cacheKey);
+  const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
+  if (!raw) return null;
+  if (raw.startsWith('ENC1:')) return null; // encrypted but not yet in cache
+  const d = JSON.parse(raw);
+  _monthCache.set(cacheKey, d);
+  return d;
 }
 
 /* ── Shared helpers ───────────────────────────────────────── */

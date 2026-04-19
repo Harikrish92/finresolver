@@ -17,8 +17,7 @@ function getPastMonthData(offsetMonths) {
   month -= offsetMonths;
   while (month < 0) { month += 12; year--; }
 
-  const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
-  return raw ? JSON.parse(raw) : null;
+  return getCachedMonthData(uid, year, month);
 }
 
 /** Get last N months of data (not including current month) */

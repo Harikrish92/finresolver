@@ -156,13 +156,15 @@ function getInvKey() {
   return 'fr_investments_' + uid;
 }
 
-function loadInvestments() {
-  var raw = localStorage.getItem(getInvKey());
-  investmentsData = raw ? JSON.parse(raw) : [];
+async function loadInvestments() {
+  var raw   = localStorage.getItem(getInvKey());
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  investmentsData = raw ? ((await decryptFromStorage(raw, email)) || []) : [];
 }
 
-function saveInvestments() {
-  localStorage.setItem(getInvKey(), JSON.stringify(investmentsData));
+async function saveInvestments() {
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  localStorage.setItem(getInvKey(), await encryptForStorage(investmentsData, email));
   invSyncSave();
 }
 
@@ -171,9 +173,12 @@ function invSyncSave() {
   var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
     ? fbAuth.currentUser.uid : null;
   if (!uid) return;
-  db.collection('users').doc(uid).collection('config').doc('investments')
-    .set({ investments: investmentsData })
-    .catch(function(e){ console.warn('[Inv] Firestore save failed:', e.message); });
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  encryptForStorage({ investments: investmentsData }, email).then(function(encStr) {
+    db.collection('users').doc(uid).collection('config').doc('investments')
+      .set({ _enc: encStr })
+      .catch(function(e){ console.warn('[Inv] Firestore save failed:', e.message); });
+  });
 }
 
 function invSyncLoad() {
@@ -181,13 +186,22 @@ function invSyncLoad() {
   var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
     ? fbAuth.currentUser.uid : null;
   if (!uid) return Promise.resolve();
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
   return db.collection('users').doc(uid).collection('config').doc('investments').get()
-    .then(function(snap) {
-      if (snap.exists && Array.isArray(snap.data().investments)) {
-        investmentsData = snap.data().investments;
-        localStorage.setItem(getInvKey(), JSON.stringify(investmentsData));
-        console.info('[Inv] ✅ Loaded from Firestore:', investmentsData.length, 'holdings');
+    .then(async function(snap) {
+      if (!snap.exists) return;
+      var d = snap.data();
+      var holdings;
+      if (d._enc) {
+        var dec = await decryptFromStorage(d._enc, email);
+        holdings = dec && dec.investments;
+      } else {
+        holdings = d.investments;
       }
+      if (!Array.isArray(holdings)) return;
+      investmentsData = holdings;
+      localStorage.setItem(getInvKey(), await encryptForStorage(investmentsData, email));
+      console.info('[Inv] ✅ Loaded from Firestore:', investmentsData.length, 'holdings');
     })
     .catch(function(e) { console.warn('[Inv] Firestore load failed:', e.message); });
 }

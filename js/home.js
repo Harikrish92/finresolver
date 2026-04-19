@@ -139,12 +139,8 @@ function renderHomeDashboard() {
   for (let i = 0; i < 3; i++) {
     let m = mo - i, y = yr;
     if (m < 0) { m += 12; y--; }
-    const raw = localStorage.getItem(`fr_data_${uid}_${y}_${m}`);
-    if (raw) {
-      const d = JSON.parse(raw);
-      totalExp += sumArr(d.expense || []);
-      monthsWithData++;
-    }
+    const d = getCachedMonthData(uid, y, m);
+    if (d) { totalExp += sumArr(d.expense || []); monthsWithData++; }
   }
   const avgMonthlyExp = monthsWithData ? totalExp / monthsWithData : 0;
   const fireNumber    = avgMonthlyExp * 12 * 25;
@@ -152,9 +148,8 @@ function renderHomeDashboard() {
   // YTD savings = Income − Expenses − Loan repayments
   let ytdInc = 0, ytdExp = 0, ytdLoan = 0;
   for (let m = 0; m <= mo; m++) {
-    const raw = localStorage.getItem(`fr_data_${uid}_${yr}_${m}`);
-    if (raw) {
-      const d = JSON.parse(raw);
+    const d = getCachedMonthData(uid, yr, m);
+    if (d) {
       ytdInc  += sumArr(d.income   || []);
       ytdExp  += sumArr(d.expense  || []);
       ytdLoan += sumArr(d.loan     || []);
@@ -162,48 +157,42 @@ function renderHomeDashboard() {
   }
   const ytdSavings = ytdInc - ytdExp - ytdLoan;
 
-  // Total investment current value from fr_investments_{uid}
-  // Uses live caches (invQuoteCache, goldPriceCache) when available, else cost basis
+  // Total investment current value — use in-memory investmentsData (already decrypted)
   let totalInvCurrentVal = 0;
   try {
-    const invRaw = localStorage.getItem(`fr_investments_${uid}`);
-    if (invRaw) {
-      JSON.parse(invRaw).forEach(h => {
-        if (h.category === 'Gold') {
-          const grams = h.grams || h.qty || 0;
-          const liveG = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
-          totalInvCurrentVal += liveG > 0 ? grams * liveG
-                                          : grams * (h.buyPricePerGram || h.avgPrice || 0);
-        } else if (h.category === 'RealEstate') {
-          totalInvCurrentVal += h.curPrice || h.buyPrice || h.avgPrice || 0;
-        } else {
-          const qty = h.qty || 0;
-          const q   = (typeof invQuoteCache !== 'undefined') && h.ticker && invQuoteCache[h.ticker];
-          totalInvCurrentVal += q ? (toInr(q.price, q.currency) * qty) : qty * (h.avgPrice || 0);
-        }
-      });
-    }
+    const holdings = (typeof investmentsData !== 'undefined') ? investmentsData : [];
+    holdings.forEach(h => {
+      if (h.category === 'Gold') {
+        const grams = h.grams || h.qty || 0;
+        const liveG = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
+        totalInvCurrentVal += liveG > 0 ? grams * liveG
+                                        : grams * (h.buyPricePerGram || h.avgPrice || 0);
+      } else if (h.category === 'RealEstate') {
+        totalInvCurrentVal += h.curPrice || h.buyPrice || h.avgPrice || 0;
+      } else {
+        const qty = h.qty || 0;
+        const q   = (typeof invQuoteCache !== 'undefined') && h.ticker && invQuoteCache[h.ticker];
+        totalInvCurrentVal += q ? (toInr(q.price, q.currency) * qty) : qty * (h.avgPrice || 0);
+      }
+    });
   } catch(e) {}
 
-  // Total loan outstanding balance from fr_loans_{uid}
+  // Total loan outstanding balance — use in-memory loansData (already decrypted)
   let totalLoanOutstanding = 0;
   try {
-    const loanRaw = localStorage.getItem(`fr_loans_${uid}`);
-    if (loanRaw) {
-      const loans = JSON.parse(loanRaw);
-      loans.forEach(loan => {
-        if (loan.closed) return;
-        // Simple outstanding: principal - payments made
-        let outstanding = Number(loan.principal || 0);
-        const payments = loan.payments || [];
-        payments.forEach(p => { outstanding -= Number(p.amount || 0); });
-        // Use schedule-based outstanding if calcLoanStats is available
-        if (typeof calcLoanStats === 'function') {
-          try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
-        }
-        if (outstanding > 0) totalLoanOutstanding += outstanding;
-      });
-    }
+    const loans = (typeof loansData !== 'undefined') ? loansData : [];
+    loans.forEach(loan => {
+      if (loan.closed) return;
+      // Simple outstanding: principal - payments made
+      let outstanding = Number(loan.principal || 0);
+      const payments = loan.payments || [];
+      payments.forEach(p => { outstanding -= Number(p.amount || 0); });
+      // Use schedule-based outstanding if calcLoanStats is available
+      if (typeof calcLoanStats === 'function') {
+        try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
+      }
+      if (outstanding > 0) totalLoanOutstanding += outstanding;
+    });
   } catch(e) {}
 
   const monthName = MONTHS[mo];
@@ -260,51 +249,46 @@ function renderPortfolioOverview() {
     EPF: '#06b6d4', ESOP: '#c084fc', Others: '#ff6b6b'
   };
 
-  // ── 1. Investment holdings ────────────────────────────────────
+  // ── 1. Investment holdings — use in-memory investmentsData (already decrypted)
   let totalInvValue = 0;
   let holdings = [];
   try {
-    const invRaw = localStorage.getItem(`fr_investments_${uid}`);
-    if (invRaw) {
-      holdings = JSON.parse(invRaw);
-      holdings.forEach(h => {
-        let val;
-        if (h.category === 'Gold') {
-          const grams  = Number(h.grams || h.qty || 0);
-          const liveG  = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
-          val = liveG > 0 ? grams * liveG : grams * Number(h.buyPricePerGram || h.avgPrice || 0);
-        } else if (h.category === 'RealEstate') {
-          val = Number(h.curPrice || h.buyPrice || h.avgPrice || 0);
-        } else if (h.ticker && typeof invQuoteCache !== 'undefined' && invQuoteCache[h.ticker]?.price) {
-          const _q = invQuoteCache[h.ticker];
-          val = toInr(_q.price, _q.currency) * Number(h.qty || 0);
-        } else {
-          val = Number(h.qty || 0) * Number(h.avgPrice || 0);
-        }
-        h._pfVal = val;
-        totalInvValue += val;
-      });
-    }
+    holdings = (typeof investmentsData !== 'undefined') ? [...investmentsData] : [];
+    holdings.forEach(h => {
+      let val;
+      if (h.category === 'Gold') {
+        const grams  = Number(h.grams || h.qty || 0);
+        const liveG  = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
+        val = liveG > 0 ? grams * liveG : grams * Number(h.buyPricePerGram || h.avgPrice || 0);
+      } else if (h.category === 'RealEstate') {
+        val = Number(h.curPrice || h.buyPrice || h.avgPrice || 0);
+      } else if (h.ticker && typeof invQuoteCache !== 'undefined' && invQuoteCache[h.ticker]?.price) {
+        const _q = invQuoteCache[h.ticker];
+        val = toInr(_q.price, _q.currency) * Number(h.qty || 0);
+      } else {
+        val = Number(h.qty || 0) * Number(h.avgPrice || 0);
+      }
+      h._pfVal = val;
+      totalInvValue += val;
+    });
   } catch(e) {}
 
   // ── 2. Cash balance ───────────────────────────────────────────
   const curBal = getMonthBalance(uid, yr, mo);
 
-  // ── 3. Loan outstanding ───────────────────────────────────────
+  // ── 3. Loan outstanding — use in-memory loansData (already decrypted)
   let totalLoanOutstanding = 0;
   try {
-    const loanRaw = localStorage.getItem(`fr_loans_${uid}`);
-    if (loanRaw) {
-      JSON.parse(loanRaw).forEach(loan => {
-        if (loan.closed) return;
-        let outstanding = Number(loan.principal || 0);
-        (loan.payments || []).forEach(p => { outstanding -= Number(p.amount || 0); });
-        if (typeof calcLoanStats === 'function') {
-          try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
-        }
-        if (outstanding > 0) totalLoanOutstanding += outstanding;
-      });
-    }
+    const loans = (typeof loansData !== 'undefined') ? loansData : [];
+    loans.forEach(loan => {
+      if (loan.closed) return;
+      let outstanding = Number(loan.principal || 0);
+      (loan.payments || []).forEach(p => { outstanding -= Number(p.amount || 0); });
+      if (typeof calcLoanStats === 'function') {
+        try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
+      }
+      if (outstanding > 0) totalLoanOutstanding += outstanding;
+    });
   } catch(e) {}
 
   const netWorth = totalInvValue + Math.max(0, curBal) - totalLoanOutstanding;
@@ -312,9 +296,8 @@ function renderPortfolioOverview() {
   // ── 4. YTD & rolling metrics ──────────────────────────────────
   let ytdInc = 0, ytdExp = 0, ytdLoan = 0;
   for (let m = 0; m <= mo; m++) {
-    const raw = localStorage.getItem(`fr_data_${uid}_${yr}_${m}`);
-    if (raw) {
-      const d = JSON.parse(raw);
+    const d = getCachedMonthData(uid, yr, m);
+    if (d) {
       ytdInc  += sumArr(d.income  || []);
       ytdExp  += sumArr(d.expense || []);
       ytdLoan += sumArr(d.loan    || []);
@@ -324,8 +307,8 @@ function renderPortfolioOverview() {
   for (let i = 0; i < 3; i++) {
     let m = mo - i, y = yr;
     if (m < 0) { m += 12; y--; }
-    const raw = localStorage.getItem(`fr_data_${uid}_${y}_${m}`);
-    if (raw) { totalExp3m += sumArr(JSON.parse(raw).expense || []); months3m++; }
+    const d = getCachedMonthData(uid, y, m);
+    if (d) { totalExp3m += sumArr(d.expense || []); months3m++; }
   }
   const avgMonthlyExp = months3m ? totalExp3m / months3m : 0;
 
