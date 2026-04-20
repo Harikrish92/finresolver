@@ -1108,6 +1108,9 @@
         <input type="text"   id="loanDesc" placeholder="Description" />
         <input type="number" id="loanAmt"  placeholder="Amount" style="max-width:105px" />
         <input type="date"   id="loanDate" title="Date (optional)" style="max-width:130px" />
+        <select id="loanTagSelect" class="loan-tag-select" title="Link to a loan in Loan Tracker">
+          <option value="">🏷 Link to loan…</option>
+        </select>
         <button class="btn" onclick="addRow('loan')">+ Add</button>
       </div>
     </div>
@@ -1234,6 +1237,78 @@
   const payDateEl = document.getElementById('paymentDate');
   if (payDateEl) payDateEl.value = new Date().toISOString().slice(0, 10);
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INTRO OVERLAY — first-time walkthrough
+════════════════════════════════════════════════════════════ -->
+
+<!-- Backdrop + slide-0 modal (card lives here only for slide 0) -->
+<div class="intro-overlay hidden" id="introOverlay" role="dialog" aria-modal="true" aria-label="Introduction">
+  <div class="intro-card" id="introCard">
+    <button class="intro-skip" onclick="introDismiss()">Skip intro ✕</button>
+    <div class="intro-dots" id="introDots"></div>
+    <div id="introSlideContent"></div>
+    <div class="intro-nav">
+      <div class="intro-nav-left">
+        <button class="intro-btn-prev" id="introPrevBtn" onclick="introNav(-1)">← Back</button>
+      </div>
+      <div class="intro-step-label" id="introStepLabel"></div>
+      <div class="intro-nav-right">
+        <button class="intro-btn-next" id="introNextBtn" onclick="introNav(1)">Next →</button>
+        <button class="intro-btn-done" id="introDoneBtn" style="display:none" onclick="introDismiss()">Get Started 🚀</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── These three live OUTSIDE the overlay so backdrop-filter
+     doesn't trap them in a sub-stacking-context. All are
+     position:fixed and managed by JS. ── -->
+
+<!-- Pulsing ring: shared between header-highlight (slide 0) and card spotlight (slides 1-4) -->
+<div class="intro-highlight-ring hidden" id="introHighlightRing"></div>
+
+<!-- Slide 0: callout bubble that appears below the header controls -->
+<div class="intro-header-callout hidden" id="introHeaderCallout">
+  <div class="intro-callout-row"><span>👤</span><span><strong>User menu</strong> — view profile &amp; sign out</span></div>
+  <div class="intro-callout-row"><span>☀️</span><span><strong>Theme toggle</strong> — switch dark / light</span></div>
+</div>
+
+<!-- Slides 1-4: tracker spotlight panel — scrollable body + sticky nav -->
+<div class="intro-tracker-panel hidden" id="introTrackerPanel">
+
+  <!-- Scrollable section: dots + title + features (no skip here) -->
+  <div class="itp-scroll-body">
+    <div class="itp-header-row">
+      <div class="intro-dots" id="introDotsSpot"></div>
+      <!-- Step label now lives top-right where skip used to be -->
+      <span class="intro-step-label" id="introStepLabelSpot"></span>
+    </div>
+    <div class="itp-content-row">
+      <div class="itp-icon" id="itpIcon"></div>
+      <div class="itp-text-col">
+        <div class="itp-title" id="itpTitle"></div>
+        <div class="itp-sub"   id="itpSub"></div>
+      </div>
+    </div>
+    <div class="itp-features" id="itpFeatures"></div>
+  </div>
+
+  <!-- Always-visible footer: Back | Skip | Next/Done -->
+  <div class="itp-nav-row">
+    <div class="intro-nav">
+      <div class="intro-nav-left">
+        <button class="intro-btn-prev" id="itpPrevBtn" onclick="introNav(-1)">← Back</button>
+        <button class="intro-btn-skip-footer" onclick="introDismiss()">Skip</button>
+      </div>
+      <div class="intro-nav-right">
+        <button class="intro-btn-next" id="itpNextBtn" onclick="introNav(1)">Next →</button>
+        <button class="intro-btn-done" id="itpDoneBtn" style="display:none" onclick="introDismiss()">Get Started 🚀</button>
+      </div>
+    </div>
+  </div>
+
+</div>
 
 <!-- PWA Service Worker Registration -->
 <script>

@@ -178,6 +178,11 @@ html.theme-light .add-row input {
   color: var(--text);
   border-color: var(--border);
 }
+html.theme-light .loan-tag-select {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
 
 /* ── Row inline-edit ── */
 html.theme-light tbody tr.editing { background: #f0f2f8 !important; }

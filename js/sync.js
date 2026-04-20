@@ -254,6 +254,8 @@ async function syncLoadConfig(uid) {
           loans = d.loans;
         }
         if (!Array.isArray(loans)) return;
+        // Skip overwrite if a local save happened in the last 15 s
+        if (typeof _loansLastSavedAt !== 'undefined' && Date.now() - _loansLastSavedAt < 15000) return;
         localStorage.setItem('fr_loans_' + uid, await encryptForStorage(loans, email));
         if (typeof loansData !== 'undefined') loansData = loans;
         console.info('[Sync] ✅ Loans loaded from Firestore:', loans.length);
@@ -284,9 +286,16 @@ async function syncLoadConfig(uid) {
 
   await Promise.all(promises);
 
-  // Refresh home dashboard now that loans + investments are in localStorage
+  // Refresh home dashboard now that loans + investments are in memory
   if (typeof renderHomeDashboard === 'function') {
     renderHomeDashboard();
+  }
+  // Trigger live price fetch now that investmentsData is populated.
+  // homeFetchLivePricesOnce() was a no-op on page load because investmentsData
+  // was still empty when showHomeScreen() ran — retry it here.
+  if (typeof homeFetchLivePricesOnce === 'function' &&
+      document.getElementById('homeScreen')?.style.display !== 'none') {
+    homeFetchLivePricesOnce();
   }
 }
 
@@ -301,6 +310,8 @@ async function syncPrefetchPastMonths(uid, year, month) {
 
   const email   = currentUser?.email || null;
   const fetches = [];
+
+  // ── Step 1: last 3 months (may span year boundary) ──────────
   for (let i = 1; i <= 3; i++) {
     let m = month - i;
     let y = year;
@@ -308,9 +319,10 @@ async function syncPrefetchPastMonths(uid, year, month) {
 
     const localKey     = `fr_data_${uid}_${y}_${m}`;
     const firestoreKey = `${y}_${m}`;
+    const cacheKey     = `${uid}_${y}_${m}`;
 
-    // Only fetch from Firestore if not already cached locally
     if (!localStorage.getItem(localKey)) {
+      // Not in localStorage at all — fetch from Firestore
       fetches.push(
         db.collection('users').doc(uid).collection('months').doc(firestoreKey)
           .get()
@@ -319,13 +331,36 @@ async function syncPrefetchPastMonths(uid, year, month) {
               const d      = snap.data();
               const encStr = d._enc || JSON.stringify(d);
               localStorage.setItem(localKey, encStr);
-              // Populate decrypted cache so getMonthBalance() works synchronously
               const parsed = await decryptFromStorage(encStr, email);
-              if (parsed) _monthCache.set(`${uid}_${y}_${m}`, parsed);
+              if (parsed) _monthCache.set(cacheKey, parsed);
               console.info('[Sync] ✅ Prefetched past month:', firestoreKey);
             }
           })
           .catch(err => console.warn('[Sync] Could not prefetch', firestoreKey, err.message))
+      );
+    } else if (!_monthCache.has(cacheKey)) {
+      // Already in localStorage (encrypted) but not yet decrypted into cache
+      fetches.push(
+        decryptFromStorage(localStorage.getItem(localKey), email).then(parsed => {
+          if (parsed) _monthCache.set(cacheKey, parsed);
+        })
+      );
+    }
+  }
+
+  // ── Step 2: warm the full YTD range (Jan → month-1) ─────────
+  // home.js loops months 0..mo for YTD income/expense totals.
+  // These months are already in localStorage for returning users
+  // but may not be in _monthCache yet.
+  for (let m = 0; m < month; m++) {
+    const localKey = `fr_data_${uid}_${year}_${m}`;
+    const cacheKey = `${uid}_${year}_${m}`;
+    const raw      = localStorage.getItem(localKey);
+    if (raw && !_monthCache.has(cacheKey)) {
+      fetches.push(
+        decryptFromStorage(raw, email).then(parsed => {
+          if (parsed) _monthCache.set(cacheKey, parsed);
+        })
       );
     }
   }
@@ -334,8 +369,7 @@ async function syncPrefetchPastMonths(uid, year, month) {
     await Promise.all(fetches);
   }
 
-  // Re-render home dashboard now that past months are in localStorage
-  // Fix 1: this is the call that was missing — home was never refreshed after sync
+  // Re-render home dashboard now that past months are in _monthCache
   if (typeof renderHomeDashboard === 'function') {
     renderHomeDashboard();
   }

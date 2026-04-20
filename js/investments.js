@@ -2147,7 +2147,7 @@ function invCleanNum(v) {
    BROKER PLATFORM DETECTION
 ══════════════════════════════════════════════════════════ */
 function detectInvPlatform(headerRow) {
-  var h = headerRow.map(function(c){ return String(c).toLowerCase().trim().replace(/\s+/g,' '); });
+  var h = headerRow.map(function(c){ return String(c).toLowerCase().trim().replace(/\./g,'').replace(/\s+/g,' '); });
   var has  = function(kw) { return h.some(function(x){ return x.includes(kw); }); };
   var hasAll = function(kws) { return kws.every(function(kw){ return has(kw); }); };
 
@@ -2202,7 +2202,7 @@ function _invCol(h, keywords) {
    isin  may be '' when not available.
 ══════════════════════════════════════════════════════════ */
 function _invParseRows(rows, platformId) {
-  var h    = rows[0].map(function(c){ return String(c).toLowerCase().trim().replace(/\s+/g,' '); });
+  var h    = rows[0].map(function(c){ return String(c).toLowerCase().trim().replace(/\./g,'').replace(/\s+/g,' '); });
   var data = rows.slice(1).filter(function(r){
     return r.some(function(c){ return String(c).trim() !== ''; });
   });

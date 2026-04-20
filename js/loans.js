@@ -38,10 +38,13 @@ function loanEscHtml(s) {
 /* ══════════════════════════════════════════════════════════
    STATE
 ══════════════════════════════════════════════════════════ */
-var loansData    = [];
-var activeLoanId = null;
-var loanChartPie  = null;
-var loanChartLine = null;
+var loansData         = [];
+var activeLoanId      = null;
+var loanChartPie      = null;
+var loanChartLine     = null;
+/* Timestamp of last local write — used to suppress stale Firestore reads
+   that would overwrite an in-progress local save. */
+var _loansLastSavedAt = 0;
 
 /* ══════════════════════════════════════════════════════════
    STORAGE
@@ -60,6 +63,7 @@ async function loadLoans() {
 }
 
 async function saveLoans() {
+  _loansLastSavedAt = Date.now(); // guard: suppress stale Firestore reads until this save propagates
   var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
   localStorage.setItem(getLoanStorageKey(), await encryptForStorage(loansData, email));
   syncSaveLoans();
@@ -98,6 +102,9 @@ function syncLoadLoans() {
         loans = d.loans;
       }
       if (!Array.isArray(loans)) return;
+      // Skip overwrite if a local save happened in the last 15 s — Firestore
+      // may not yet have that write and would roll back our in-memory changes.
+      if (Date.now() - _loansLastSavedAt < 15000) return;
       loansData = loans;
       localStorage.setItem(getLoanStorageKey(), await encryptForStorage(loansData, email));
     })
@@ -225,6 +232,19 @@ function goToLoanDetail(id) {
   activeLoanId = id;
   document.getElementById('loanScreen').style.display       = 'none';
   document.getElementById('loanDetailScreen').style.display = 'block';
+  renderLoanDetail();
+}
+
+/* Navigate directly to a loan's detail screen from any screen
+   (e.g. clicking the loan tag in the monthly tracker) */
+function navigateToLoan(id) {
+  history.pushState({ screen: 'loanDetail', id: id }, '');
+  activeLoanId = id;
+  document.getElementById('homeScreen').style.display       = 'none';
+  document.getElementById('appMain').style.display          = 'none';
+  document.getElementById('loanScreen').style.display       = 'none';
+  document.getElementById('loanDetailScreen').style.display = 'block';
+  document.getElementById('btnBackHome').style.display      = 'flex';
   renderLoanDetail();
 }
 

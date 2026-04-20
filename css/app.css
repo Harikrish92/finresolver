@@ -3,6 +3,315 @@
    FinResolver · finresolver.in
    ============================================================ */
 
+/* ════════════════════════════════════════════════════════════
+   INTRO OVERLAY — first-time walkthrough
+════════════════════════════════════════════════════════════ */
+.intro-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  animation: fadeUp .3s ease;
+}
+.intro-overlay.hidden { display: none; }
+
+.intro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%; max-width: 540px;
+  padding: 2rem 2rem 1.5rem;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  display: flex; flex-direction: column; gap: 0;
+}
+
+/* ── Skip ── */
+.intro-skip {
+  position: absolute; top: 1.1rem; right: 1.2rem;
+  background: none; border: none;
+  color: var(--muted); font-family: var(--font-mono);
+  font-size: .72rem; cursor: pointer;
+  transition: color .18s;
+}
+.intro-skip:hover { color: var(--text); }
+
+/* ── Step dots ── */
+.intro-dots {
+  display: flex; gap: .45rem; justify-content: center;
+  margin-bottom: 1.6rem;
+}
+.intro-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border); transition: background .25s, transform .25s;
+}
+.intro-dot.active {
+  background: var(--accent); transform: scale(1.3);
+}
+
+/* ── Icon ── */
+.intro-icon {
+  font-size: 2.6rem; text-align: center;
+  margin-bottom: .75rem; line-height: 1;
+}
+
+/* ── Title ── */
+.intro-title {
+  font-family: var(--font-head); font-size: 1.35rem;
+  font-weight: 800; text-align: center; color: var(--text);
+  margin-bottom: .45rem;
+}
+.intro-title span { color: var(--accent); }
+
+/* ── Subtitle ── */
+.intro-sub {
+  font-size: .78rem; color: var(--muted); text-align: center;
+  line-height: 1.6; margin-bottom: 1.4rem;
+}
+
+/* ── Feature list inside a slide ── */
+.intro-features {
+  display: flex; flex-direction: column; gap: .65rem;
+  margin-bottom: 1.5rem;
+}
+.intro-feat {
+  display: flex; align-items: flex-start; gap: .8rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: .65rem .85rem;
+}
+.intro-feat-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
+.intro-feat-body { display: flex; flex-direction: column; gap: .15rem; }
+.intro-feat-title { font-family: var(--font-head); font-size: .82rem; font-weight: 700; color: var(--text); }
+.intro-feat-desc  { font-size: .72rem; color: var(--muted); line-height: 1.5; }
+
+/* ── UI hints (header callouts) ── */
+.intro-hints {
+  display: flex; gap: .6rem; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 1.5rem;
+}
+.intro-hint-pill {
+  display: flex; align-items: center; gap: .45rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: .38rem .85rem;
+  font-size: .72rem; color: var(--muted);
+}
+.intro-hint-pill strong { color: var(--text); font-weight: 600; }
+.intro-hint-pill .hint-icon { font-size: .9rem; }
+
+/* ── Navigation row ── */
+.intro-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem; margin-top: .25rem;
+}
+.intro-nav-left  { display: flex; align-items: center; gap: .45rem; }
+.intro-nav-right { display: flex; align-items: center; justify-content: flex-end; gap: .45rem; }
+.intro-step-label {
+  font-size: .68rem; color: var(--muted); text-align: center; flex: 1;
+}
+
+.intro-btn-prev,
+.intro-btn-next,
+.intro-btn-done {
+  font-family: var(--font-mono); font-size: .78rem;
+  padding: .45rem 1.1rem; border-radius: 8px; cursor: pointer;
+  transition: border-color .18s, color .18s, background .18s;
+  border: 1px solid var(--border);
+}
+.intro-btn-prev {
+  background: none; color: var(--muted);
+}
+.intro-btn-prev:hover { border-color: var(--accent4); color: var(--accent4); }
+
+/* Skip button in the tracker panel footer */
+.intro-btn-skip-footer {
+  font-family: var(--font-mono); font-size: .75rem;
+  padding: .42rem .85rem; border-radius: 8px; cursor: pointer;
+  background: none; border: 1px solid transparent;
+  color: var(--muted); transition: color .18s, border-color .18s;
+}
+.intro-btn-skip-footer:hover { border-color: var(--accent2); color: var(--accent2); }
+.intro-btn-next {
+  background: var(--accent); border-color: var(--accent);
+  color: #000; font-weight: 700;
+}
+.intro-btn-next:hover { background: #00c98c; border-color: #00c98c; }
+.intro-btn-done {
+  background: var(--accent); border-color: var(--accent);
+  color: #000; font-weight: 700;
+}
+.intro-btn-done:hover { background: #00c98c; border-color: #00c98c; }
+
+/* ── Header callout banner (shown during welcome slide) ── */
+.intro-header-callout {
+  /* top is set by JS based on ring's actual bottom edge — no hardcoded value */
+  position: fixed; right: 1rem; z-index: 10003; /* above header (10002) */
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 10px; padding: .55rem .85rem;
+  font-size: .72rem; color: var(--text); line-height: 1.55;
+  max-width: 230px; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  pointer-events: none;
+  animation: fadeUp .25s ease;
+}
+.intro-header-callout.hidden { display: none; }
+/* Upward arrow pointing at the ring */
+.intro-header-callout::before {
+  content: '';
+  position: absolute; top: -7px; right: 38px;
+  width: 12px; height: 12px;
+  background: var(--surface);
+  border-left: 1px solid var(--accent);
+  border-top: 1px solid var(--accent);
+  transform: rotate(45deg);
+}
+/* Mobile: full-width pill below the ring, no arrow */
+@media (max-width: 600px) {
+  .intro-header-callout {
+    right: .75rem; left: .75rem; max-width: none;
+    font-size: .68rem; padding: .5rem .75rem;
+  }
+  .intro-header-callout::before { display: none; }
+}
+.intro-callout-row {
+  display: flex; align-items: center; gap: .55rem;
+  margin-bottom: .3rem;
+}
+.intro-callout-row:last-child { margin-bottom: 0; }
+
+/* ── Highlight ring (shared: header on slide 0, card on slides 1-4) ── */
+.intro-highlight-ring {
+  position: fixed; z-index: 10002; pointer-events: none;
+  border: 2px solid var(--accent); border-radius: 16px;
+  box-shadow: 0 0 0 4px rgba(0,229,160,.15);
+  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+  animation: pulseRing 1.5s ease-in-out infinite;
+}
+@keyframes pulseRing {
+  0%,100% { box-shadow: 0 0 0 4px rgba(0,229,160,.15); }
+  50%      { box-shadow: 0 0 0 10px rgba(0,229,160,.05); }
+}
+.intro-highlight-ring.hidden { display: none; }
+
+/* ── Tracker spotlight panel (slides 1-4) ── */
+.intro-tracker-panel {
+  position: fixed; z-index: 10001; pointer-events: all;
+  left: 50%; transform: translateX(-50%);
+  width: calc(100% - 2rem); max-width: 660px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 48px rgba(0,0,0,.55);
+  /* Flexbox column so the nav row is always visible at the bottom */
+  display: flex; flex-direction: column;
+  animation: slideUpPanel .25s ease;
+  /* max-height is set by JS; never let the panel bleed off-screen */
+}
+.intro-tracker-panel.hidden { display: none; }
+@keyframes slideUpPanel {
+  from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Scrollable inner area — header + content + features — shrinks when capped */
+.itp-scroll-body {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 1rem 1.35rem 0;
+}
+/* Scrollbar — thin, inset from the rounded corners */
+.itp-scroll-body::-webkit-scrollbar        { width: 4px; }
+.itp-scroll-body::-webkit-scrollbar-track  {
+  background: transparent;
+  margin-top: 1rem;       /* keeps track away from the top rounded corner */
+  margin-bottom: .5rem;
+}
+.itp-scroll-body::-webkit-scrollbar-thumb  {
+  background: var(--border);
+  border-radius: 4px;
+}
+.itp-scroll-body::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Header row: dots left, step-label pinned to the right */
+.itp-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .75rem;
+}
+/* Override the global flex:1 / text-align:center so the label hugs the right edge */
+.itp-header-row .intro-step-label {
+  flex: none;
+  text-align: right;
+  margin-left: auto;
+}
+
+/* Icon + title/sub side by side */
+.itp-content-row {
+  display: flex; align-items: flex-start; gap: .85rem;
+  margin-bottom: .75rem;
+}
+.itp-icon {
+  font-size: 2rem; flex-shrink: 0; line-height: 1; margin-top: .1rem;
+}
+.itp-text-col { display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
+.itp-title {
+  font-family: var(--font-head); font-size: 1.1rem;
+  font-weight: 800; color: var(--text); line-height: 1.2;
+}
+.itp-title span { color: var(--accent); }
+.itp-sub {
+  font-size: .72rem; color: var(--muted); line-height: 1.55;
+}
+
+/* 2-column feature grid */
+.itp-features {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .4rem;
+  margin-bottom: .85rem;
+}
+.itp-feat {
+  display: flex; align-items: flex-start; gap: .5rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 9px; padding: .45rem .6rem;
+}
+.itp-feat-icon { font-size: .88rem; flex-shrink: 0; margin-top: .1rem; }
+.itp-feat-body { display: flex; flex-direction: column; gap: .08rem; }
+.itp-feat-title {
+  font-family: var(--font-head); font-size: .74rem;
+  font-weight: 700; color: var(--text);
+}
+.itp-feat-desc { font-size: .65rem; color: var(--muted); line-height: 1.4; }
+
+/* Nav row — never scrolls away; always pinned at panel bottom */
+.itp-nav-row {
+  flex-shrink: 0;
+  padding: .75rem 1.35rem .9rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+@media (max-width: 600px) {
+  .itp-features    { grid-template-columns: 1fr; }
+  .itp-scroll-body { padding: .8rem 1rem 0; }
+  .itp-nav-row     { padding: .6rem 1rem .75rem; }
+
+  /* Bottom-sheet mode: JS sets bottom:0, left:0, width:100% */
+  .intro-tracker-panel.mobile-sheet {
+    border-radius: 18px 18px 0 0;
+    transform: none;
+  }
+  /* Top-sheet mode: JS sets top:<header height>, left:0, width:100% */
+  .intro-tracker-panel.mobile-sheet-top {
+    border-radius: 0 0 18px 18px;
+    transform: none;
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .intro-card { padding: 1.5rem 1.25rem 1.25rem; }
+  .intro-title { font-size: 1.1rem; }
+}
+
 /* ── Header ── */
 header {
   position: sticky; top: 0; z-index: 100;
@@ -255,6 +564,37 @@ tbody tr.editing { background: var(--surface2) !important; }
 
 /* Date badge under description */
 .row-date { font-size: .68rem; color: var(--muted); letter-spacing: .01em; }
+
+/* Loan tag badge shown inside monthly tracker loan rows */
+.loan-link-tag {
+  display: inline-block;
+  font-size: .62rem; padding: .1rem .45rem;
+  border-radius: 10px;
+  background: rgba(255,209,102,.13);
+  color: var(--accent3);
+  border: 1px solid rgba(255,209,102,.28);
+  margin-top: 3px;
+  letter-spacing: .02em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.loan-link-tag:hover { background: rgba(255,209,102,.26); }
+
+/* Loan tag select in add-row */
+.loan-tag-select {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  padding: .38rem .5rem;
+  border-radius: 6px;
+  max-width: 160px;
+  transition: border-color .2s;
+}
+.loan-tag-select:focus { outline: none; border-color: var(--accent3); }
 
 /* ── Checklist ── */
 .checklist-grid {

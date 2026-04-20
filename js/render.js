@@ -21,6 +21,7 @@ function render() {
   renderTable('loan',       'loanBody', 'amount-loan');
   renderChecklist();
   renderCharts();
+  populateLoanTagSelect();
   if (typeof renderNotes         === 'function') renderNotes();
   if (typeof renderInsightsPanel === 'function') renderInsightsPanel();
 }
@@ -67,9 +68,13 @@ function renderTable(type, bodyId, amtClass) {
     return;
   }
 
-  tbody.innerHTML = rows.map((r, i) => `
+  tbody.innerHTML = rows.map((r, i) => {
+    const loanTag = (type === 'loan' && r.loanId && r.loanName)
+      ? `<br><span class="loan-link-tag" onclick="navigateToLoan('${r.loanId}')" title="View in Loan Tracker">🏷 ${escHtml(r.loanName)}</span>`
+      : '';
+    return `
     <tr id="tr-${type}-${i}">
-      <td>${escHtml(r.desc)}${r.date ? `<br><span class="row-date">${fmtDate(r.date)}</span>` : ''}</td>
+      <td>${escHtml(r.desc)}${r.date ? `<br><span class="row-date">${fmtDate(r.date)}</span>` : ''}${loanTag}</td>
       <td class="${amtClass}">${fmt(r.amount)}</td>
       <td>
         <button class="btn-row-edit" onclick="startEditRow('${type}',${i})" title="Edit entry">✏️</button>
@@ -77,7 +82,18 @@ function renderTable(type, bodyId, amtClass) {
       <td>
         <button class="btn-del" onclick="delRow('${type}',${i})" title="Delete entry">✕</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+// ── Loan tag select population ───────────────────────────────
+function populateLoanTagSelect() {
+  const sel = document.getElementById('loanTagSelect');
+  if (!sel) return;
+  const loans = (typeof loansData !== 'undefined') ? loansData : [];
+  const current = sel.value; // preserve selection if already chosen
+  sel.innerHTML = `<option value="">🏷 Link to loan\u2026</option>` +
+    loans.map(l => `<option value="${l.id}"${l.id === current ? ' selected' : ''}>${escHtml(l.name)}</option>`).join('');
 }
 
 // ── Checklist ────────────────────────────────────────────────

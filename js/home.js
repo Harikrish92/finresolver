@@ -539,6 +539,9 @@ function showHomeScreen() {
 
   renderHomeDashboard();
 
+  // Show first-time intro walkthrough (no-op if already seen)
+  maybeShowIntro();
+
   // Silently fetch live prices once so the home stat reflects current values,
   // regardless of whether live tracking is enabled in the investment screen.
   homeFetchLivePricesOnce();
@@ -555,11 +558,7 @@ function homeFetchLivePricesOnce() {
   const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid)
               ? fbAuth.currentUser.uid : (currentUser?.uid || 'guest');
 
-  let holdings = [];
-  try {
-    const raw = localStorage.getItem(`fr_investments_${uid}`);
-    if (raw) holdings = JSON.parse(raw);
-  } catch(e) { return; }
+  const holdings = (typeof investmentsData !== 'undefined') ? [...investmentsData] : [];
 
   if (!holdings.length) return;
 
@@ -604,6 +603,447 @@ function homeFetchLivePricesOnce() {
     }
   });
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FIRST-TIME INTRO WALKTHROUGH
+   5 slides: Welcome (modal) → Monthly → Investment → Loan → FIRE (spotlight)
+   Ring, callout, and tracker panel live OUTSIDE the overlay so they aren't
+   trapped by its backdrop-filter stacking context.
+════════════════════════════════════════════════════════════════════════════ */
+
+const INTRO_SLIDES = [
+  {
+    type: 'welcome',
+    icon: '✨',
+    title: '<span>Fin</span>Resolver',
+    sub: 'Your personal finance command center. Let\'s take a quick tour of everything you can do here.',
+    features: [
+      { icon: '📊', title: 'Monthly Tracker',    desc: 'Log expenses, income, investments & loan payments month by month.' },
+      { icon: '📈', title: 'Investment Tracker', desc: 'Live prices for stocks & mutual funds, portfolio P&L & allocation.' },
+      { icon: '🏦', title: 'Loan Tracker',       desc: 'EMI schedule, amortization table & full payoff timeline.' },
+      { icon: '🔥', title: 'FIRE & Insights',    desc: 'Net worth, savings rate, FIRE number & spending pattern insights.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '.home-nav-card.tracker',
+    icon: '📊',
+    title: 'Monthly <span>Tracker</span>',
+    sub: 'Every month, record income, expenses, SIPs and EMIs in one place. Totals and charts update instantly.',
+    features: [
+      { icon: '💸', title: 'Expenses & Income',   desc: 'Add entries with descriptions and optional dates.' },
+      { icon: '📈', title: 'Investments & Loans', desc: 'Track monthly SIPs and EMIs side by side.' },
+      { icon: '✅', title: 'Monthly Checklist',   desc: 'Mark off recurring payments so nothing slips.' },
+      { icon: '✨', title: 'Smart Fill',           desc: 'Pre-populate recurring items from past months in one click.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '.home-nav-card.investment',
+    icon: '📈',
+    title: 'Investment <span>Tracker</span>',
+    sub: 'Your entire portfolio with live prices, P&L and asset allocation across every category.',
+    features: [
+      { icon: '⚡', title: 'Live Prices',       desc: 'NSE/BSE stocks & MFs via Yahoo Finance. Auto-refreshes every 60s.' },
+      { icon: '🥇', title: 'All Asset Classes', desc: 'Stocks, MF, FD, EPF, ESOP, Real Estate, Gold & more.' },
+      { icon: '📉', title: 'Price Charts',      desc: 'Interactive chart, financials & news for each holding.' },
+      { icon: '⬆',  title: 'Broker Import',    desc: 'Import from Zerodha, Groww, Upstox and others.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '.home-nav-card.loan',
+    icon: '🏦',
+    title: 'Loan <span>Tracker</span>',
+    sub: 'Model every loan you hold and see exactly when you\'ll be debt-free.',
+    features: [
+      { icon: '🧮', title: 'EMI Calculator', desc: 'Enter principal, rate & tenure to get the exact monthly EMI.' },
+      { icon: '📅', title: 'Amortization',   desc: 'Month-by-month principal vs interest with payoff date.' },
+      { icon: '💳', title: 'Payment Log',    desc: 'Record actual payments and track outstanding balance.' },
+      { icon: '📊', title: 'Visual Charts',  desc: 'Pie chart of principal vs interest + balance timeline.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '.home-nav-card.portfolio',
+    icon: '🔥',
+    title: 'FIRE &amp; <span>Insights</span>',
+    sub: 'Your complete financial picture — net worth, savings rate, FIRE number and spending patterns, all auto-calculated.',
+    features: [
+      { icon: '💰', title: 'Net Worth',     desc: 'Total investments + cash minus all loan balances.' },
+      { icon: '🔥', title: 'FIRE Number',   desc: '25× annual expenses — track your financial independence goal.' },
+      { icon: '📊', title: 'Savings Rate',  desc: 'YTD income saved as a percentage, updated each month.' },
+      { icon: '💡', title: 'Insights',      desc: 'Auto-observations on biggest categories and spending trends.' },
+    ]
+  },
+];
+
+let _introStep = 0;
+let _introHighlightedCard = null;   // track which card is currently boosted
+
+/* ─── Public API ──────────────────────────────────────────────────────────── */
+
+/** Show intro once per user (keyed by uid). No-op if already seen. */
+function maybeShowIntro() {
+  const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid)
+              ? fbAuth.currentUser.uid : (currentUser?.uid || 'guest');
+  if (localStorage.getItem(`fr_intro_done_${uid}`)) return;
+  _introStep = 0;
+  // Boost header above the backdrop so user can see the actual UI elements
+  const header = document.querySelector('header');
+  if (header) header.style.zIndex = '10002'; // above overlay(9999); callout is 10003 so it paints on top
+  document.getElementById('introOverlay').classList.remove('hidden');
+  _introRender();
+}
+
+/** Dismiss and permanently mark as done for this user. */
+function introDismiss() {
+  const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid)
+              ? fbAuth.currentUser.uid : (currentUser?.uid || 'guest');
+  localStorage.setItem(`fr_intro_done_${uid}`, '1');
+  document.getElementById('introOverlay').classList.add('hidden');
+  _introHideTrackerPanel();
+  _introHideHeaderHighlight();
+  _introClearCardHighlight();
+  const header = document.querySelector('header');
+  if (header) header.style.zIndex = '';
+}
+
+/** Step forward (+1) or backward (-1). */
+function introNav(dir) {
+  _introStep = Math.max(0, Math.min(INTRO_SLIDES.length - 1, _introStep + dir));
+  _introRender();
+}
+
+/* ─── Render dispatcher ───────────────────────────────────────────────────── */
+
+function _introRender() {
+  const slide   = INTRO_SLIDES[_introStep];
+  const isFirst = _introStep === 0;
+  const isLast  = _introStep === INTRO_SLIDES.length - 1;
+
+  if (slide.type === 'welcome') {
+    _introClearCardHighlight();
+    _introHideTrackerPanel();
+    _introRenderWelcomeCard(slide, isFirst, isLast);
+    _introShowHeaderHighlight();
+  } else {
+    _introHideWelcomeCard();
+    _introHideHeaderHighlight();
+    _introClearCardHighlight();
+    _introHighlightCard(slide.selector);
+    _introRenderTrackerPanel(slide, isFirst, isLast);
+  }
+}
+
+/* ─── Slide 0: centered welcome modal ────────────────────────────────────── */
+
+function _introRenderWelcomeCard(slide, isFirst, isLast) {
+  const card = document.getElementById('introCard');
+  if (card) card.style.display = '';
+
+  // Dots
+  const dotsEl = document.getElementById('introDots');
+  if (dotsEl) dotsEl.innerHTML = _introDotHtml();
+
+  // Content
+  const contentEl = document.getElementById('introSlideContent');
+  if (contentEl) {
+    contentEl.innerHTML = `
+      <div class="intro-icon">${slide.icon}</div>
+      <div class="intro-title">${slide.title}</div>
+      <div class="intro-sub">${slide.sub}</div>
+      <div class="intro-features">
+        ${(slide.features || []).map(f => `
+          <div class="intro-feat">
+            <div class="intro-feat-icon">${f.icon}</div>
+            <div class="intro-feat-body">
+              <div class="intro-feat-title">${f.title}</div>
+              <div class="intro-feat-desc">${f.desc}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // Step label + nav buttons
+  const stepEl = document.getElementById('introStepLabel');
+  if (stepEl) stepEl.textContent = `${_introStep + 1} of ${INTRO_SLIDES.length}`;
+  _introSetNavBtns('introPrevBtn', 'introNextBtn', 'introDoneBtn', isFirst, isLast);
+}
+
+function _introHideWelcomeCard() {
+  const card = document.getElementById('introCard');
+  if (card) card.style.display = 'none';
+}
+
+/* ─── Slides 1-4: spotlight + bottom tracker panel ───────────────────────── */
+
+function _introHighlightCard(selector) {
+  const card = selector ? document.querySelector(selector) : null;
+  if (!card) return;
+  _introHighlightedCard = card;
+
+  // #homeScreen has z-index:1 which traps children in its stacking context.
+  // Remove it so the card's z-index is evaluated against the root context and
+  // it can appear above the overlay (z-index 9999).
+  const homeScreen = document.getElementById('homeScreen');
+  if (homeScreen) homeScreen.style.zIndex = 'auto';
+
+  // Boost the card above the overlay in the root stacking context
+  card.style.position      = 'relative';
+  card.style.zIndex        = '10002';
+  card.style.pointerEvents = 'none';           // prevent accidental navigation
+  card.style.boxShadow     = '0 0 0 3px rgba(0,229,160,.4), 0 8px 32px rgba(0,0,0,.4)';
+
+  // Position the shared ring around the card
+  const ring = document.getElementById('introHighlightRing');
+  if (ring) {
+    const r = card.getBoundingClientRect();
+    ring.style.left         = (r.left   - 7) + 'px';
+    ring.style.top          = (r.top    - 7) + 'px';
+    ring.style.width        = (r.width  + 14) + 'px';
+    ring.style.height       = (r.height + 14) + 'px';
+    ring.style.borderRadius = '20px';
+    ring.classList.remove('hidden');
+  }
+}
+
+function _introClearCardHighlight() {
+  if (_introHighlightedCard) {
+    _introHighlightedCard.style.position      = '';
+    _introHighlightedCard.style.zIndex        = '';
+    _introHighlightedCard.style.pointerEvents = '';
+    _introHighlightedCard.style.boxShadow     = '';
+    _introHighlightedCard = null;
+  }
+  // Restore #homeScreen's stacking context
+  const homeScreen = document.getElementById('homeScreen');
+  if (homeScreen) homeScreen.style.zIndex = '';
+  const ring = document.getElementById('introHighlightRing');
+  if (ring) ring.classList.add('hidden');
+}
+
+function _introRenderTrackerPanel(slide, isFirst, isLast) {
+  const panel = document.getElementById('introTrackerPanel');
+  if (!panel) return;
+
+  // Dots
+  const dotsEl = document.getElementById('introDotsSpot');
+  if (dotsEl) dotsEl.innerHTML = _introDotHtml();
+
+  // Step label
+  const stepEl = document.getElementById('introStepLabelSpot');
+  if (stepEl) stepEl.textContent = `${_introStep + 1} of ${INTRO_SLIDES.length}`;
+
+  // Content
+  const iconEl  = document.getElementById('itpIcon');
+  const titleEl = document.getElementById('itpTitle');
+  const subEl   = document.getElementById('itpSub');
+  const featEl  = document.getElementById('itpFeatures');
+  if (iconEl)  iconEl.textContent = slide.icon;
+  if (titleEl) titleEl.innerHTML  = slide.title;
+  if (subEl)   subEl.textContent  = slide.sub;
+  if (featEl) {
+    featEl.innerHTML = (slide.features || []).map(f => `
+      <div class="itp-feat">
+        <div class="itp-feat-icon">${f.icon}</div>
+        <div class="itp-feat-body">
+          <div class="itp-feat-title">${f.title}</div>
+          <div class="itp-feat-desc">${f.desc}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Nav buttons
+  _introSetNavBtns('itpPrevBtn', 'itpNextBtn', 'itpDoneBtn', isFirst, isLast);
+
+  // ── Smart positioning: never overlap the highlighted card ──────────────────
+  // Show panel off-screen first so offsetHeight is measurable, then position.
+  panel.style.top       = '-9999px';
+  panel.style.bottom    = '';
+  panel.style.maxHeight = '';
+  panel.classList.remove('hidden');
+
+  // requestAnimationFrame ensures the browser has rendered the panel so
+  // offsetHeight is accurate before we compute the final position.
+  requestAnimationFrame(function() {
+    _introPositionTrackerPanel();
+  });
+}
+
+function _introPositionTrackerPanel() {
+  const panel = document.getElementById('introTrackerPanel');
+  if (!panel || panel.classList.contains('hidden')) return;
+
+  // ── Mobile: anchor panel above or below the card depending on its position ──
+  if (window.innerWidth <= 600) {
+    panel.style.left      = '0';
+    panel.style.right     = '0';
+    panel.style.transform = 'none';
+    panel.style.width     = '100%';
+    panel.style.maxWidth  = '100%';
+
+    var mCard    = _introHighlightedCard;
+    var HEADER_M = 68;
+    var GAP_M    = 12;
+
+    if (mCard) {
+      var mRect       = mCard.getBoundingClientRect();
+      var mSpaceAbove = mRect.top - HEADER_M - GAP_M;
+      var mSpaceBelow = window.innerHeight - mRect.bottom - GAP_M;
+
+      if (mSpaceBelow >= mSpaceAbove) {
+        // Card is in upper half — panel anchors to bottom (bottom-sheet style)
+        panel.classList.add('mobile-sheet');
+        panel.classList.remove('mobile-sheet-top');
+        panel.style.top    = '';
+        panel.style.bottom = '0';
+        panel.style.maxHeight = Math.max(mSpaceBelow, window.innerHeight * 0.28) + 'px';
+      } else {
+        // Card is in lower half — panel anchors to top (top-sheet style)
+        panel.classList.remove('mobile-sheet');
+        panel.classList.add('mobile-sheet-top');
+        panel.style.bottom = '';
+        panel.style.top    = HEADER_M + 'px';
+        panel.style.maxHeight = Math.max(mSpaceAbove, window.innerHeight * 0.28) + 'px';
+      }
+    } else {
+      panel.classList.add('mobile-sheet');
+      panel.classList.remove('mobile-sheet-top');
+      panel.style.top       = '';
+      panel.style.bottom    = '0';
+      panel.style.maxHeight = '52vh';
+    }
+    return;
+  }
+
+  // ── Desktop: smart above/below positioning ───────────────────
+  panel.classList.remove('mobile-sheet');
+  // Restore desktop defaults that mobile may have overridden
+  panel.style.left      = '50%';
+  panel.style.right     = '';
+  panel.style.transform = 'translateX(-50%)';
+  panel.style.width     = '';
+  panel.style.maxWidth  = '';
+
+  const card     = _introHighlightedCard;
+  const GAP      = 16;
+  const HEADER_H = 68;
+
+  if (!card) {
+    panel.style.top    = '';
+    panel.style.bottom = '1.25rem';
+    return;
+  }
+
+  const rect   = card.getBoundingClientRect();
+  const viewH  = window.innerHeight;
+  const panelH = panel.offsetHeight || 260;
+
+  const spaceBelow = viewH - rect.bottom - GAP * 2;
+  const spaceAbove = rect.top - HEADER_H - GAP;
+
+  if (spaceBelow >= panelH || spaceBelow >= spaceAbove) {
+    // ① Enough room below — sit directly under the card
+    panel.style.top       = (rect.bottom + GAP) + 'px';
+    panel.style.bottom    = '';
+    panel.style.maxHeight = spaceBelow + 'px';
+  } else if (spaceAbove >= panelH) {
+    // ② Not enough below but enough above — float above the card
+    panel.style.top       = '';
+    panel.style.bottom    = (viewH - rect.top + GAP) + 'px';
+    panel.style.maxHeight = spaceAbove + 'px';
+  } else {
+    // ③ Tight viewport — just below the header, cap height
+    panel.style.top       = HEADER_H + 'px';
+    panel.style.bottom    = '';
+    panel.style.maxHeight = (rect.top - HEADER_H - GAP) + 'px';
+  }
+}
+
+function _introHideTrackerPanel() {
+  const panel = document.getElementById('introTrackerPanel');
+  if (panel) panel.classList.add('hidden');
+}
+
+/* ─── Header highlight (slide 0) ─────────────────────────────────────────── */
+
+function _introShowHeaderHighlight() {
+  const pill   = document.getElementById('userPill');
+  const toggle = document.getElementById('themeToggle');
+  const ring   = document.getElementById('introHighlightRing');
+  const callout= document.getElementById('introHeaderCallout');
+
+  if (pill && toggle && ring) {
+    const pr = pill.getBoundingClientRect();
+    const tr = toggle.getBoundingClientRect();
+    const ringTop    = Math.min(pr.top,    tr.top)    - 6;
+    const ringLeft   = Math.min(pr.left,   tr.left)   - 6;
+    const ringRight  = Math.max(pr.right,  tr.right)  + 6;
+    const ringBottom = Math.max(pr.bottom, tr.bottom) + 6;
+
+    ring.style.left         = ringLeft + 'px';
+    ring.style.top          = ringTop  + 'px';
+    ring.style.width        = (ringRight - ringLeft) + 'px';
+    ring.style.height       = (ringBottom - ringTop) + 'px';
+    ring.style.borderRadius = '30px';
+    ring.classList.remove('hidden');
+
+    // Anchor callout to ring's actual bottom edge — never covered by the header
+    if (callout) {
+      callout.style.top = (ringBottom + 8) + 'px';
+      callout.classList.remove('hidden');
+    }
+  }
+}
+
+function _introHideHeaderHighlight() {
+  const ring   = document.getElementById('introHighlightRing');
+  const callout= document.getElementById('introHeaderCallout');
+  if (ring)    ring.classList.add('hidden');
+  if (callout) callout.classList.add('hidden');
+}
+
+/* ─── Shared helpers ─────────────────────────────────────────────────────── */
+
+/** Generate step-dot HTML for the current step */
+function _introDotHtml() {
+  return INTRO_SLIDES.map((_, i) =>
+    `<div class="intro-dot${i === _introStep ? ' active' : ''}"></div>`
+  ).join('');
+}
+
+/** Wire up the three nav buttons (prev / next / done) for a given slide */
+function _introSetNavBtns(prevId, nextId, doneId, isFirst, isLast) {
+  const prevBtn = document.getElementById(prevId);
+  const nextBtn = document.getElementById(nextId);
+  const doneBtn = document.getElementById(doneId);
+  if (prevBtn) prevBtn.style.visibility = isFirst ? 'hidden' : 'visible';
+  if (nextBtn) nextBtn.style.display    = isLast  ? 'none'   : '';
+  if (doneBtn) doneBtn.style.display    = isLast  ? ''       : 'none';
+}
+
+// Reposition the tracker panel and ring whenever the viewport is resized
+window.addEventListener('resize', function() {
+  const overlay = document.getElementById('introOverlay');
+  if (!overlay || overlay.classList.contains('hidden')) return;
+
+  if (_introHighlightedCard) {
+    // Re-measure card position after layout shift
+    const ring = document.getElementById('introHighlightRing');
+    if (ring && !ring.classList.contains('hidden')) {
+      const r = _introHighlightedCard.getBoundingClientRect();
+      ring.style.left   = (r.left   - 7) + 'px';
+      ring.style.top    = (r.top    - 7) + 'px';
+      ring.style.width  = (r.width  + 14) + 'px';
+      ring.style.height = (r.height + 14) + 'px';
+    }
+    _introPositionTrackerPanel();
+  } else {
+    // Slide 0 — re-anchor the header callout
+    _introShowHeaderHighlight();
+  }
+});
 
 /* ── Live-fetch dot helper ──────────────────────────────────────────────────
    Shows/hides the orange pulsing dot on the Total Investments / Current Value
