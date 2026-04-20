@@ -246,9 +246,28 @@ function invGoHome() {
 
 /* Each wrapper function takes a target URL and returns the
    parsed JSON contents (the actual Yahoo Finance response). */
+
+/* ── Set this to your deployed Cloudflare Worker URL ──────────────
+   Deploy worker/yf-proxy.js to Cloudflare Workers (free tier).
+   Worker URL format: https://yf-proxy.<subdomain>.workers.dev
+   Leave as null to skip and fall through to the public proxies.
+─────────────────────────────────────────────────────────────────── */
+var INV_CF_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev'; // e.g. 'https://yf-proxy.abc123.workers.dev'
+
 var INV_PROXIES = [
-  /* 1. api.codetabs.com — most reliable for Yahoo Finance (doesn't forward auth headers,
-        so Yahoo treats it as anonymous browser traffic) */
+  /* 1. Own Cloudflare Worker — fastest, most reliable, full header control.
+        Skipped automatically if INV_CF_WORKER_URL is null. */
+  function(url) {
+    if (!INV_CF_WORKER_URL) return Promise.reject(new Error('cf-worker not configured'));
+    var proxyUrl = INV_CF_WORKER_URL + '?url=' + encodeURIComponent(url);
+    return invTimedFetch(proxyUrl, 8000)
+      .then(function(r) {
+        if (!r.ok) throw new Error('cf-worker ' + r.status);
+        return r.json();
+      });
+  },
+  /* 2. api.codetabs.com — doesn't forward auth headers, Yahoo treats it as
+        anonymous browser traffic */
   function(url) {
     var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
     return invTimedFetch(proxyUrl, 7000)
@@ -257,7 +276,7 @@ var INV_PROXIES = [
         return r.json();
       });
   },
-  /* 2. corsproxy.io — fast, but Yahoo sometimes 403s its IP range */
+  /* 3. corsproxy.io — Yahoo sometimes 403s its IP range */
   function(url) {
     var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
     return invTimedFetch(proxyUrl, 6000)
@@ -266,7 +285,7 @@ var INV_PROXIES = [
         return r.json();
       });
   },
-  /* 3. thingproxy.freeboard.io — different IP range, good fallback */
+  /* 4. thingproxy.freeboard.io — different IP pool */
   function(url) {
     var proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + url;
     return invTimedFetch(proxyUrl, 8000)
@@ -275,7 +294,7 @@ var INV_PROXIES = [
         return r.json();
       });
   },
-  /* 4. allorigins.win raw endpoint — last resort */
+  /* 5. allorigins.win raw — last resort */
   function(url) {
     var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
     return invTimedFetch(proxyUrl, 8000)
