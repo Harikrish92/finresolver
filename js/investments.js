@@ -247,30 +247,42 @@ function invGoHome() {
 /* Each wrapper function takes a target URL and returns the
    parsed JSON contents (the actual Yahoo Finance response). */
 var INV_PROXIES = [
-  /* 1. corsproxy.io — reliable, no rate limit on free tier */
+  /* 1. api.codetabs.com — most reliable for Yahoo Finance (doesn't forward auth headers,
+        so Yahoo treats it as anonymous browser traffic) */
+  function(url) {
+    var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
+    return invTimedFetch(proxyUrl, 7000)
+      .then(function(r) {
+        if (!r.ok) throw new Error('codetabs ' + r.status);
+        return r.json();
+      });
+  },
+  /* 2. corsproxy.io — fast, but Yahoo sometimes 403s its IP range */
   function(url) {
     var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
     return invTimedFetch(proxyUrl, 6000)
-      .then(function(r) { return r.json(); });
-    /* corsproxy.io returns the raw response directly — no wrapper */
+      .then(function(r) {
+        if (!r.ok) throw new Error('corsproxy ' + r.status);
+        return r.json();
+      });
   },
-  /* 2. api.codetabs.com — solid fallback */
-  function(url) {
-    var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-    return invTimedFetch(proxyUrl, 6000)
-      .then(function(r) { return r.json(); });
-  },
-  /* 3. thingproxy.freeboard.io — replaces allorigins (which blocks custom domains) */
+  /* 3. thingproxy.freeboard.io — different IP range, good fallback */
   function(url) {
     var proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + url;
     return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) { return r.json(); });
+      .then(function(r) {
+        if (!r.ok) throw new Error('thingproxy ' + r.status);
+        return r.json();
+      });
   },
   /* 4. allorigins.win raw endpoint — last resort */
   function(url) {
     var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
     return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) { return r.json(); });
+      .then(function(r) {
+        if (!r.ok) throw new Error('allorigins ' + r.status);
+        return r.json();
+      });
   },
 ];
 
@@ -307,29 +319,62 @@ function invProxyFetch(yahooUrl) {
 
 /* ══════════════════════════════════════════════════════════
    LIVE QUOTE — Yahoo Finance with proxy fallback chain
+   Tries v7/quote first (lighter, less blocked), then v8/chart.
 ══════════════════════════════════════════════════════════ */
 function invFetchQuote(ticker) {
-  var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker)
+  /* v7/quote — simpler endpoint, less aggressively rate-limited */
+  var v7url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols='
+            + encodeURIComponent(ticker)
+            + '&fields=regularMarketPrice,regularMarketPreviousClose,shortName,longName,currency';
+
+  /* v8/chart — heavier but carries more meta; used as fallback */
+  var v8url = 'https://query2.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker)
             + '?interval=1d&range=1d';
-  return invProxyFetch(url)
-    .then(function(data) {
-      var result = data && data.chart && data.chart.result && data.chart.result[0];
-      if (!result) throw new Error('no result for ' + ticker);
-      var meta      = result.meta;
-      var price     = parseFloat(meta.regularMarketPrice || meta.previousClose || 0);
-      var prevClose = parseFloat(meta.chartPreviousClose  || meta.previousClose || price);
-      if (!isFinite(price) || price <= 0) throw new Error('bad price for ' + ticker);
-      var change    = price - prevClose;
-      var changePct = prevClose ? (change / prevClose) * 100 : 0;
-      return {
-        ticker:    ticker,
-        name:      meta.shortName || meta.longName || meta.symbol || ticker,
-        price:     price,
-        change:    isFinite(change)    ? change    : 0,
-        changePct: isFinite(changePct) ? changePct : 0,
-        currency:  meta.currency || 'INR',
-        ts:        Date.now(),
-      };
+
+  function parseV7(data) {
+    var q = data && data.quoteResponse && data.quoteResponse.result && data.quoteResponse.result[0];
+    if (!q || !isFinite(q.regularMarketPrice) || q.regularMarketPrice <= 0)
+      throw new Error('no v7 result for ' + ticker);
+    var price     = parseFloat(q.regularMarketPrice);
+    var prevClose = parseFloat(q.regularMarketPreviousClose || price);
+    var change    = price - prevClose;
+    var changePct = prevClose ? (change / prevClose) * 100 : 0;
+    return {
+      ticker:    ticker,
+      name:      q.shortName || q.longName || q.symbol || ticker,
+      price:     price,
+      change:    isFinite(change)    ? change    : 0,
+      changePct: isFinite(changePct) ? changePct : 0,
+      currency:  q.currency || 'INR',
+      ts:        Date.now(),
+    };
+  }
+
+  function parseV8(data) {
+    var result = data && data.chart && data.chart.result && data.chart.result[0];
+    if (!result) throw new Error('no v8 result for ' + ticker);
+    var meta      = result.meta;
+    var price     = parseFloat(meta.regularMarketPrice || meta.previousClose || 0);
+    var prevClose = parseFloat(meta.chartPreviousClose  || meta.previousClose || price);
+    if (!isFinite(price) || price <= 0) throw new Error('bad price for ' + ticker);
+    var change    = price - prevClose;
+    var changePct = prevClose ? (change / prevClose) * 100 : 0;
+    return {
+      ticker:    ticker,
+      name:      meta.shortName || meta.longName || meta.symbol || ticker,
+      price:     price,
+      change:    isFinite(change)    ? change    : 0,
+      changePct: isFinite(changePct) ? changePct : 0,
+      currency:  meta.currency || 'INR',
+      ts:        Date.now(),
+    };
+  }
+
+  return invProxyFetch(v7url)
+    .then(parseV7)
+    .catch(function(e) {
+      console.warn('[InvQuote] v7 failed for', ticker, '—', e.message, '— trying v8/chart');
+      return invProxyFetch(v8url).then(parseV8);
     });
 }
 
