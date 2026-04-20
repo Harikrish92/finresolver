@@ -260,12 +260,17 @@ var INV_PROXIES = [
     return invTimedFetch(proxyUrl, 6000)
       .then(function(r) { return r.json(); });
   },
-  /* 3. allorigins.win — original, kept as last resort */
+  /* 3. thingproxy.freeboard.io — replaces allorigins (which blocks custom domains) */
   function(url) {
-    var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    var proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + url;
     return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) { return r.json(); })
-      .then(function(wrapper) { return JSON.parse(wrapper.contents); });
+      .then(function(r) { return r.json(); });
+  },
+  /* 4. allorigins.win raw endpoint — last resort */
+  function(url) {
+    var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+    return invTimedFetch(proxyUrl, 8000)
+      .then(function(r) { return r.json(); });
   },
 ];
 
