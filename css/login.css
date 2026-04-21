@@ -1,102 +1,230 @@
 /* ============================================================
    login.css — Login / Auth screen styles
    FinResolver · finresolver.in
+
+   IMPORTANT CSS ORDER: shared rules → mobile overrides → desktop overrides (last).
+   Desktop-only `display:none` rules MUST come after the shared `display:grid`
+   rule or the cascade will undo them.
    ============================================================ */
+
+/* ══════════════════════════════════════════════════════════
+   SHARED / BASE — applies at all widths
+══════════════════════════════════════════════════════════ */
 
 #loginScreen {
   position: fixed; inset: 0; z-index: 1000;
-  background: var(--bg);
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  background: #0a0d12;          /* hardcoded — login always dark */
 }
+
+/* ── Mobile-only dot grid (replaced by brand panel gradient on desktop) ── */
 #loginScreen::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background-image:
     linear-gradient(rgba(0,229,160,.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0,229,160,.025) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
-.login-card {
-  position: relative; z-index: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 3rem 2.5rem;
-  width: 420px; max-width: 92vw;
-  text-align: center;
-  box-shadow: 0 40px 80px rgba(0,0,0,.5);
-  animation: fadeUp .5s ease both;
+/* ── Brand panel (desktop left column) ── */
+.login-brand {
+  flex: 0 0 60%;
+  display: none;                /* hidden on mobile; desktop overrides below */
+  flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  /* clamp() lets padding shrink proportionally on short viewports — no scroll needed */
+  padding: clamp(1.5rem, 5vh, 4rem) clamp(2rem, 4vw, 5rem);
+  overflow: hidden;             /* never scrolls — content compresses via clamp() */
+  position: relative;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0,229,160,.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(77,171,247,.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(167,139,250,.10) 0%, transparent 50%),
+    linear-gradient(135deg, #0d1520 0%, #0a0d12 100%);
 }
 
+.login-brand::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,229,160,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.login-brand::after {
+  content: '';
+  position: absolute; right: -120px; top: 50%;
+  transform: translateY(-50%);
+  width: 500px; height: 500px; border-radius: 50%;
+  border: 1px solid rgba(0,229,160,.08);
+  pointer-events: none;
+}
+
+.login-brand-inner {
+  position: relative; z-index: 1;
+  max-width: 440px;
+  /* parent's justify-content: center handles vertical centering — no margin hack needed */
+}
+
+.login-brand-logo {
+  display: flex; align-items: center; gap: .85rem;
+  margin-bottom: clamp(.75rem, 2.5vh, 3rem);
+}
+.login-brand-logo img {
+  width: 44px; height: 44px; object-fit: contain;
+}
+.login-brand-wordmark {
+  font-family: var(--font-head);
+  font-size: 1.6rem; font-weight: 700;
+  letter-spacing: -.3px; line-height: 1;
+  color: #e8edf5;              /* hardcoded — always on dark bg */
+}
+.login-brand-wordmark span { color: #00e5a0; }  /* always accent green */
+
+.login-brand-headline {
+  font-family: var(--font-head);
+  font-size: clamp(1.5rem, 3.5vh, 2.6rem);  /* shrinks with viewport height */
+  font-weight: 700;
+  line-height: 1.15;
+  color: #e8edf5;              /* hardcoded */
+  margin-bottom: clamp(.5rem, 1.5vh, 1.25rem);
+  letter-spacing: -.5px;
+}
+.login-brand-headline em {
+  font-style: normal; color: #00e5a0;
+}
+
+.login-brand-sub {
+  font-family: var(--font-body);
+  font-size: clamp(.82rem, 1.6vh, 1rem);
+  color: #8a96b2;              /* hardcoded muted */
+  line-height: 1.55; margin-bottom: clamp(.75rem, 2.5vh, 3rem);
+}
+
+.login-brand-features {
+  display: flex; flex-direction: column; gap: clamp(.3rem, 1vh, .65rem);
+}
+.login-brand-feat {
+  display: flex; align-items: center; gap: .85rem;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px; padding: clamp(.4rem, 1.2vh, .75rem) 1rem;
+}
+.login-brand-feat-icon {
+  font-size: 1.15rem; flex-shrink: 0; line-height: 1;
+}
+.login-brand-feat-text {
+  font-family: var(--font-body); font-size: var(--text-sm);
+  color: #8a96b2; line-height: 1.4;          /* hardcoded muted */
+}
+.login-brand-feat-text strong {
+  display: block; color: #e8edf5; font-weight: 500;  /* hardcoded */
+  margin-bottom: .1rem;
+}
+
+/* ── Form panel (desktop right column / mobile wrapper) ── */
+.login-form-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: flex-start; align-items: center;   /* flex-start so top is never clipped */
+  padding: 3rem 4rem;
+  background: #0e1420;         /* hardcoded — always dark */
+  border-left: 1px solid rgba(255,255,255,.07);
+  overflow-y: auto;
+  position: relative; z-index: 1;
+}
+
+.login-form-wrap {
+  width: 100%; max-width: 360px;
+  margin: auto 0;              /* pushes to vertical center; scrolls gracefully when panel is short */
+}
+
+/* ── Desktop form card — floats on panel, no border ── */
+.login-card {
+  background: transparent;
+  border: none; border-radius: 0; box-shadow: none;
+  padding: 0;
+  width: 100%; max-width: none;
+  text-align: left;
+}
+
+/* Desktop heading (replaces logo on desktop) */
+.login-form-heading {
+  font-family: var(--font-head);
+  font-size: var(--text-h2); font-weight: 600;
+  color: #e8edf5;              /* hardcoded */
+  margin-bottom: .4rem;
+}
+
+/* Tagline */
+.login-tagline {
+  font-size: var(--text-sm); color: #8a96b2;  /* hardcoded */
+  margin-bottom: 2rem; letter-spacing: 0;
+  font-family: var(--font-body); text-align: left;
+}
+
+/* ── Mobile logo (hidden on desktop; see bottom of file) ── */
 .login-logo {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  margin-bottom: .5rem;
+  align-items: center; justify-content: center;
+  gap: .5rem; margin-bottom: .5rem;
 }
 .login-wordmark {
   font-family: var(--font-head);
-  font-size: 2rem; font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: baseline;
-  letter-spacing: -.5px;
+  font-size: 2rem; font-weight: 700;
+  line-height: 1; display: inline-flex;
+  align-items: baseline; letter-spacing: -.3px;
 }
-.login-wordmark span:first-child { color: var(--accent); }
-.login-wordmark span:last-child  { color: var(--text); }
+.login-wordmark span:first-child { color: #00e5a0; }    /* hardcoded */
+.login-wordmark span:last-child  { color: #e8edf5; }    /* hardcoded */
 
-.login-tagline {
-  font-size: .78rem; color: var(--muted);
-  margin-bottom: 2.2rem; letter-spacing: .5px;
-}
-
-/* Feature grid */
+/* ── Mobile feature grid ── */
 .login-features {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: .6rem; margin-bottom: 2rem;
 }
 .login-feat {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
   padding: .85rem .9rem;
-  font-size: .7rem; text-align: left; color: var(--muted);
+  font-size: var(--text-xs); text-align: left; color: #8a96b2;
   display: flex; flex-direction: column; gap: .3rem;
   position: relative; overflow: hidden;
-  transition: border-color .2s, transform .15s;
+  transition: border-color .2s;
+  font-family: var(--font-body);
 }
 .login-feat::after {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
-  height: 2.5px; background: var(--feat-accent, var(--accent));
+  height: 2.5px; background: var(--feat-accent, #00e5a0);
 }
-.login-feat.tracker    { --feat-accent: var(--accent); }
-.login-feat.investment { --feat-accent: var(--accent4); }
-.login-feat.loan       { --feat-accent: var(--accent3); }
-.login-feat.fire       { --feat-accent: var(--accent2); }
-.login-feat-icon { font-size: 1.4rem; line-height: 1; margin-bottom: .1rem; }
+.login-feat.tracker    { --feat-accent: #00e5a0; }
+.login-feat.investment { --feat-accent: #4dabf7; }
+.login-feat.loan       { --feat-accent: #ffd166; }
+.login-feat.fire       { --feat-accent: #ff6b6b; }
+.login-feat-icon { font-size: 1.3rem; line-height: 1; margin-bottom: .1rem; }
 .login-feat strong {
-  display: block; color: var(--text);
-  font-size: .76rem; font-weight: 700; margin-bottom: .05rem;
+  display: block; color: #e8edf5;              /* hardcoded */
+  font-size: var(--text-sm); font-weight: 600; margin-bottom: .05rem;
 }
 
-/* Google button */
+/* ── Google sign-in button ── */
 .btn-google {
   display: flex; align-items: center; justify-content: center;
-  gap: .85rem; width: 100%; padding: .9rem 1.5rem;
+  gap: .85rem; width: 100%; height: 44px; padding: 0 1.5rem;
   background: #fff; color: #3c4043;
-  border: 1.5px solid #dadce0; border-radius: 10px;
-  font-family: var(--font-head); font-weight: 700; font-size: .9rem;
+  border: 1.5px solid #dadce0; border-radius: 8px;
+  font-family: var(--font-body); font-weight: 600; font-size: 1rem;
   cursor: pointer; transition: box-shadow .2s, transform .15s, border-color .2s;
   box-shadow: 0 1px 3px rgba(60,64,67,.15);
 }
-.btn-google:hover { box-shadow: 0 4px 12px rgba(60,64,67,.2); transform: translateY(-1px); border-color: #c6c9cd; }
+.btn-google:hover { box-shadow: 0 4px 12px rgba(60,64,67,.22); transform: translateY(-1px); border-color: #c6c9cd; }
 .btn-google:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-/* Spinner inside button */
 .btn-google .spinner {
   width: 18px; height: 18px;
   border: 2px solid #ccc; border-top-color: #333;
@@ -105,82 +233,180 @@
   flex-shrink: 0;
 }
 
-.login-note {
-  font-size: .68rem; color: var(--muted);
-  margin-top: 1.5rem; line-height: 1.7;
-}
-.login-note a { color: var(--accent4); text-decoration: none; }
-.login-note a:hover { text-decoration: underline; }
-
-/* Setup instructions banner */
-.setup-banner {
-  background: rgba(77,171,247,.08);
-  border: 1px solid rgba(77,171,247,.3);
-  border-radius: 10px;
-  padding: .85rem 1rem;
-  margin-bottom: 1.5rem;
-  text-align: left;
-  font-size: .73rem;
-  color: var(--accent4);
-  line-height: 1.6;
-}
-.setup-banner strong { display: block; margin-bottom: .3rem; font-size: .78rem; }
-.setup-banner code {
-  background: rgba(0,0,0,.3); border-radius: 4px;
-  padding: .05rem .35rem; font-family: var(--font-mono);
-  font-size: .7rem; color: var(--accent);
-}
-
-/* ── Guest button ─────────────────────────────────────────── */
+/* ── Divider ── */
 .login-divider {
   display: flex; align-items: center; gap: .75rem;
-  margin: 1rem 0 .75rem; color: var(--muted); font-size: .72rem;
+  margin: 1rem 0 .75rem; color: #8a96b2; font-size: var(--text-xs);
+  font-family: var(--font-body);
 }
 .login-divider::before,
 .login-divider::after {
-  content: ''; flex: 1; height: 1px; background: var(--border);
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.1);
 }
 
+/* ── Guest button ── */
 .btn-guest {
-  width: 100%; padding: .8rem 1.5rem;
+  width: 100%; height: 44px; padding: 0 1.5rem;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 10px;
-  font-family: var(--font-head); font-weight: 600; font-size: .88rem;
+  border: 1px solid rgba(255,255,255,.15);
+  color: #8a96b2;
+  border-radius: 8px;
+  font-family: var(--font-body); font-weight: 500; font-size: var(--text-base);
   cursor: pointer; transition: border-color .2s, color .2s, background .2s;
 }
 .btn-guest:hover {
-  border-color: var(--accent); color: var(--text);
-  background: rgba(0,229,160,.05);
+  border-color: rgba(255,255,255,.3); color: #e8edf5;
+  background: rgba(255,255,255,.05);
 }
 
-/* ── Guest banner inside app ──────────────────────────────── */
+/* ── Legal note ── */
+.login-note {
+  font-size: var(--text-xs); color: #8a96b2;   /* hardcoded */
+  margin-top: 1.5rem; line-height: 1.7;
+  font-family: var(--font-body);
+}
+.login-note a { color: #4dabf7; text-decoration: none; }
+.login-note a:hover { text-decoration: underline; }
+
+/* ── Setup banner ── */
+.setup-banner {
+  background: rgba(77,171,247,.08);
+  border: 1px solid rgba(77,171,247,.3);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  font-size: var(--text-xs);
+  color: #4dabf7;              /* hardcoded */
+  line-height: 1.6;
+  font-family: var(--font-body);
+}
+.setup-banner strong { display: block; margin-bottom: .3rem; font-size: var(--text-sm); }
+.setup-banner code {
+  background: rgba(0,0,0,.3); border-radius: 4px;
+  padding: .05rem .35rem; font-family: var(--font-mono);
+  font-size: var(--text-xs); color: #00e5a0;
+}
+
+/* ── Login error ── */
+#loginError {
+  font-family: var(--font-body); font-size: var(--text-sm); color: #ff6b6b;
+}
+
+/* ── Login logo image ── */
+.login-logo-img {
+  width: 44px; height: 44px; object-fit: contain;
+  display: block; border-radius: 0; background: transparent;
+}
+
+/* ── Guest banner inside app ── */
 .guest-banner {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; flex-wrap: wrap;
   background: rgba(255,209,102,.07);
   border: 1px solid rgba(255,209,102,.3);
   border-radius: var(--radius);
-  padding: .7rem 1.1rem;
-  margin-bottom: 1.1rem;
-  font-size: .78rem; color: var(--accent3);
+  padding: .75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: var(--text-sm); color: var(--accent3);
+  font-family: var(--font-body);
 }
 .btn-guest-upgrade {
   background: var(--accent3); color: #000;
   border: none; border-radius: 6px;
-  font-family: var(--font-head); font-weight: 700; font-size: .72rem;
-  padding: .35rem .85rem; cursor: pointer;
+  font-family: var(--font-body); font-weight: 600; font-size: var(--text-xs);
+  padding: .4rem .9rem; cursor: pointer;
   white-space: nowrap; transition: opacity .15s;
   flex-shrink: 0;
 }
 .btn-guest-upgrade:hover { opacity: .85; }
 
-/* ── Login logo image ── */
-.login-logo-img {
-  width: 48px; height: 48px;
-  object-fit: contain;
-  display: block;
-  border-radius: 0;
-  background: transparent;
+/* ══════════════════════════════════════════════════════════
+   MOBILE LAYOUT  (<1024px) — centered single-column card
+   These come after shared rules so they can override safely.
+══════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  #loginScreen {
+    flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    padding: 1.5rem;
+    overflow-y: auto;
+  }
+
+  /* Brand panel not shown on mobile */
+  .login-brand { display: none !important; }
+
+  /* Form panel becomes a transparent centering wrapper */
+  .login-form-panel {
+    flex: none; display: contents;
+    background: transparent; border: none; padding: 0;
+  }
+  .login-form-wrap { display: contents; }
+
+  /* Card gets a real surface + border on mobile */
+  .login-card {
+    background: #111620;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 2rem;
+    width: 100%; max-width: 420px;
+    text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,.5);
+    animation: fadeUp .5s ease both;
+    margin: auto 0;            /* self-center vertically; scrolls when viewport is short */
+  }
+
+  /* Desktop-only elements hidden on mobile */
+  .login-form-heading { display: none; }
+  .login-tagline      { text-align: center; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   DESKTOP LAYOUT  (≥1024px) — full-screen split
+   MUST be last so these overrides win over the shared rules above.
+══════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  #loginScreen   { flex-direction: row; }
+  #loginScreen::before { display: none; }   /* brand panel has its own bg */
+
+  .login-brand   { display: flex; }         /* reveal brand panel */
+
+  .login-form-panel {
+    display: flex; flex-direction: column;
+    justify-content: flex-start; align-items: center;  /* flex-start + margin:auto on wrap = scroll-safe centering */
+    padding: clamp(1.5rem, 4vh, 3rem) clamp(1.5rem, 3vw, 4rem);
+  }
+  .login-form-wrap { display: block; width: 100%; margin: auto 0; }
+
+  /* Card is borderless on desktop — floats on dark panel */
+  .login-card {
+    background: transparent;
+    border: none; border-radius: 0; box-shadow: none;
+    padding: 0; text-align: left;
+  }
+
+  /* Feature grid — already visible in brand panel, remove from form card */
+  .login-features { display: none; }
+
+  /* Logo — shown only on mobile; brand panel has its own logo on desktop */
+  .login-logo     { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   SHORT VIEWPORT (mobile only) — compress card content
+   Brand panel uses clamp() so it needs no max-height overrides.
+══════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) and (max-height: 650px) {
+  #loginScreen      { padding: 1rem; }
+  .login-card       { padding: 1.75rem 1.5rem; }
+  .login-logo       { margin-bottom: .2rem; }
+  .login-tagline    { margin-bottom: 1.25rem; }
+  .login-features   { margin-bottom: 1.25rem; gap: .4rem; }
+  .login-feat       { padding: .55rem .75rem; }
+}
+
+@media (max-width: 1023px) and (max-height: 500px) {
+  .login-features   { display: none; }
+  .login-card       { padding: 1.25rem 1.25rem; }
+  .login-tagline    { margin-bottom: 1rem; }
 }

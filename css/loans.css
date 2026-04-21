@@ -7,7 +7,7 @@
 #loanScreen {
   display: none;
   position: relative; z-index: 1;
-  max-width: 1200px; margin: 0 auto;
+  max-width: 1400px; margin: 0 auto;
   padding: 1.75rem 1.5rem 5rem;
 }
 
@@ -127,7 +127,7 @@
 .loan-act-btn {
   background: var(--surface); border: 1px solid var(--border);
   color: var(--muted); font-size: .7rem; padding: .22rem .55rem;
-  border-radius: 5px; cursor: pointer; font-family: var(--font-mono);
+  border-radius: 5px; cursor: pointer; font-family: var(--font-body);
   transition: border-color .15s, color .15s, background .15s;
 }
 .loan-act-btn:hover { border-color: var(--accent3); color: var(--text); }
@@ -156,7 +156,7 @@
 #loanDetailScreen {
   display: none;
   position: relative; z-index: 1;
-  max-width: 1200px; margin: 0 auto;
+  max-width: 1400px; margin: 0 auto;
   padding: 1.75rem 1.5rem 5rem;
 }
 
@@ -278,8 +278,8 @@
 }
 .add-payment-row input {
   background: var(--bg); border: 1px solid var(--border);
-  color: var(--text); font-family: var(--font-mono);
-  font-size: .75rem; padding: .38rem .6rem;
+  color: var(--text); font-family: var(--font-body);
+  font-size: var(--text-sm); padding: .38rem .6rem;
   border-radius: 6px; transition: border-color .2s;
 }
 .add-payment-row input:focus { outline: none; border-color: var(--accent3); }
@@ -325,8 +325,8 @@
 }
 .loan-form-input {
   background: var(--bg); border: 1px solid var(--border);
-  color: var(--text); font-family: var(--font-mono);
-  font-size: .82rem; padding: .5rem .75rem;
+  color: var(--text); font-family: var(--font-body);
+  font-size: var(--text-base); padding: .5rem .75rem;
   border-radius: 8px; transition: border-color .2s;
   width: 100%;
 }

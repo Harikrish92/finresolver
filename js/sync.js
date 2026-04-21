@@ -29,15 +29,8 @@
                → onAuthStateChanged → syncLoadData()
    ============================================================ */
 
-// ── Paste your Firebase config here ──────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyByO2cgWjIkMJWPVjq-B6ytLrnWfB-WqvA",
-  authDomain: "finresolver-2026.firebaseapp.com",
-  projectId: "finresolver-2026",
-  storageBucket: "finresolver-2026.firebasestorage.app",
-  messagingSenderId: "949500754876",
-  appId: "1:949500754876:web:a69419188583958cdbc9b9"
-};
+// ── Firebase config is loaded from js/config.js (gitignored) ──
+const FIREBASE_CONFIG = (window.FINRESOLVER_CONFIG || {}).firebase || {};
 // ─────────────────────────────────────────────────────────────
 
 let db        = null;
@@ -48,7 +41,7 @@ let syncReady = false;
    INIT
 ══════════════════════════════════════════════════════════ */
 function initSync() {
-  if (FIREBASE_CONFIG.apiKey === 'YOUR_FIREBASE_API_KEY') {
+  if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === 'YOUR_FIREBASE_API_KEY') {
     console.info('[Sync] Config not set — local-only mode.');
     showSyncStatus('offline');
     return;

@@ -3,7 +3,7 @@
    FinResolver · finresolver.in
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
   --bg:       #0a0d12;
@@ -18,8 +18,19 @@
   --text:     #e8edf5;
   --muted:    #6b7a99;
 
-  --font-head: 'Syne', sans-serif;
-  --font-mono: 'DM Mono', monospace;
+  /* Type system */
+  --font-body: 'Inter', 'DM Sans', sans-serif;   /* body / UI */
+  --font-head: 'Syne', sans-serif;                /* headings */
+  --font-mono: 'DM Mono', monospace;              /* code / data labels */
+
+  /* Type scale */
+  --text-xs:   0.8125rem;   /* 13px — secondary labels */
+  --text-sm:   0.875rem;    /* 14px — table text, badges */
+  --text-base: 0.9375rem;   /* 15px — body */
+  --text-h3:   1.25rem;     /* 20px — h3 */
+  --text-h2:   1.5rem;      /* 24px — h2 */
+  --text-h1:   2rem;        /* 32px — h1 */
+
   --radius:    12px;
   --radius-lg: 20px;
 }
@@ -30,7 +41,11 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   overflow-x: hidden;
 }

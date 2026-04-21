@@ -6,8 +6,8 @@
 #homeScreen {
   display: none;
   position: relative; z-index: 1;
-  max-width: 1100px; margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  max-width: 1400px; margin: 0 auto;
+  padding: 1.75rem 1.5rem 5rem;
 }
 
 /* ── Welcome row ────────────────────────────────────────────── */
@@ -19,29 +19,29 @@
   font-size: .78rem; color: var(--muted); margin-top: .3rem;
 }
 .home-welcome h2 {
-  font-family: var(--font-head); font-size: 1.6rem; font-weight: 800;
+  font-family: var(--font-head); font-size: var(--text-h2); font-weight: 600;
 }
 .home-welcome h2 span { color: var(--accent); }
 
 /* ── Nav cards grid ─────────────────────────────────────────── */
 .home-section-label {
-  font-size: .68rem; color: var(--muted); text-transform: uppercase;
+  font-size: var(--text-xs); color: var(--muted); text-transform: uppercase;
   letter-spacing: 1.2px; margin-bottom: .85rem;
-  font-family: var(--font-head); font-weight: 700;
+  font-family: var(--font-body); font-weight: 600;
 }
 .home-nav-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem; margin-bottom: 2.5rem;
+  gap: 1.25rem; margin-bottom: 3rem;
 }
 .home-nav-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 1.75rem 1.25rem;
+  border-radius: var(--radius-lg); padding: 2rem 1.5rem;
   cursor: pointer; text-align: center;
   transition: border-color .2s, transform .15s, background .2s;
   animation: fadeUp .4s ease both;
   position: relative; overflow: hidden; text-decoration: none;
-  display: flex; flex-direction: column; align-items: center; gap: .65rem;
+  display: flex; flex-direction: column; align-items: center; gap: .75rem;
 }
 .home-nav-card::before {
   content: ''; position: absolute; inset: 0;
@@ -70,18 +70,20 @@
 
 .home-nav-icon  { font-size: 2.2rem; line-height: 1; }
 .home-nav-title {
-  font-family: var(--font-head); font-weight: 700; font-size: .91rem;
+  font-family: var(--font-body); font-weight: 600; font-size: var(--text-sm);
   color: var(--text);
 }
 .home-nav-stat {
-  font-family: var(--font-head); font-size: 1.5rem; font-weight: 800;
+  font-family: var(--font-head); font-size: 1.4rem; font-weight: 600;
   line-height: 1; margin: .15rem 0 0;
+  font-variant-numeric: tabular-nums;
 }
 .home-nav-stat-label {
-  font-size: .6rem; color: var(--muted);
+  font-size: var(--text-xs); color: var(--muted);
   text-transform: uppercase; letter-spacing: .8px; margin-bottom: .2rem;
+  font-family: var(--font-body);
 }
-.home-nav-desc  { font-size: .68rem; color: var(--muted); line-height: 1.5; }
+.home-nav-desc  { font-size: var(--text-xs); color: var(--muted); line-height: 1.5; font-family: var(--font-body); }
 .home-nav-badge {
   font-size: .6rem; padding: .18rem .5rem;
   border-radius: 20px; font-weight: 600;
@@ -111,7 +113,7 @@
 #portfolioScreen {
   display: none;
   position: relative; z-index: 1;
-  max-width: 1100px; margin: 0 auto;
+  max-width: 1400px; margin: 0 auto;
   padding: 1.75rem 1.5rem 5rem;
 }
 
@@ -142,9 +144,9 @@
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: 3px; background: var(--card-accent, var(--purple));
 }
-.pf-sum-label { font-size: .63rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: .3rem; }
-.pf-sum-value { font-family: var(--font-head); font-size: 1.2rem; font-weight: 700; color: var(--card-color, var(--text)); }
-.pf-sum-sub   { font-size: .6rem; color: var(--muted); margin-top: .15rem; }
+.pf-sum-label { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: .3rem; font-family: var(--font-body); font-weight: 500; }
+.pf-sum-value { font-family: var(--font-head); font-size: 1.2rem; font-weight: 600; color: var(--card-color, var(--text)); font-variant-numeric: tabular-nums; }
+.pf-sum-sub   { font-size: var(--text-xs); color: var(--muted); margin-top: .15rem; font-family: var(--font-body); }
 
 /* Body grid */
 .pf-body-grid {

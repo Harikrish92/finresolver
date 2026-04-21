@@ -18,7 +18,7 @@
    Layer 3 — GIS renderButton()   (rendered button if popups are blocked)
    ============================================================ */
 
-const GOOGLE_CLIENT_ID = '1071814436875-r17652ke04i7el0nbcoec1nffpgfhd1m.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = (window.FINRESOLVER_CONFIG || {}).googleClientId || '';
 const SESSION_KEY = 'fr_session';
 
 let currentUser  = null;

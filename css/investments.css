@@ -119,7 +119,7 @@
 .inv-search {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: .35rem .75rem;
-  color: var(--text); font-family: var(--font-mono); font-size: .75rem;
+  color: var(--text); font-family: var(--font-body); font-size: var(--text-sm);
   width: 180px; outline: none; transition: border-color .2s;
 }
 .inv-search:focus { border-color: var(--accent4); }
@@ -489,7 +489,7 @@
 .inv-form-input {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: .55rem .8rem;
-  color: var(--text); font-family: var(--font-mono); font-size: .8rem;
+  color: var(--text); font-family: var(--font-body); font-size: var(--text-base);
   outline: none; transition: border-color .2s;
 }
 .inv-form-input:focus { border-color: var(--accent4); }
