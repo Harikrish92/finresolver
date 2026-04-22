@@ -2565,23 +2565,52 @@ function renderInvImportPreview(parsed) {
   var hasDate    = rows.some(function(r){ return r.date; });
   var noTicker   = rows.filter(function(r){ return !r.ticker; }).length;
 
+  /* Pre-compute merge status for each row using the same matching logic as confirmInvImport */
+  function _previewFindExisting(r) {
+    var tickerNorm = r.ticker ? r.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase() : '';
+    var found = null;
+    if (tickerNorm) {
+      found = investmentsData.find(function(h) {
+        var hTick = h.ticker ? h.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase() : '';
+        return hTick && hTick === tickerNorm;
+      });
+    }
+    if (!found) {
+      found = investmentsData.find(function(h) {
+        return h.name.toLowerCase() === r.name.toLowerCase() && h.category === r.category;
+      });
+    }
+    return found || null;
+  }
+  var mergeCount = 0, newCount = 0;
+  var rowMeta = rows.map(function(r) {
+    var ex = _previewFindExisting(r);
+    if (ex) { mergeCount++; } else { newCount++; }
+    return ex;
+  });
+
   /* Table head */
   var head     = document.getElementById('invImportPreviewHead');
   var thStyle  = 'padding:.5rem .65rem;text-align:left;font-size:.59rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
-  var cols     = ['Name', hasIsin ? 'ISIN' : null, 'Ticker / Live', 'Qty', 'Avg Price', 'Cost Basis', 'Category', hasDate ? 'Date' : null].filter(Boolean);
+  var cols     = ['Action', 'Name', hasIsin ? 'ISIN' : null, 'Ticker / Live', 'Qty', 'Avg Price', 'Cost Basis', 'Category', hasDate ? 'Date' : null].filter(Boolean);
   head.innerHTML = '<tr>' + cols.map(function(c){ return '<th style="' + thStyle + '">' + c + '</th>'; }).join('') + '</tr>';
 
   /* Table body */
   var tbody   = document.getElementById('invImportPreviewBody');
   var tdStyle = 'padding:.5rem .65rem;border-bottom:1px solid rgba(35,45,63,.35);font-size:.71rem;white-space:nowrap';
 
-  tbody.innerHTML = rows.slice(0, 30).map(function(r) {
+  tbody.innerHTML = rows.slice(0, 30).map(function(r, i) {
     var meta      = CAT_META[r.category] || CAT_META.Others;
     var costBasis = r.qty * r.avgPrice;
     var tickerCell = r.ticker
       ? '<span style="color:var(--accent4);font-family:var(--font-mono)">' + invEsc(r.ticker) + '</span>'
       : '<span style="color:var(--accent3);font-size:.63rem">⚠ set after import</span>';
+    var existing = rowMeta[i];
+    var actionCell = existing
+      ? '<span style="color:var(--accent);font-size:.63rem;font-weight:600">+ Add Lot</span>'
+      : '<span style="color:var(--accent4);font-size:.63rem;font-weight:600">New</span>';
     var cells = [
+      '<td style="' + tdStyle + '">' + actionCell + '</td>',
       '<td style="' + tdStyle + ';font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + invEsc(r.name) + '</td>',
       hasIsin  ? '<td style="' + tdStyle + ';color:var(--muted);font-family:var(--font-mono);font-size:.63rem">' + (r.isin || '—') + '</td>' : '',
       '<td style="' + tdStyle + '">' + tickerCell + '</td>',
@@ -2602,6 +2631,8 @@ function renderInvImportPreview(parsed) {
   var sumEl = document.getElementById('invImportSummary');
   sumEl.innerHTML = '<strong style="color:var(--text)">' + rows.length + ' holding' + (rows.length !== 1 ? 's' : '') + '</strong>'
     + ' &nbsp;·&nbsp; Total invested: <strong style="color:var(--accent4)">₹' + Math.round(totalInvested).toLocaleString('en-IN') + '</strong>'
+    + (newCount   ? ' &nbsp;·&nbsp; <span style="color:var(--accent4)">' + newCount + ' new</span>' : '')
+    + (mergeCount ? ' &nbsp;·&nbsp; <span style="color:var(--accent)">' + mergeCount + ' lot' + (mergeCount > 1 ? 's' : '') + ' added to existing</span>' : '')
     + ' &nbsp;·&nbsp; <span style="color:var(--accent)">' + withTickers + ' with live ticker</span>'
     + (noTicker ? ' &nbsp;·&nbsp; <span style="color:var(--accent3)">' + noTicker + ' without ticker — set manually after import</span>' : '');
 
@@ -2634,15 +2665,19 @@ function confirmInvImport() {
       ? r.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase()
       : '';
 
-    /* Find existing holding by ticker, or by name+category if no ticker */
-    var existing = tickerNorm
-      ? investmentsData.find(function(h) {
-          if (!h.ticker) return false;
-          return h.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase() === tickerNorm;
-        })
-      : investmentsData.find(function(h) {
-          return h.name.toLowerCase() === r.name.toLowerCase() && h.category === r.category;
-        });
+    /* Find existing holding: ticker match first, then name+category fallback */
+    var existing = null;
+    if (tickerNorm) {
+      existing = investmentsData.find(function(h) {
+        var hTick = h.ticker ? h.ticker.replace(/\.(NS|BO|BSE)$/i, '').toUpperCase() : '';
+        return hTick && hTick === tickerNorm;
+      });
+    }
+    if (!existing) {
+      existing = investmentsData.find(function(h) {
+        return h.name.toLowerCase() === r.name.toLowerCase() && h.category === r.category;
+      });
+    }
 
     var newLot = {
       id:       invLotId(),
