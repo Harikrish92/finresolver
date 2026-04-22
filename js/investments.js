@@ -2396,7 +2396,7 @@ function _invParseRows(rows, platformId) {
       var nameI  = C(['stock name','name']);
       var symI   = C(['symbol','ticker']);
       var qtyI   = C(['quantity','qty']);
-      var priceI = C(['average price','avg price','invested price','avg buy price']);
+      var priceI = C(['average buy price','average price','avg buy price','avg price','invested price','avg cost','average cost','cost price']);
       return data.map(function(r) {
         var name = String(r[nameI] || '').trim();
         var tick = symI >= 0 ? String(r[symI] || '').trim().toUpperCase() : '';
