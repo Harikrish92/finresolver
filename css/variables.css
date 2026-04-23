@@ -6,17 +6,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg:       #0a0d12;
-  --surface:  #111620;
-  --surface2: #1a2030;
-  --border:   #232d3f;
+  --bg:       #0d1117;
+  --surface:  #151c28;
+  --surface2: #1c2438;
+  --border:   #263040;
   --accent:   #00e5a0;
   --accent2:  #ff6b6b;
   --accent3:  #ffd166;
   --accent4:  #4dabf7;
   --purple:   #a78bfa;
   --text:     #e8edf5;
-  --muted:    #6b7a99;
+  --muted:    #8a96b2;
 
   /* Type system */
   --font-body: 'Inter', 'DM Sans', sans-serif;   /* body / UI */

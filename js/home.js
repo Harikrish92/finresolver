@@ -3,12 +3,50 @@
    FinResolver · finresolver.in
    ============================================================ */
 
+/* ── Nav Drawer ── */
+let _currentScreen = 'home';
+
+function openNavDrawer() {
+  document.getElementById('navDrawer').classList.add('open');
+  document.getElementById('navDrawerOverlay').classList.add('open');
+  _setDrawerActive(_currentScreen);
+}
+
+function closeNavDrawer() {
+  document.getElementById('navDrawer').classList.remove('open');
+  document.getElementById('navDrawerOverlay').classList.remove('open');
+}
+
+function _setDrawerActive(screen) {
+  document.querySelectorAll('.nav-drawer-item').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.screen === screen);
+  });
+}
+
+function _hideAllScreens() {
+  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
+}
+
+function _enterTracker(screen) {
+  _currentScreen = screen;
+  _hideAllScreens();
+  document.getElementById('btnHamburger').style.display = 'flex';
+}
+
+function _exitTracker() {
+  _currentScreen = 'home';
+  document.getElementById('btnHamburger').style.display = 'none';
+}
+
 /** Navigate from home → tracker */
 function goToTracker() {
   history.pushState({ screen: 'tracker' }, '');
-  document.getElementById('homeScreen').style.display  = 'none';
+  _enterTracker('tracker');
   document.getElementById('appMain').style.display     = 'block';
-  document.getElementById('btnBackHome').style.display = 'flex';
 
   // Show tracker-only header controls (month selector, sync status, import)
   const tc = document.getElementById('headerTrackerControls');
@@ -27,20 +65,14 @@ function goToTracker() {
 /** Navigate back to home */
 function goToHome() {
   history.replaceState({ screen: 'home' }, '');
-  document.getElementById('appMain').style.display     = 'none';
+  closeNavDrawer();
+  _hideAllScreens();
+  _exitTracker();
   document.getElementById('homeScreen').style.display  = 'block';
-  document.getElementById('btnBackHome').style.display = 'none';
 
   // Hide tracker-only header controls on home screen
   const tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
-
-  // Hide all module screens
-  ['loanScreen', 'loanDetailScreen', 'investmentScreen', 'portfolioScreen'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
 
   renderHomeDashboard();
 }
@@ -48,9 +80,8 @@ function goToHome() {
 /** Navigate home → portfolio overview */
 function goToPortfolio() {
   history.pushState({ screen: 'portfolio' }, '');
-  document.getElementById('homeScreen').style.display      = 'none';
+  _enterTracker('portfolio');
   document.getElementById('portfolioScreen').style.display = 'block';
-  document.getElementById('btnBackHome').style.display     = 'flex';
 
   const tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
@@ -519,10 +550,11 @@ function renderPortfolioOverview() {
 /** Called from applyUser — shows home instead of tracker directly */
 function showHomeScreen() {
   history.replaceState({ screen: 'home' }, '');
+  closeNavDrawer();
+  _exitTracker();
   document.getElementById('loginScreen').style.display  = 'none';
   document.getElementById('appMain').style.display      = 'none';
   document.getElementById('homeScreen').style.display   = 'block';
-  document.getElementById('btnBackHome').style.display  = 'none';
 
   // Hide ALL module screens so nothing bleeds through on login/logout
   ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen'].forEach(function(id) {
@@ -538,6 +570,16 @@ function showHomeScreen() {
   if (tc) tc.style.display = 'none';
 
   renderHomeDashboard();
+
+  // Show loader if Firebase is configured and the initial cloud sync hasn't
+  // completed yet (syncReady is false until onAuthStateChanged fires in sync.js).
+  // Guest users and local-only mode skip this path.
+  const _fbCfg   = (window.FINRESOLVER_CONFIG || {}).firebase || {};
+  const _fbReady = typeof syncReady !== 'undefined' ? syncReady : false;
+  if (_fbCfg.apiKey && !_fbCfg.apiKey.includes('YOUR_FIREBASE_API_KEY')
+      && !currentUser?.isGuest && !_fbReady) {
+    showHomeLoader();
+  }
 
   // Show first-time intro walkthrough (no-op if already seen)
   maybeShowIntro();
@@ -1045,6 +1087,32 @@ window.addEventListener('resize', function() {
   }
 });
 
+/* ── Home screen data loader ────────────────────────────────────────────────
+   Shown while Firebase data is being fetched on initial load.
+   hideHomeLoader() is called from sync.js once syncLoadConfig() completes. */
+let _homeLoaderTimer = null;
+
+function showHomeLoader() {
+  const el = document.getElementById('homeLoader');
+  if (!el) return;
+  el.classList.remove('hidden', 'home-loader-fadeout');
+  // Safety valve: always hide after 12 s regardless of sync status
+  clearTimeout(_homeLoaderTimer);
+  _homeLoaderTimer = setTimeout(hideHomeLoader, 12000);
+}
+
+function hideHomeLoader() {
+  clearTimeout(_homeLoaderTimer);
+  _homeLoaderTimer = null;
+  const el = document.getElementById('homeLoader');
+  if (!el || el.classList.contains('hidden')) return;
+  el.classList.add('home-loader-fadeout');
+  setTimeout(function() {
+    el.classList.add('hidden');
+    el.classList.remove('home-loader-fadeout');
+  }, 350);
+}
+
 /* ── Live-fetch dot helper ──────────────────────────────────────────────────
    Shows/hides the orange pulsing dot on the Total Investments / Current Value
    cards across all three screens while live price data is being fetched. */
@@ -1058,7 +1126,12 @@ function setInvLiveDot(show) {
 /* ── Browser back-button support ────────────────────────────────────────────
    Each tracker navigation pushes a history state; popstate fires when the
    user presses the browser/device back button and routes back appropriately. */
+window.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeNavDrawer();
+});
+
 window.addEventListener('popstate', function(e) {
+  closeNavDrawer();
   var s = e.state && e.state.screen;
   if (s === 'loans') {
     // Popped from loanDetail back to loans → show the loan list

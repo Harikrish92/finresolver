@@ -97,6 +97,7 @@ function initSync() {
         } catch (err) {
           console.error('[Sync] Init error:', err.code, err.message);
           showSyncStatus('offline');
+          if (typeof hideHomeLoader === 'function') hideHomeLoader();
         }
       });
     });
@@ -219,6 +220,7 @@ async function syncLoadData() {
   } catch (err) {
     console.error('[Sync] ❌ Load failed:', err.code, err.message);
     showSyncStatus('offline');
+    if (typeof hideHomeLoader === 'function') hideHomeLoader();
   }
 }
 
@@ -278,6 +280,9 @@ async function syncLoadConfig(uid) {
   );
 
   await Promise.all(promises);
+
+  // Hide the home screen loader now that all cloud data has been fetched
+  if (typeof hideHomeLoader === 'function') hideHomeLoader();
 
   // Refresh home dashboard now that loans + investments are in memory
   if (typeof renderHomeDashboard === 'function') {

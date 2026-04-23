@@ -159,12 +159,41 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     NAV DRAWER
+════════════════════════════════════════════════════════════ -->
+<div id="navDrawerOverlay" onclick="closeNavDrawer()"></div>
+<nav id="navDrawer">
+  <div class="nav-drawer-header">
+    <span class="nav-drawer-title"><span class="logo-fin">Fin</span>Resolver</span>
+    <button class="nav-drawer-close" onclick="closeNavDrawer()">✕</button>
+  </div>
+  <div class="nav-drawer-items">
+    <button class="nav-drawer-item" data-screen="home" onclick="closeNavDrawer();goToHome()">
+      <span class="nav-drawer-icon">⌂</span> Home
+    </button>
+    <div class="nav-drawer-sep"></div>
+    <button class="nav-drawer-item" data-screen="tracker" onclick="closeNavDrawer();goToTracker()">
+      <span class="nav-drawer-icon">📊</span> Monthly Tracker
+    </button>
+    <button class="nav-drawer-item" data-screen="investments" onclick="closeNavDrawer();goToInvestments()">
+      <span class="nav-drawer-icon">📈</span> Investments
+    </button>
+    <button class="nav-drawer-item" data-screen="loans" onclick="closeNavDrawer();goToLoans()">
+      <span class="nav-drawer-icon">🏦</span> Loans
+    </button>
+    <button class="nav-drawer-item" data-screen="portfolio" onclick="closeNavDrawer();goToPortfolio()">
+      <span class="nav-drawer-icon">🔥</span> FIRE &amp; Portfolio
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
      HEADER
 ════════════════════════════════════════════════════════════ -->
 <header>
   <div style="display:flex;align-items:center;gap:.85rem;">
+    <button id="btnHamburger" onclick="openNavDrawer()" style="display:none;align-items:center;justify-content:center;width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;cursor:pointer;flex-shrink:0;transition:border-color .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" title="Navigate"><span style="display:flex;flex-direction:column;gap:4px;align-items:center"><span style="width:14px;height:1.5px;background:var(--text);border-radius:2px"></span><span style="width:14px;height:1.5px;background:var(--text);border-radius:2px"></span><span style="width:14px;height:1.5px;background:var(--text);border-radius:2px"></span></span></button>
     <div class="logo" onclick="typeof goToHome==='function'&&goToHome()" style="cursor:pointer"><img src="finresolver.png" alt="" class="header-logo-img" /><span class="logo-fin">Fin</span><span>Resolver</span></div>
-    <button id="btnBackHome" onclick="goToHome()" style="display:none;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.32rem .7rem;border-radius:6px;cursor:pointer;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Home</button>
   </div>
 
   <div class="header-right">
@@ -282,6 +311,12 @@
      HOME DASHBOARD  (shown after login, before any module)
 ════════════════════════════════════════════════════════════ -->
 <div id="homeScreen" style="display:none">
+
+  <!-- Shown while Firebase data is being fetched on first load -->
+  <div id="homeLoader" class="home-loader hidden" role="status" aria-label="Loading data">
+    <div class="home-loader-spinner"></div>
+    <div class="home-loader-text">Syncing your data…</div>
+  </div>
 
   <div class="home-welcome">
     <h2>Hello, <span id="homeWelcomeName">there</span> 👋</h2>
@@ -639,6 +674,7 @@
     <div class="inv-page-title">📈 Investment <span>Tracker</span></div>
     <div class="inv-header-actions">
       <button class="btn-import" onclick="openInvImport()">⬆ Import Sheet</button>
+      <button class="btn-import" onclick="invExport()">⬇ Export CSV</button>
       <button class="btn-import" onclick="invRefreshQuotes()" id="invRefreshBtn">⟳ Refresh Prices</button>
       <button class="btn-import" onclick="openInvClearModal()" style="border-color:rgba(255,107,107,.3);color:var(--accent2)">🗑 Clear</button>
       <button class="btn" onclick="openInvModal(null, invActiveCat !== 'ALL' ? invActiveCat : null)">+ Add Holding</button>
@@ -1254,7 +1290,7 @@
 <script src="js/auth.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/loans.js"></script>
-<script src="js/investments.js"></script>
+<script src="js/investments.js?v=3"></script>
 
 <script>
   // ── Boot ────────────────────────────────────────────────────

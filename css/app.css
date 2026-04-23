@@ -377,6 +377,55 @@ select:focus { outline: 1px solid var(--accent); }
 .user-menu-sep { height: 1px; background: var(--border); margin: .3rem 0; }
 .user-menu-email { pointer-events: none; opacity: .65; font-size: .72rem !important; }
 
+/* ── Nav Drawer ── */
+#navDrawerOverlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 299;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+  animation: fadeIn .18s ease both;
+}
+#navDrawerOverlay.open { display: block; }
+#navDrawer {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 240px; z-index: 300;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: 8px 0 32px rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+#navDrawer.open { transform: translateX(0); }
+.nav-drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1rem .9rem;
+  border-bottom: 1px solid var(--border);
+}
+.nav-drawer-title {
+  font-family: var(--font-head); font-size: 1.1rem; font-weight: 800; color: var(--text);
+}
+.nav-drawer-close {
+  background: none; border: none; color: var(--muted);
+  font-size: .95rem; cursor: pointer; padding: .2rem .4rem;
+  border-radius: 5px; transition: color .15s, background .15s;
+}
+.nav-drawer-close:hover { color: var(--text); background: var(--surface2); }
+.nav-drawer-items { padding: .6rem .5rem; display: flex; flex-direction: column; gap: .15rem; }
+.nav-drawer-item {
+  display: flex; align-items: center; gap: .7rem;
+  width: 100%; text-align: left;
+  background: none; border: none; color: var(--muted);
+  font-family: var(--font-body); font-size: .85rem;
+  padding: .6rem .75rem; border-radius: 8px;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.nav-drawer-item:hover { background: var(--surface2); color: var(--text); }
+.nav-drawer-item.active { background: rgba(0,229,160,.1); color: var(--accent); }
+.nav-drawer-icon { font-size: 1rem; width: 1.2rem; text-align: center; flex-shrink: 0; }
+.nav-drawer-sep { height: 1px; background: var(--border); margin: .35rem .25rem; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 /* Import button */
 .btn-import {
   display: flex; align-items: center; gap: .5rem;

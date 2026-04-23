@@ -213,11 +213,8 @@ function loanStats(loan) {
 ══════════════════════════════════════════════════════════ */
 function goToLoans() {
   history.pushState({ screen: 'loans' }, '');
-  document.getElementById('homeScreen').style.display       = 'none';
-  document.getElementById('appMain').style.display          = 'none';
-  document.getElementById('loanDetailScreen').style.display = 'none';
+  if (typeof _enterTracker === 'function') _enterTracker('loans');
   document.getElementById('loanScreen').style.display       = 'block';
-  document.getElementById('btnBackHome').style.display      = 'flex';
 
   var tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
@@ -239,12 +236,12 @@ function goToLoanDetail(id) {
    (e.g. clicking the loan tag in the monthly tracker) */
 function navigateToLoan(id) {
   history.pushState({ screen: 'loanDetail', id: id }, '');
+  if (typeof _enterTracker === 'function') _enterTracker('loans');
   activeLoanId = id;
   document.getElementById('homeScreen').style.display       = 'none';
   document.getElementById('appMain').style.display          = 'none';
   document.getElementById('loanScreen').style.display       = 'none';
   document.getElementById('loanDetailScreen').style.display = 'block';
-  document.getElementById('btnBackHome').style.display      = 'flex';
   renderLoanDetail();
 }
 
