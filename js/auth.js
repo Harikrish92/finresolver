@@ -245,22 +245,26 @@ function logOut() {
   }
   if (typeof firebaseSignOut === 'function') firebaseSignOut();
 
-  // ── FIX 2: Clear all localStorage data for this user ──
-  // Remove every fr_data_{uid}_* key so the next user starts clean.
+  // Clear all localStorage data for this user so the next user starts clean.
   const uid = currentUser?.uid;
   if (uid) {
     const prefix = `fr_data_${uid}_`;
     Object.keys(localStorage)
       .filter(k => k.startsWith(prefix))
       .forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(`fr_loans_${uid}`);
+    localStorage.removeItem(`fr_investments_${uid}`);
   }
 
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
 
-  // FIX: Reset in-memory data immediately so a subsequent guest login
-  // cannot see the previous user's data before loadData() runs.
+  // Reset all in-memory state immediately so a subsequent login cannot see
+  // the previous user's data before the new user's data loads.
   if (typeof emptyData === 'function') data = emptyData();
+  if (typeof clearDataCache === 'function') clearDataCache();
+  if (typeof resetLoansState === 'function') resetLoansState();
+  if (typeof resetInvestmentsState === 'function') resetInvestmentsState();
 
   // Reset guest UI
   const guestBanner = document.getElementById('guestBanner');

@@ -21,6 +21,8 @@ let data = emptyData();
 // without re-decrypting from localStorage on each chart/dashboard render.
 const _monthCache = new Map();
 
+function clearDataCache() { _monthCache.clear(); }
+
 function emptyData() {
   return {
     initialAmount: 0,
