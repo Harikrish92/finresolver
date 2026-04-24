@@ -46,6 +46,11 @@ var loanChartLine     = null;
    that would overwrite an in-progress local save. */
 var _loansLastSavedAt = 0;
 
+function resetLoansState() {
+  loansData     = [];
+  activeLoanId  = null;
+}
+
 /* ══════════════════════════════════════════════════════════
    STORAGE
 ══════════════════════════════════════════════════════════ */

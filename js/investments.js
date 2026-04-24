@@ -16,6 +16,15 @@ var goldPriceCache    = null;     // { pricePerGram, pricePerOz, ts, source }
 var usdInrRate        = null;     // number — cached USD→INR rate
 var usdInrTs          = 0;        // timestamp of last USD/INR fetch
 var invSelectedId     = null;     // currently highlighted row
+
+function resetInvestmentsState() {
+  investmentsData = [];
+  invQuoteCache   = {};
+  goldPriceCache  = null;
+  usdInrRate      = null;
+  usdInrTs        = 0;
+  invSelectedId   = null;
+}
 var invActiveCat      = 'ALL';    // tab filter
 var invDetailTab      = 'chart';  // chart | financials | news
 var invSortCol        = 'value';
