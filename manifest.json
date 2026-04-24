@@ -22,7 +22,7 @@
       "purpose": "any"
     },
     {
-      "src": "finresolver.png",
+      "src": "finresolver_maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
