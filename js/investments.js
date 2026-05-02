@@ -2240,7 +2240,11 @@ function processInvImportFile(file) {
     reader.onload = function(ev) {
       try {
         var wb   = XLSX.read(ev.target.result, { type: 'array' });
-        var ws   = wb.Sheets[wb.SheetNames[0]];
+        var sheetName = wb.SheetNames[0];
+        for (var sn = 0; sn < wb.SheetNames.length; sn++) {
+          if (wb.SheetNames[sn].toLowerCase().indexOf('combined') !== -1) { sheetName = wb.SheetNames[sn]; break; }
+        }
+        var ws   = wb.Sheets[sheetName];
         var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
         parseBrokerRows(rows);
       } catch(err) {
@@ -2305,7 +2309,9 @@ function detectInvPlatform(headerRow) {
 
   // Zerodha Tradebook: trade_date + trade_type + symbol
   if (hasAll(['trade_date','trade_type','symbol'])) return 'zerodha-tb';
-  // Zerodha Holdings: instrument/tradingsymbol + avg cost
+  // Zerodha new Holdings XLSX (must check before old format — new format also has 'instrument type' + 'avg cost' which would match old rule)
+  if (hasAll(['symbol','isin']) && (has('previous closing') || has('unrealized p&l') || has('avg cost') || has('avg_cost'))) return 'zerodha-hs';
+  // Zerodha Holdings (old CSV): instrument/tradingsymbol + avg cost
   if ((has('instrument') || has('tradingsymbol')) && (has('avg cost') || has('avg_cost'))) return 'zerodha';
   // Groww MF: scheme name or fund name + (units or avg nav or average nav)
   if ((has('scheme name') || has('fund name')) && (has('units') || has('avg nav') || has('average nav') || has('purchase nav') || has('avg cost') || has('average cost'))) return 'groww-mf';
@@ -2372,6 +2378,25 @@ function _invParseRows(rows, platformId) {
         var name = String(r[nameI] || '').trim();
         if (!name || name.toLowerCase() === 'instrument') return null;
         return { name:name, ticker:name, isin:'', qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:'Stock', date:'' };
+      }).filter(Boolean);
+    }
+
+    /* ── Zerodha Holdings XLSX (new format) ────────────────────────
+       Sheets: Equity / Mutual Funds / Combined (prefer Combined)
+       Cols: Symbol | ISIN | [Sector] | [Instrument Type] | Quantity Available | … | Average Price | Previous Closing | … */
+    case 'zerodha-hs': {
+      var symI   = C(['symbol']);
+      var isinI  = C(['isin']);
+      var qtyI   = C(['quantity available','quantity avail','qty','quantity']);
+      var priceI = C(['average price','avg price','avg cost','average cost']);
+      var instrI = C(['instrument type']);
+      return data.map(function(r) {
+        var sym = String(r[symI] || '').trim();
+        if (!sym || sym.toLowerCase() === 'symbol') return null;
+        var isin = isinI >= 0 ? String(r[isinI] || '').trim() : '';
+        var instrType = instrI >= 0 ? String(r[instrI] || '').trim() : '';
+        var cat = (instrType && instrType !== '-') ? 'MF' : 'Stock';
+        return { name:sym, ticker:'', isin:isin, qty:invCleanNum(r[qtyI]), avgPrice:invCleanNum(r[priceI]), category:cat, date:'' };
       }).filter(Boolean);
     }
 
@@ -2562,7 +2587,7 @@ function parseBrokerRows(rows) {
   // For Groww, always re-detect between 'groww' and 'groww-mf' from the file
   // since both share the same broker card but need different parsers.
   var platform;
-  if (invImportBroker === 'auto' || invImportBroker === 'groww') {
+  if (invImportBroker === 'auto' || invImportBroker === 'groww' || invImportBroker === 'zerodha') {
     platform = detectInvPlatform(rows[headerIdx]);
     if (invImportBroker === 'groww' && platform !== 'groww-mf') platform = 'groww';
   } else {
@@ -2571,7 +2596,7 @@ function parseBrokerRows(rows) {
 
   // If auto-detect found a platform, highlight it in the grid and show instructions
   if (invImportBroker === 'auto') {
-    var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '');
+    var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '').replace(/-hs$/, '');
     var suffix = platform.endsWith('-tb') ? ' · Tradebook (each buy = lot)' : platform.endsWith('-mf') ? ' · Mutual Funds' : ' · Holdings';
     var detectedName = (INV_BROKER_META[basePlatform] || INV_BROKER_META.generic).name;
     var stepsEl = document.getElementById('invBrokerSteps');
@@ -2673,7 +2698,7 @@ function renderInvImportPreview(parsed) {
 
   /* Determine current import source for replace-vs-append differentiation */
   var _previewPlatform    = parsed.platform || 'generic';
-  var _previewBase        = _previewPlatform.replace(/-tb$/, '').replace(/-mf$/, '');
+  var _previewBase        = _previewPlatform.replace(/-tb$/, '').replace(/-mf$/, '').replace(/-hs$/, '');
   var _previewSource      = (INV_BROKER_META[_previewBase] || INV_BROKER_META.generic).name;
 
   /* Pre-compute action for each row: New / Replace / Add Lot */
@@ -2790,7 +2815,7 @@ function confirmInvImport() {
 
   var imported = 0, lotsAdded = 0, lotsReplaced = 0, skipped = 0;
   var platform = invImportParsed.platform || 'generic';
-  var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '');
+  var basePlatform = platform.replace(/-tb$/, '').replace(/-mf$/, '').replace(/-hs$/, '');
   var source = (INV_BROKER_META[basePlatform] || INV_BROKER_META.generic).name;
 
   /* Group rows by their matched holding so multi-row tradebook entries
