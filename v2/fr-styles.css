@@ -66,6 +66,8 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .theme-row{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:var(--rs);cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;transition:background var(--ease),color var(--ease)}
 .theme-row:hover{background:var(--s3);color:var(--t1)}
 .sidebar.collapsed .theme-row span{display:none}
+.sidebar.collapsed .sb-footer .ui-toggle-wrap{display:none!important}
+.sidebar.collapsed .sb-logout-label{display:none}
 
 /* ── MAIN ────────────────────────────────────────── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -344,6 +346,8 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 @media(max-width:900px){
   .sidebar{width:64px}
   .sidebar .logo-text,.sidebar .nav-label,.sidebar .nav-section,.sidebar .user-info-sb,.sidebar .theme-row span{opacity:0;width:0;overflow:hidden}
+  .sidebar .sb-footer .ui-toggle-wrap{display:none!important}
+  .sidebar .sb-logout-label{display:none}
   .dash-grid{grid-template-columns:1fr}
 }
 @media(max-width:600px){

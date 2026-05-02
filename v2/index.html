@@ -89,8 +89,8 @@
   <div id="login-screen" style="display:none">
     <div class="login-wrap">
       <div class="login-card">
-        <div class="login-logo">
-          <img src="../finresolver.png" alt="FR" style="width:32px;height:32px;border-radius:8px;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="">
+          <img src="../finresolver.png" alt="FR" style="height:32px;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
           <span style="display:none;align-items:center;justify-content:center;width:32px;height:32px;background:var(--accent);color:#070c17;font-family:var(--font-d);font-weight:800;font-size:13px;border-radius:8px">FR</span>
         </div>
 
@@ -135,8 +135,8 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sb-logo">
-        <div class="logo-mark">
-          <img src="../finresolver.png" alt="FR" style="width:28px;height:28px;border-radius:7px;object-fit:cover;" onerror="this.style.display='none';this.insertAdjacentText('afterend','FR')">
+        <div class="">
+          <img src="../finresolver.png" alt="FR" style="height:28px;object-fit:cover;" onerror="this.style.display='none';this.insertAdjacentText('afterend','FR')">
         </div>
         <span class="logo-text">FinResolver</span>
       </div>
@@ -172,7 +172,7 @@
           onmouseover="this.style.background='var(--s3)';this.style.color='var(--red)'"
           onmouseout="this.style.background='transparent';this.style.color='var(--t3)'">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign out
+          <span class="sb-logout-label">Sign out</span>
         </div>
       </div>
     </aside>
