@@ -464,6 +464,47 @@ textarea.ls-form-input {
 }
 .ls-page-btn.primary:hover { opacity: .88; }
 
+/* ── Alert banner ───────────────────────────────────────────── */
+.ls-alert-banner {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: .75rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent3);
+  border-radius: var(--radius); padding: .85rem 1rem;
+  margin-bottom: 1.25rem;
+  animation: fadeUp .3s ease both;
+}
+.ls-alert-content { flex: 1; min-width: 0; }
+.ls-alert-rows { display: flex; flex-direction: column; gap: .35rem; }
+.ls-alert-row {
+  font-size: var(--text-sm); line-height: 1.4;
+}
+.ls-alert-row.urgent { color: var(--accent2); }
+.ls-alert-row.warn   { color: var(--accent3); }
+.ls-alert-row.info   { color: var(--accent4); }
+
+.ls-notif-nudge {
+  display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+  margin-top: .6rem; padding-top: .6rem;
+  border-top: 1px solid var(--border);
+  font-size: var(--text-xs); color: var(--muted);
+}
+.ls-notif-enable-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px;
+  padding: .2rem .65rem; font-size: var(--text-xs);
+  cursor: pointer; font-family: var(--font-body);
+  transition: border-color .15s, color .15s;
+}
+.ls-notif-enable-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.ls-alert-dismiss {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: .85rem; padding: .1rem;
+  flex-shrink: 0; line-height: 1; transition: color .15s;
+}
+.ls-alert-dismiss:hover { color: var(--text); }
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 860px) {
   #lifestyleScreen { padding: .9rem .85rem 3.5rem; }

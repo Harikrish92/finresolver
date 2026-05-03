@@ -2,7 +2,7 @@
 const _now = new Date();
 const APP = {
   user: { name: 'Guest', email: '', initials: 'G' },
-  theme: 'dark',
+  theme: localStorage.getItem('fr_theme') || 'dark',
   synced: false,
   activeLoanId: null,
   activeInvFilter: 'ALL',
@@ -27,6 +27,7 @@ const APP = {
   history: [],
   lifestyle: { goods: [], events: [] },
 };
+document.body.classList.toggle('light', APP.theme === 'light');
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
 function fmt(n, compact = false) {

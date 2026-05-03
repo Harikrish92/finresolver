@@ -18,17 +18,19 @@
 ══════════════════════════════════════════════════════════ */
 var lifestyleData = { goods: [], events: [] };
 
-var _lsActiveTab     = 'goods';   // 'goods' | 'events'
-var _lsEditGoodId    = null;      // null = new, string = editing
-var _lsEditEventId   = null;
-var _lsGoodCategory  = 'TV';      // selected category in goods modal
-var _lsEventCategory = 'Birthday'; // selected category in events modal
+var _lsActiveTab             = 'goods';    // 'goods' | 'events'
+var _lsEditGoodId            = null;       // null = new, string = editing
+var _lsEditEventId           = null;
+var _lsGoodCategory          = 'TV';       // selected category in goods modal
+var _lsEventCategory         = 'Birthday'; // selected category in events modal
+var _lsNotifBannerDismissed  = false;      // session-only dismiss for alert banner
 
 function resetLifestyleState() {
-  lifestyleData    = { goods: [], events: [] };
-  _lsActiveTab     = 'goods';
-  _lsEditGoodId    = null;
-  _lsEditEventId   = null;
+  lifestyleData              = { goods: [], events: [] };
+  _lsActiveTab               = 'goods';
+  _lsEditGoodId              = null;
+  _lsEditEventId             = null;
+  _lsNotifBannerDismissed    = false;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -238,6 +240,7 @@ function lsFormatEventDate(dateStr, recurring) {
 ══════════════════════════════════════════════════════════ */
 function lsRenderAll() {
   lsRenderSummary();
+  lsRenderAlertBanner();
   if (_lsActiveTab === 'goods') {
     lsRenderGoods();
   } else {
@@ -699,6 +702,151 @@ function lsGetHomeStat() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   NOTIFICATIONS
+══════════════════════════════════════════════════════════ */
+
+function lsGetAlerts() {
+  var goods  = lifestyleData.goods  || [];
+  var events = lifestyleData.events || [];
+  var alerts = [];
+
+  events.forEach(function(ev) {
+    if (lsDaysUntil(ev.date, ev.recurring) === 0) {
+      alerts.push({ level: 'urgent', type: 'event-today', ev: ev });
+    }
+  });
+
+  var soonEvents = events.filter(function(ev) {
+    var d = lsDaysUntil(ev.date, ev.recurring);
+    return d !== null && d > 0 && d <= 7;
+  });
+  if (soonEvents.length > 0) {
+    alerts.push({ level: 'warn', type: 'events-soon', items: soonEvents });
+  }
+
+  goods.forEach(function(g) {
+    if (!g.purchaseDate || !g.warrantyYears) return;
+    var exp = new Date(g.purchaseDate);
+    exp.setFullYear(exp.getFullYear() + Number(g.warrantyYears));
+    var days = Math.round((exp - new Date()) / 86400000);
+    if (days >= 0 && days <= 30) {
+      alerts.push({ level: 'warn', type: 'warranty', good: g, days: days });
+    }
+  });
+
+  var overdue = goods.filter(function(g) {
+    return g.purchaseDate && g.expectedLifespan && lsLifespanPct(g.purchaseDate, g.expectedLifespan) >= 100;
+  });
+  if (overdue.length > 0) {
+    alerts.push({ level: 'info', type: 'upgrade-due', items: overdue });
+  }
+
+  return alerts;
+}
+
+function lsRenderAlertBanner() {
+  var el = document.getElementById('lsAlertBanner');
+  if (!el) return;
+
+  if (_lsNotifBannerDismissed) { el.style.display = 'none'; return; }
+
+  var alerts = lsGetAlerts();
+  if (alerts.length === 0) { el.style.display = 'none'; return; }
+
+  var rows = alerts.map(function(a) {
+    if (a.type === 'event-today') {
+      var cat = lsEventCat(a.ev.category);
+      return '<div class="ls-alert-row urgent">' + cat.icon +
+        ' <strong>' + lsEsc(a.ev.title) + '</strong> is <strong>today</strong>!</div>';
+    }
+    if (a.type === 'events-soon') {
+      var titles = a.items.slice(0, 2).map(function(ev) { return lsEsc(ev.title); }).join(', ');
+      var extra  = a.items.length > 2 ? ' +' + (a.items.length - 2) + ' more' : '';
+      return '<div class="ls-alert-row warn">📅 ' + a.items.length + ' event' +
+        (a.items.length > 1 ? 's' : '') + ' this week: ' + titles + extra + '</div>';
+    }
+    if (a.type === 'warranty') {
+      var cat = lsGoodCat(a.good.category);
+      return '<div class="ls-alert-row warn">' + cat.icon + ' <strong>' + lsEsc(a.good.name) +
+        '</strong> warranty expires in ' + a.days + ' day' + (a.days !== 1 ? 's' : '') + '</div>';
+    }
+    if (a.type === 'upgrade-due') {
+      var names = a.items.slice(0, 2).map(function(g) { return lsEsc(g.name); }).join(', ');
+      var extra = a.items.length > 2 ? ' +' + (a.items.length - 2) + ' more' : '';
+      return '<div class="ls-alert-row info">📦 ' + a.items.length + ' item' +
+        (a.items.length > 1 ? 's' : '') + ' past expected lifespan: ' + names + extra + '</div>';
+    }
+    return '';
+  }).join('');
+
+  var nudge = '';
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    nudge = '<div class="ls-notif-nudge">' +
+      '<span>🔔 Get reminders even when the app is closed.</span>' +
+      '<button class="ls-notif-enable-btn" onclick="lsEnableNotifications()">Enable Notifications</button>' +
+      '</div>';
+  }
+
+  el.innerHTML =
+    '<div class="ls-alert-content">' +
+      '<div class="ls-alert-rows">' + rows + '</div>' +
+      nudge +
+    '</div>' +
+    '<button class="ls-alert-dismiss" onclick="lsDismissAlertBanner()" title="Dismiss">✕</button>';
+
+  el.style.display = 'flex';
+}
+
+function lsDismissAlertBanner() {
+  _lsNotifBannerDismissed = true;
+  var el = document.getElementById('lsAlertBanner');
+  if (el) el.style.display = 'none';
+}
+
+function lsCheckBrowserNotify() {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+    ? fbAuth.currentUser.uid : 'guest';
+  var key   = 'fr_ls_notif_date_' + uid;
+  var today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem(key) === today) return;
+
+  var alerts = lsGetAlerts();
+  if (alerts.length === 0) return;
+
+  var lines = [];
+  alerts.forEach(function(a) {
+    if (a.type === 'event-today') lines.push(a.ev.title + ' is today!');
+    else if (a.type === 'events-soon') lines.push(a.items.length + ' event' + (a.items.length > 1 ? 's' : '') + ' coming this week');
+    else if (a.type === 'warranty') lines.push(a.good.name + ' warranty expires in ' + a.days + 'd');
+    else if (a.type === 'upgrade-due') lines.push(a.items.length + ' item' + (a.items.length > 1 ? 's' : '') + ' due for upgrade');
+  });
+
+  try {
+    new Notification('FinResolver · ' + alerts.length + ' lifestyle reminder' + (alerts.length > 1 ? 's' : ''), {
+      body: lines.join('\n'),
+      tag:  'fr-lifestyle',
+    });
+    localStorage.setItem(key, today);
+  } catch(e) {}
+}
+
+function lsEnableNotifications() {
+  if (typeof Notification === 'undefined') return;
+  Notification.requestPermission().then(function(perm) {
+    if (perm === 'granted') {
+      var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+        ? fbAuth.currentUser.uid : 'guest';
+      localStorage.removeItem('fr_ls_notif_date_' + uid);
+      lsCheckBrowserNotify();
+      lsRenderAlertBanner();
+      if (typeof showToast === 'function') showToast('Notifications enabled!', 'success');
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function initLifestyle() {
@@ -709,5 +857,6 @@ function initLifestyle() {
       var stat = lsGetHomeStat();
       statEl.textContent = stat || '—';
     }
+    lsCheckBrowserNotify();
   });
 }

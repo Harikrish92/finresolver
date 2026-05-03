@@ -93,7 +93,7 @@ function buildTweaksPanel() {
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Theme</div>
         <div style="display:flex;gap:4px;background:var(--s2);border-radius:8px;padding:3px;border:1px solid var(--b)">
           ${['dark','light'].map(t=>`
-            <button onclick="APP.theme='${t}';document.body.classList.toggle('light','${t}'==='light');updateThemeBtns()"
+            <button onclick="APP.theme='${t}';localStorage.setItem('fr_theme','${t}');document.body.classList.toggle('light','${t}'==='light');updateThemeBtns()"
               id="tw-theme-${t}"
               style="flex:1;padding:5px;border:none;border-radius:6px;font-size:11.5px;font-weight:500;cursor:pointer;font-family:var(--font);transition:.15s;background:${APP.theme===t?'var(--s1)':'transparent'};color:${APP.theme===t?'var(--t1)':'var(--t3)'}">
               ${t.charAt(0).toUpperCase()+t.slice(1)}

@@ -62,6 +62,7 @@ function toggleSidebar() {
 
 function toggleTheme() {
   APP.theme = APP.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('fr_theme', APP.theme);
   document.body.classList.toggle('light', APP.theme === 'light');
   const isDark = APP.theme === 'dark';
   // moon SVG = dark mode icon, sun SVG = light mode icon
