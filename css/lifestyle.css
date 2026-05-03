@@ -1,0 +1,483 @@
+/* ============================================================
+   lifestyle.css — Lifestyle Tracker module styles
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── Screen container ───────────────────────────────────────── */
+#lifestyleScreen {
+  display: none;
+  position: relative; z-index: 1;
+  max-width: 1400px; margin: 0 auto;
+  padding: 1.75rem 1.5rem 5rem;
+}
+
+/* ── Page header ────────────────────────────────────────────── */
+.ls-page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+.ls-page-title {
+  font-family: var(--font-head); font-size: 1.4rem; font-weight: 800;
+}
+.ls-page-title span { color: var(--accent2); }
+.ls-page-sub { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+.ls-header-actions {
+  display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+}
+
+/* ── Summary strip ──────────────────────────────────────────── */
+.ls-summary-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: .85rem; margin-bottom: 1.75rem;
+}
+.ls-sum-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.2rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .35s ease both;
+  transition: transform .15s, border-color .2s;
+}
+.ls-sum-card:hover { transform: translateY(-2px); border-color: var(--card-accent, var(--border)); }
+.ls-sum-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--card-accent, var(--accent2));
+}
+.ls-sum-label {
+  font-size: var(--text-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: .3rem; font-weight: 500;
+}
+.ls-sum-value {
+  font-family: var(--font-head); font-size: 1.5rem; font-weight: 700;
+  color: var(--card-color, var(--text));
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.ls-sum-sub { font-size: var(--text-xs); color: var(--muted); margin-top: .15rem; }
+
+/* ── Tab bar ────────────────────────────────────────────────── */
+.ls-tabs {
+  display: flex; gap: .5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.ls-tab {
+  padding: .55rem 1.1rem;
+  font-size: var(--text-sm); font-weight: 600;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); cursor: pointer;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+.ls-tab:hover { color: var(--text); }
+.ls-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+/* ─────────────────────────────────────────────────────────────
+   HOUSEHOLD GOODS SECTION
+───────────────────────────────────────────────────────────── */
+
+/* Grid of goods cards */
+.ls-goods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.1rem;
+}
+
+/* Individual good card */
+.ls-good-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.25rem 1.3rem;
+  display: flex; flex-direction: column; gap: .7rem;
+  position: relative; overflow: hidden;
+  animation: fadeUp .35s ease both;
+  transition: border-color .2s, transform .15s, background .2s;
+}
+.ls-good-card:hover { border-color: rgba(255,107,107,.35); transform: translateY(-2px); }
+.ls-good-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent3));
+  opacity: .7;
+}
+
+/* Card top row: icon + name + badge */
+.ls-good-top {
+  display: flex; align-items: flex-start; gap: .8rem;
+}
+.ls-good-icon {
+  font-size: 2rem; line-height: 1; flex-shrink: 0;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,107,107,.1); border-radius: 10px;
+}
+.ls-good-top-info { flex: 1; min-width: 0; }
+.ls-good-name {
+  font-family: var(--font-head); font-size: .95rem; font-weight: 700;
+  color: var(--text); line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ls-good-brand { font-size: .72rem; color: var(--muted); margin-top: .2rem; }
+.ls-good-cat-badge {
+  font-size: .6rem; font-weight: 700; font-family: var(--font-mono);
+  padding: .22rem .55rem; border-radius: 20px;
+  background: rgba(255,107,107,.12); color: var(--accent2);
+  border: 1px solid rgba(255,107,107,.25);
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* Price + age row */
+.ls-good-meta-row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .4rem;
+}
+.ls-good-price {
+  font-size: .78rem; color: var(--text); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ls-good-age { font-size: .72rem; color: var(--muted); }
+
+/* Warranty status badge */
+.ls-warranty-row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .4rem;
+}
+.ls-warranty-badge {
+  font-size: .68rem; font-weight: 700; padding: .2rem .6rem;
+  border-radius: 20px; display: inline-flex; align-items: center; gap: .3rem;
+}
+.ls-warranty-badge.active {
+  background: rgba(0,229,160,.12); color: var(--accent);
+  border: 1px solid rgba(0,229,160,.3);
+}
+.ls-warranty-badge.expiring {
+  background: rgba(255,209,102,.12); color: var(--accent3);
+  border: 1px solid rgba(255,209,102,.3);
+}
+.ls-warranty-badge.expired {
+  background: rgba(255,107,107,.12); color: var(--accent2);
+  border: 1px solid rgba(255,107,107,.3);
+}
+.ls-warranty-badge.none {
+  background: rgba(138,150,178,.1); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.ls-warranty-exp { font-size: .68rem; color: var(--muted); }
+
+/* Lifespan progress bar */
+.ls-lifespan {
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.ls-lifespan-labels {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ls-lifespan-label {
+  font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+}
+.ls-lifespan-value { font-size: .68rem; color: var(--text); font-family: var(--font-mono); }
+.ls-lifespan-track {
+  height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden;
+}
+.ls-lifespan-fill {
+  height: 100%; border-radius: 99px;
+  background: var(--accent);
+  transition: width .4s ease;
+}
+.ls-lifespan-fill.warn { background: var(--accent3); }
+.ls-lifespan-fill.danger { background: var(--accent2); }
+
+/* Condition indicator */
+.ls-condition {
+  display: flex; align-items: center; gap: .4rem;
+  font-size: .7rem; color: var(--muted);
+}
+.ls-condition-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.ls-condition-dot.good    { background: var(--accent); }
+.ls-condition-dot.fair    { background: var(--accent3); }
+.ls-condition-dot.poor    { background: var(--accent2); }
+.ls-condition-dot.unknown { background: var(--muted); }
+
+/* Upgrade notes */
+.ls-upgrade-note {
+  background: rgba(167,139,250,.07); border: 1px solid rgba(167,139,250,.2);
+  border-radius: 8px; padding: .5rem .75rem;
+  font-size: .72rem; color: var(--muted); line-height: 1.5;
+}
+.ls-upgrade-note strong { color: var(--purple); font-weight: 600; }
+
+/* General notes */
+.ls-good-notes {
+  font-size: .72rem; color: var(--muted); line-height: 1.5;
+  border-left: 2px solid var(--border); padding-left: .6rem;
+}
+
+/* Card action buttons */
+.ls-card-actions {
+  display: flex; gap: .5rem; margin-top: .2rem;
+}
+.ls-btn-edit {
+  flex: 1; padding: .38rem .75rem; font-size: .72rem; font-weight: 600;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; color: var(--text);
+  transition: border-color .15s, background .15s;
+  font-family: var(--font-body);
+}
+.ls-btn-edit:hover { border-color: var(--accent2); background: rgba(255,107,107,.06); }
+.ls-btn-del {
+  padding: .38rem .75rem; font-size: .72rem; font-weight: 600;
+  background: none; border: 1px solid rgba(255,107,107,.25);
+  border-radius: 8px; cursor: pointer; color: var(--accent2);
+  transition: border-color .15s, background .15s;
+  font-family: var(--font-body);
+}
+.ls-btn-del:hover { border-color: var(--accent2); background: rgba(255,107,107,.08); }
+
+/* ─────────────────────────────────────────────────────────────
+   EVENTS / NOTES SECTION
+───────────────────────────────────────────────────────────── */
+
+.ls-events-list {
+  display: flex; flex-direction: column; gap: .65rem;
+}
+
+/* Section divider (Today, Upcoming, Past) */
+.ls-event-section-header {
+  font-size: .65rem; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted);
+  padding: .3rem 0 .3rem .1rem; margin-top: .5rem;
+  border-bottom: 1px solid var(--border);
+}
+.ls-event-section-header:first-child { margin-top: 0; }
+
+/* Individual event row */
+.ls-event-row {
+  display: flex; align-items: flex-start; gap: .85rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: .85rem 1rem;
+  transition: border-color .2s, background .15s;
+  animation: fadeUp .3s ease both;
+}
+.ls-event-row:hover { border-color: rgba(167,139,250,.35); background: var(--surface2); }
+.ls-event-row.today {
+  border-color: rgba(0,229,160,.35);
+  background: rgba(0,229,160,.04);
+}
+.ls-event-row.overdue {
+  border-color: rgba(255,107,107,.25);
+  opacity: .8;
+}
+
+/* Event icon */
+.ls-event-icon {
+  font-size: 1.4rem; line-height: 1; flex-shrink: 0;
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface2); border-radius: 10px;
+}
+
+/* Event info */
+.ls-event-info { flex: 1; min-width: 0; }
+.ls-event-title {
+  font-size: .9rem; font-weight: 600; color: var(--text);
+  line-height: 1.3;
+}
+.ls-event-meta {
+  display: flex; align-items: center; gap: .5rem;
+  flex-wrap: wrap; margin-top: .25rem;
+}
+.ls-event-date { font-size: .72rem; color: var(--muted); font-family: var(--font-mono); }
+.ls-event-cat-badge {
+  font-size: .6rem; font-weight: 600; padding: .1rem .45rem;
+  border-radius: 20px; background: var(--surface2);
+  color: var(--muted); border: 1px solid var(--border);
+}
+.ls-event-notes {
+  font-size: .72rem; color: var(--muted); margin-top: .35rem; line-height: 1.5;
+}
+
+/* Right side: days badge + actions */
+.ls-event-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: .4rem; flex-shrink: 0;
+}
+.ls-days-badge {
+  font-size: .65rem; font-weight: 700; padding: .2rem .55rem;
+  border-radius: 20px; white-space: nowrap; font-family: var(--font-mono);
+}
+.ls-days-badge.today {
+  background: rgba(0,229,160,.15); color: var(--accent);
+  border: 1px solid rgba(0,229,160,.35);
+}
+.ls-days-badge.upcoming {
+  background: rgba(77,171,247,.12); color: var(--accent4);
+  border: 1px solid rgba(77,171,247,.3);
+}
+.ls-days-badge.soon {
+  background: rgba(255,209,102,.12); color: var(--accent3);
+  border: 1px solid rgba(255,209,102,.3);
+}
+.ls-days-badge.overdue {
+  background: rgba(255,107,107,.12); color: var(--accent2);
+  border: 1px solid rgba(255,107,107,.3);
+}
+.ls-event-actions {
+  display: flex; gap: .3rem;
+}
+.ls-event-actions button {
+  padding: .22rem .45rem; font-size: .7rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; color: var(--muted);
+  transition: border-color .15s, color .15s;
+  font-family: var(--font-body);
+}
+.ls-event-actions button.del:hover { border-color: var(--accent2); color: var(--accent2); }
+.ls-event-actions button:not(.del):hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Empty states ────────────────────────────────────────────── */
+.ls-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .75rem;
+  padding: 4rem 1.5rem; text-align: center;
+  animation: fadeUp .35s ease both;
+}
+.ls-empty-icon { font-size: 3rem; opacity: .35; }
+.ls-empty-title {
+  font-family: var(--font-head); font-size: 1.1rem; font-weight: 700;
+  color: var(--text);
+}
+.ls-empty-desc { font-size: .82rem; color: var(--muted); max-width: 320px; line-height: 1.55; }
+
+/* ─────────────────────────────────────────────────────────────
+   MODALS — Add/Edit Goods and Events
+───────────────────────────────────────────────────────────── */
+
+.ls-modal-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(7,10,16,.72); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  animation: fadeUp .2s ease both;
+}
+.ls-modal-overlay.hidden { display: none; }
+
+.ls-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 0;
+  width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  animation: fadeUp .25s ease both;
+}
+
+.ls-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.4rem .9rem; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 2;
+}
+.ls-modal-title {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+  color: var(--text);
+}
+
+.ls-modal-body {
+  padding: 1.25rem 1.4rem;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.ls-modal-footer {
+  display: flex; justify-content: flex-end; gap: .65rem;
+  padding: .9rem 1.4rem 1.1rem; border-top: 1px solid var(--border);
+  position: sticky; bottom: 0; background: var(--surface); z-index: 2;
+}
+
+/* Form fields */
+.ls-form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+}
+.ls-form-field { display: flex; flex-direction: column; gap: .3rem; }
+.ls-form-field.full { grid-column: 1 / -1; }
+.ls-form-label {
+  font-size: .68rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted);
+}
+.ls-form-input {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .5rem .75rem;
+  font-size: var(--text-sm); color: var(--text);
+  font-family: var(--font-body); width: 100%;
+  transition: border-color .15s;
+  outline: none;
+}
+.ls-form-input:focus { border-color: var(--accent2); }
+.ls-form-input::placeholder { color: var(--muted); }
+
+select.ls-form-input { cursor: pointer; }
+select.ls-form-input option { background: var(--surface); }
+
+textarea.ls-form-input {
+  resize: vertical; min-height: 70px; line-height: 1.5;
+}
+
+/* Category pills for events */
+.ls-cat-pills {
+  display: flex; flex-wrap: wrap; gap: .4rem;
+}
+.ls-cat-pill {
+  font-size: .68rem; font-weight: 600; padding: .28rem .7rem;
+  border-radius: 20px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--muted); transition: all .15s;
+  font-family: var(--font-body);
+}
+.ls-cat-pill:hover { border-color: var(--accent2); color: var(--accent2); }
+.ls-cat-pill.active {
+  background: rgba(255,107,107,.12); color: var(--accent2);
+  border-color: rgba(255,107,107,.4);
+}
+
+/* Buttons */
+.ls-btn-primary {
+  padding: .5rem 1.25rem; font-size: var(--text-sm); font-weight: 600;
+  background: var(--accent2); color: #fff; border: none;
+  border-radius: 8px; cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity .15s, transform .1s;
+}
+.ls-btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+
+.ls-btn-secondary {
+  padding: .5rem 1.1rem; font-size: var(--text-sm); font-weight: 600;
+  background: none; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  font-family: var(--font-body);
+  transition: border-color .15s, color .15s;
+}
+.ls-btn-secondary:hover { border-color: var(--text); color: var(--text); }
+
+/* Add Item / Add Event buttons on page */
+.ls-page-btn {
+  padding: .45rem 1.1rem; font-size: var(--text-sm); font-weight: 600;
+  border: 1px solid rgba(255,107,107,.4); border-radius: 8px; cursor: pointer;
+  color: var(--accent2); background: rgba(255,107,107,.08);
+  font-family: var(--font-body);
+  transition: background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.ls-page-btn:hover { background: rgba(255,107,107,.15); border-color: var(--accent2); }
+.ls-page-btn.primary {
+  background: var(--accent2); color: #fff; border-color: var(--accent2);
+}
+.ls-page-btn.primary:hover { opacity: .88; }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  #lifestyleScreen { padding: .9rem .85rem 3.5rem; }
+  .ls-summary-strip { grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-bottom: 1rem; }
+  .ls-page-header { margin-bottom: 1rem; }
+  .ls-goods-grid { grid-template-columns: 1fr; }
+  .ls-form-grid { grid-template-columns: 1fr; }
+  .ls-form-field.full { grid-column: 1; }
+}
+
+@media (max-width: 500px) {
+  .ls-sum-card { padding: .7rem .85rem; }
+  .ls-sum-value { font-size: 1.15rem; }
+  .ls-modal { max-width: 100%; }
+  .ls-event-row { flex-wrap: wrap; }
+  .ls-event-right { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; }
+}

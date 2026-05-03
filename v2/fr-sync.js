@@ -231,10 +231,13 @@ async function loadAllData() {
     _loadMonth(year, month),
     _loadLoansConfig(),
     _loadInvestmentsConfig(),
+    _loadLifestyleConfig(),
   ]);
 
   _loadedYear  = year;
   _loadedMonth = month;
+
+  await _loadRecentHistory(3);
 
   // Re-render current screen with real data
   const sc = document.getElementById('screen-content');
@@ -328,6 +331,57 @@ async function _getPrevMonthBalance(year, month) {
 function _calcBalance(v2) {
   const sum = arr => (arr || []).reduce((a, e) => a + (e.amount || 0), 0);
   return v2.initialBalance + sum(v2.income) - sum(v2.expenses) - sum(v2.investments) - sum(v2.loans);
+}
+
+async function _loadRecentHistory(n) {
+  const sum   = arr => (arr || []).reduce((a, e) => a + (e.amount || 0), 0);
+  const entries = [];
+  const year  = APP.monthly.year;
+  const month = APP.monthly.month;
+
+  for (let i = 0; i < n; i++) {
+    let y = year, m = month - i;
+    while (m < 1) { m += 12; y--; }
+
+    if (i === 0) {
+      entries.push({
+        year: y, month: m,
+        expenses: sum(APP.monthly.expenses),
+        income:   sum(APP.monthly.income),
+        balance:  _calcBalance(APP.monthly),
+      });
+    } else {
+      const sm  = m - 1; // 0-indexed storage key
+      const key = `fr_data_${_currentUID}_${y}_${sm}`;
+      let raw   = localStorage.getItem(key);
+
+      if (!raw && _syncReady && _db) {
+        try {
+          const snap = await _db.collection('users').doc(_currentUID)
+            .collection('months').doc(`${y}_${sm}`).get();
+          if (snap.exists) {
+            raw = snap.data()._enc || JSON.stringify(snap.data());
+            localStorage.setItem(key, raw);
+          }
+        } catch {}
+      }
+
+      if (raw) {
+        const d = await decryptFromStorage(raw, _currentEmail);
+        if (d) {
+          const v2 = _storageToV2(d, y, m);
+          entries.push({
+            year: y, month: m,
+            expenses: sum(v2.expenses),
+            income:   sum(v2.income),
+            balance:  _calcBalance(v2),
+          });
+        }
+      }
+    }
+  }
+
+  APP.history = entries.reverse(); // oldest first
 }
 
 // ── Save monthly ──────────────────────────────────────────────────────────────
@@ -439,6 +493,50 @@ async function saveInvestmentsConfig() {
         .collection('config').doc('investments').set({ _enc: encStr });
     } catch (e) {
       console.warn('[Sync] Investments save failed:', e);
+    }
+  }
+}
+
+// ── Lifestyle config ──────────────────────────────────────────────────────────
+
+async function _loadLifestyleConfig() {
+  const localKey = `fr_lifestyle_${_currentUID}`;
+  const localRaw = localStorage.getItem(localKey);
+  if (localRaw) {
+    const d = await decryptFromStorage(localRaw, _currentEmail);
+    if (d && typeof d === 'object') {
+      APP.lifestyle = { goods: Array.isArray(d.goods) ? d.goods : [], events: Array.isArray(d.events) ? d.events : [] };
+    }
+  }
+  if (_syncReady && _db) {
+    try {
+      const snap = await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('lifestyle').get();
+      if (snap.exists) {
+        const raw = snap.data()._enc || JSON.stringify(snap.data());
+        const d   = await decryptFromStorage(raw, _currentEmail);
+        if (d && typeof d === 'object') {
+          APP.lifestyle = { goods: Array.isArray(d.goods) ? d.goods : [], events: Array.isArray(d.events) ? d.events : [] };
+          localStorage.setItem(localKey, raw);
+        }
+      }
+    } catch (e) {
+      console.warn('[Sync] Lifestyle load failed:', e);
+    }
+  }
+}
+
+async function saveLifestyleConfig() {
+  if (!_currentUID) return;
+  if (!APP.lifestyle) APP.lifestyle = { goods: [], events: [] };
+  const encStr = await encryptForStorage(APP.lifestyle, _currentEmail);
+  localStorage.setItem(`fr_lifestyle_${_currentUID}`, encStr);
+  if (_syncReady && _db) {
+    try {
+      await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('lifestyle').set({ _enc: encStr });
+    } catch (e) {
+      console.warn('[Sync] Lifestyle save failed:', e);
     }
   }
 }

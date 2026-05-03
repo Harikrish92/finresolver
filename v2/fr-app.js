@@ -4,11 +4,12 @@ let _sidebarCollapsed = false;
 let _chartInstances = {};
 
 const NAV = [
-  { screen:'dashboard',   icon:'home',     label:'Dashboard',      section:'OVERVIEW' },
-  { screen:'monthly',     icon:'calendar', label:'Monthly Tracker', section:'FINANCE'  },
-  { screen:'investments', icon:'trending', label:'Investments',     section:null       },
-  { screen:'loans',       icon:'card',     label:'Loan Tracker',    section:null       },
-  { screen:'portfolio',   icon:'target',   label:'Portfolio & FIRE',section:null       },
+  { screen:'dashboard',   icon:'home',      label:'Dashboard',       section:'OVERVIEW'   },
+  { screen:'monthly',     icon:'calendar',  label:'Monthly Tracker', section:'FINANCE'    },
+  { screen:'investments', icon:'trending',  label:'Investments',     section:null         },
+  { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null         },
+  { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:null         },
+  { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:'LIFESTYLE' },
 ];
 
 function navigate(screen, opts = {}) {
@@ -34,7 +35,8 @@ function navigate(screen, opts = {}) {
   const titles = {
     dashboard:'Dashboard', monthly:'Monthly Tracker',
     investments:'Investments', loans:'Loan Tracker',
-    'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE'
+    'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
+    lifestyle:'Lifestyle Tracker'
   };
   const subs = {
     monthly:   monthName(APP.monthly.month) + ' ' + APP.monthly.year,
@@ -244,9 +246,9 @@ function deleteLoan(id) {
 }
 
 function deleteInvestment(id) {
-  const inv = APP.investments.find(i => i.id === id);
+  const inv = APP.investments.find(i => String(i.id) === String(id));
   if (!inv || !confirm(`Delete "${inv.name}"?`)) return;
-  APP.investments = APP.investments.filter(i => i.id !== id);
+  APP.investments = APP.investments.filter(i => String(i.id) !== String(id));
   if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
   navigate(_screen);
 }

@@ -254,6 +254,7 @@ function logOut() {
       .forEach(k => localStorage.removeItem(k));
     localStorage.removeItem(`fr_loans_${uid}`);
     localStorage.removeItem(`fr_investments_${uid}`);
+    localStorage.removeItem(`fr_lifestyle_${uid}`);
   }
 
   localStorage.removeItem(SESSION_KEY);
@@ -265,6 +266,7 @@ function logOut() {
   if (typeof clearDataCache === 'function') clearDataCache();
   if (typeof resetLoansState === 'function') resetLoansState();
   if (typeof resetInvestmentsState === 'function') resetInvestmentsState();
+  if (typeof resetLifestyleState === 'function') resetLifestyleState();
 
   // Reset guest UI
   const guestBanner = document.getElementById('guestBanner');

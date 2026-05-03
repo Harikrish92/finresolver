@@ -24,7 +24,7 @@ function _setDrawerActive(screen) {
 }
 
 function _hideAllScreens() {
-  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen'].forEach(function(id) {
+  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -91,6 +91,26 @@ function goToPortfolio() {
   // Fetch fresh prices then re-render; reuse the same helper as the home screen.
   // If caches are already warm (user came from investment screen) this resolves instantly.
   pfFetchLivePricesAndRender();
+}
+
+/** Navigate home → lifestyle tracker */
+function goToLifestyle() {
+  history.pushState({ screen: 'lifestyle' }, '');
+  _enterTracker('lifestyle');
+  document.getElementById('lifestyleScreen').style.display = 'block';
+
+  const tc = document.getElementById('headerTrackerControls');
+  if (tc) tc.style.display = 'none';
+
+  if (typeof goToLifestyle._loaded === 'undefined') {
+    // First visit: let lifestyle.js handle load + render via its own goToLifestyle()
+    goToLifestyle._loaded = true;
+  }
+  if (typeof loadLifestyle === 'function') {
+    loadLifestyle().then(function() {
+      if (typeof lsRenderAll === 'function') lsRenderAll();
+    });
+  }
 }
 
 function pfFetchLivePricesAndRender() {
@@ -255,6 +275,13 @@ function renderHomeDashboard() {
   if (ytdEl) {
     ytdEl.textContent = placeholder ?? fmtCrore(Math.abs(ytdSavings));
     ytdEl.style.color = ytdSavings >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  }
+
+  // Lifestyle tracker stat
+  const lsEl = document.getElementById('homeStatLifestyle');
+  if (lsEl && typeof lsGetHomeStat === 'function') {
+    const lsStat = lsGetHomeStat();
+    lsEl.textContent = lsStat || '—';
   }
 
   // Month quick summary
@@ -557,7 +584,7 @@ function showHomeScreen() {
   document.getElementById('homeScreen').style.display   = 'block';
 
   // Hide ALL module screens so nothing bleeds through on login/logout
-  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen'].forEach(function(id) {
+  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1134,10 +1161,10 @@ window.addEventListener('popstate', function(e) {
   closeNavDrawer();
   var s = e.state && e.state.screen;
   if (s === 'loans') {
-    // Popped from loanDetail back to loans → show the loan list
     if (typeof backToLoanList === 'function') backToLoanList();
+  } else if (s === 'lifestyle') {
+    goToLifestyle();
   } else {
-    // Popped back to home (or no state) from any tracker section
     goToHome();
   }
 });

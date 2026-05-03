@@ -17,6 +17,7 @@ function renderScreen(screen, el) {
     case 'loans':       renderLoans(el);       break;
     case 'loan-detail': renderLoanDetail(el);  break;
     case 'portfolio':   renderPortfolio(el);   break;
+    case 'lifestyle':   renderLifestyle(el);   break;
     default: el.innerHTML = '<p style="color:var(--t3);padding:40px">Screen not found.</p>';
   }
 }

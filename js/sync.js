@@ -279,6 +279,31 @@ async function syncLoadConfig(uid) {
       .catch(e => console.warn('[Sync] Investments load failed:', e.message))
   );
 
+  // ── Lifestyle ──
+  promises.push(
+    db.collection('users').doc(uid).collection('config').doc('lifestyle').get()
+      .then(async snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        let lsData;
+        if (d._enc) {
+          const dec = await decryptFromStorage(d._enc, email);
+          lsData = dec;
+        } else {
+          lsData = d;
+        }
+        if (!lsData || typeof lsData !== 'object') return;
+        const merged = {
+          goods:  Array.isArray(lsData.goods)  ? lsData.goods  : [],
+          events: Array.isArray(lsData.events) ? lsData.events : [],
+        };
+        localStorage.setItem('fr_lifestyle_' + uid, await encryptForStorage(merged, email));
+        if (typeof lifestyleData !== 'undefined') lifestyleData = merged;
+        console.info('[Sync] ✅ Lifestyle loaded from Firestore:', merged.goods.length, 'goods,', merged.events.length, 'events');
+      })
+      .catch(e => console.warn('[Sync] Lifestyle load failed:', e.message))
+  );
+
   await Promise.all(promises);
 
   // Hide the home screen loader now that all cloud data has been fetched

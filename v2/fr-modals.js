@@ -407,7 +407,7 @@ function previewImport(input) {
 
 // ── EDIT INVESTMENT ───────────────────────────────────────────────────────────
 function openEditInv(id) {
-  const inv = APP.investments.find(i => i.id === id);
+  const inv = APP.investments.find(i => String(i.id) === String(id));
   if (!inv) return;
   const invCat = _invCat(inv);
   const isGold = invCat === 'Gold';
@@ -458,7 +458,7 @@ function openEditInv(id) {
     </div>
     <div class="modal-ft">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmEditInv(${id})">Save Changes</button>
+      <button class="btn btn-primary" onclick="confirmEditInv('${id}')">Save Changes</button>
     </div>
   `, 'modal-lg');
 }
@@ -477,7 +477,7 @@ function _refreshEditInvLabels() {
 }
 
 function confirmEditInv(id) {
-  const inv = APP.investments.find(i => i.id === id);
+  const inv = APP.investments.find(i => String(i.id) === String(id));
   if (!inv) return;
   const name   = document.getElementById('ei-name')?.value.trim();
   const cat    = document.getElementById('ei-cat')?.value || inv.cat;
@@ -1108,4 +1108,266 @@ function confirmEditNote(id) {
   APP.monthly.notes.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   closeModal();
   navigate('monthly');
+}
+
+// ── LIFESTYLE MODALS ──────────────────────────────────────────────────────────
+
+let _lsEditGoodId  = null;
+let _lsEditEventId = null;
+let _lsGoodCat     = 'TV';
+let _lsEvCatSel    = 'Birthday';
+
+const _LS_CATS_MODAL = [
+  { key:'TV',             icon:'📺', lifespan:10 },
+  { key:'Fridge',         icon:'🧊', lifespan:15 },
+  { key:'Washing Machine',icon:'🫧', lifespan:12 },
+  { key:'AC',             icon:'❄️', lifespan:15 },
+  { key:'Microwave',      icon:'♨️', lifespan:10 },
+  { key:'Computer',       icon:'💻', lifespan:6  },
+  { key:'Phone',          icon:'📱', lifespan:4  },
+  { key:'Furniture',      icon:'🪑', lifespan:20 },
+  { key:'Vehicle',        icon:'🚗', lifespan:15 },
+  { key:'Water Purifier', icon:'💧', lifespan:8  },
+  { key:'Geyser',         icon:'🚿', lifespan:10 },
+  { key:'Other',          icon:'📦', lifespan:10 },
+];
+
+const _LS_EV_CATS_MODAL = [
+  { key:'Birthday',        icon:'🎂' },
+  { key:'Anniversary',     icon:'💑' },
+  { key:'Insurance',       icon:'🛡️' },
+  { key:'Subscription',    icon:'🔄' },
+  { key:'Vehicle Service', icon:'🔧' },
+  { key:'Medical',         icon:'🏥' },
+  { key:'Tax',             icon:'📋' },
+  { key:'Travel',          icon:'✈️' },
+  { key:'Reminder',        icon:'⏰' },
+  { key:'Other',           icon:'📌' },
+];
+
+function _lsGoodCatPillsHtml() {
+  return _LS_CATS_MODAL.map(c => `
+    <button class="ftab${c.key === _lsGoodCat ? ' active' : ''}" style="font-size:11px;padding:4px 10px"
+      onclick="_lsPickGoodCat('${c.key}')">${c.icon} ${c.key}</button>`
+  ).join('');
+}
+
+function _lsEvCatPillsHtml() {
+  return _LS_EV_CATS_MODAL.map(c => `
+    <button class="ftab${c.key === _lsEvCatSel ? ' active' : ''}" style="font-size:11px;padding:4px 10px"
+      onclick="_lsPickEvCat('${c.key}')">${c.icon} ${c.key}</button>`
+  ).join('');
+}
+
+function _lsPickGoodCat(key) {
+  _lsGoodCat = key;
+  const wrap = document.getElementById('ls-good-cat-pills');
+  if (wrap) wrap.innerHTML = _lsGoodCatPillsHtml();
+  const lsEl = document.getElementById('ls-lifespan');
+  const cat  = _LS_CATS_MODAL.find(c => c.key === key);
+  if (lsEl && (!lsEl.value || lsEl.value === '0')) lsEl.value = cat ? cat.lifespan : 10;
+}
+
+function _lsPickEvCat(key) {
+  _lsEvCatSel = key;
+  const wrap = document.getElementById('ls-ev-cat-pills');
+  if (wrap) wrap.innerHTML = _lsEvCatPillsHtml();
+}
+
+function _lsGoodModalHtml(g) {
+  const cat = _LS_CATS_MODAL.find(c => c.key === _lsGoodCat) || _LS_CATS_MODAL[0];
+  return `
+  <div class="modal-hd">
+    <span>${g ? '✏ Edit Item' : '+ Add Household Item'}</span>
+    <button class="modal-close" onclick="closeModal()">${ic('x',13)}</button>
+  </div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+
+    <div>
+      <div class="inp-label">Category</div>
+      <div id="ls-good-cat-pills" class="filter-tabs" style="flex-wrap:wrap;gap:4px">${_lsGoodCatPillsHtml()}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="inp-wrap" style="grid-column:1/-1">
+        <div class="inp-label">Item Name *</div>
+        <input class="inp" id="ls-name" placeholder='e.g. Samsung 55" OLED TV' value="${g ? g.name || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Brand</div>
+        <input class="inp" id="ls-brand" placeholder="e.g. Samsung" value="${g ? g.brand || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Model</div>
+        <input class="inp" id="ls-model" placeholder="e.g. QN55S95D" value="${g ? g.model || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Purchase Date</div>
+        <input class="inp" id="ls-date" type="date" value="${g ? g.purchaseDate || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Purchase Price (₹)</div>
+        <input class="inp" id="ls-price" type="number" min="0" placeholder="e.g. 120000" value="${g ? g.purchasePrice || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Warranty (Years)</div>
+        <input class="inp" id="ls-warranty" type="number" min="0" step="0.5" placeholder="e.g. 3" value="${g ? g.warrantyYears || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Expected Lifespan (Years)</div>
+        <input class="inp" id="ls-lifespan" type="number" min="1" placeholder="e.g. 10" value="${g ? g.expectedLifespan || '' : cat.lifespan}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Condition</div>
+        <select class="sel" id="ls-condition">
+          <option${(!g || g.condition === 'Good') ? ' selected' : ''}>Good</option>
+          <option${g && g.condition === 'Fair' ? ' selected' : ''}>Fair</option>
+          <option${g && g.condition === 'Poor' ? ' selected' : ''}>Poor</option>
+        </select>
+      </div>
+      <div class="inp-wrap" style="grid-column:1/-1">
+        <div class="inp-label">Upgrade Plan <span style="color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+        <input class="inp" id="ls-upgrade" placeholder='e.g. Planning to get 77" OLED when lifespan ends' value="${g ? g.upgradeNotes || '' : ''}">
+      </div>
+      <div class="inp-wrap" style="grid-column:1/-1">
+        <div class="inp-label">Notes <span style="color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+        <textarea class="inp" id="ls-notes" style="min-height:60px;resize:vertical" placeholder="Any additional notes…">${g ? g.notes || '' : ''}</textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-ft">
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="confirmSaveGood()">Save Item</button>
+  </div>`;
+}
+
+function openAddGood() {
+  _lsEditGoodId = null;
+  _lsGoodCat    = 'TV';
+  openModal(_lsGoodModalHtml(null));
+}
+
+function openEditGood(id) {
+  _lsEditGoodId = id;
+  const g = (APP.lifestyle.goods || []).find(x => x.id === id);
+  if (!g) return;
+  _lsGoodCat = g.category || 'TV';
+  openModal(_lsGoodModalHtml(g));
+}
+
+function confirmSaveGood() {
+  const name = (document.getElementById('ls-name')?.value || '').trim();
+  if (!name) { _showToast('Please enter an item name', 'error'); return; }
+
+  const good = {
+    id:               _lsEditGoodId || ('ls_' + Date.now()),
+    name,
+    category:         _lsGoodCat,
+    brand:            (document.getElementById('ls-brand')?.value || '').trim(),
+    model:            (document.getElementById('ls-model')?.value || '').trim(),
+    purchaseDate:     document.getElementById('ls-date')?.value || '',
+    purchasePrice:    Number(document.getElementById('ls-price')?.value) || 0,
+    warrantyYears:    Number(document.getElementById('ls-warranty')?.value) || 0,
+    expectedLifespan: Number(document.getElementById('ls-lifespan')?.value) || 0,
+    condition:        document.getElementById('ls-condition')?.value || 'Good',
+    upgradeNotes:     (document.getElementById('ls-upgrade')?.value || '').trim(),
+    notes:            (document.getElementById('ls-notes')?.value || '').trim(),
+  };
+
+  if (!APP.lifestyle) APP.lifestyle = { goods: [], events: [] };
+  const goods = APP.lifestyle.goods || [];
+  if (_lsEditGoodId) {
+    const idx = goods.findIndex(x => x.id === _lsEditGoodId);
+    if (idx >= 0) goods[idx] = good; else goods.push(good);
+  } else {
+    goods.push(good);
+  }
+  APP.lifestyle.goods = goods;
+  saveLifestyleConfig();
+  closeModal();
+  _showToast(_lsEditGoodId ? 'Item updated' : 'Item added');
+  renderLifestyle(document.getElementById('screen-content'));
+}
+
+function _lsEvModalHtml(ev) {
+  return `
+  <div class="modal-hd">
+    <span>${ev ? '✏ Edit Event' : '+ Add Event / Note'}</span>
+    <button class="modal-close" onclick="closeModal()">${ic('x',13)}</button>
+  </div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+
+    <div>
+      <div class="inp-label">Category</div>
+      <div id="ls-ev-cat-pills" class="filter-tabs" style="flex-wrap:wrap;gap:4px">${_lsEvCatPillsHtml()}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="inp-wrap" style="grid-column:1/-1">
+        <div class="inp-label">Title *</div>
+        <input class="inp" id="ls-ev-title" placeholder="e.g. Mom's Birthday" value="${ev ? ev.title || '' : ''}">
+      </div>
+      <div class="inp-wrap">
+        <div class="inp-label">Date</div>
+        <input class="inp" id="ls-ev-date" type="date" value="${ev ? ev.date || '' : ''}">
+      </div>
+      <div class="inp-wrap" style="display:flex;flex-direction:column;justify-content:flex-end">
+        <div class="inp-label">Recurrence</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--t2);padding:8px 0">
+          <input type="checkbox" id="ls-ev-recurring"${(!ev || ev.recurring) ? ' checked' : ''} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer">
+          Repeat yearly
+        </label>
+      </div>
+      <div class="inp-wrap" style="grid-column:1/-1">
+        <div class="inp-label">Notes <span style="color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+        <textarea class="inp" id="ls-ev-notes" style="min-height:60px;resize:vertical" placeholder="Details or reminder…">${ev ? ev.notes || '' : ''}</textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-ft">
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="confirmSaveEvent()">Save Event</button>
+  </div>`;
+}
+
+function openAddEvent() {
+  _lsEditEventId = null;
+  _lsEvCatSel    = 'Birthday';
+  openModal(_lsEvModalHtml(null));
+}
+
+function openEditEvent(id) {
+  _lsEditEventId = id;
+  const ev = (APP.lifestyle.events || []).find(x => x.id === id);
+  if (!ev) return;
+  _lsEvCatSel = ev.category || 'Birthday';
+  openModal(_lsEvModalHtml(ev));
+}
+
+function confirmSaveEvent() {
+  const title = (document.getElementById('ls-ev-title')?.value || '').trim();
+  if (!title) { _showToast('Please enter a title', 'error'); return; }
+
+  const ev = {
+    id:        _lsEditEventId || ('lsev_' + Date.now()),
+    title,
+    category:  _lsEvCatSel,
+    date:      document.getElementById('ls-ev-date')?.value || '',
+    recurring: document.getElementById('ls-ev-recurring')?.checked ?? true,
+    notes:     (document.getElementById('ls-ev-notes')?.value || '').trim(),
+  };
+
+  if (!APP.lifestyle) APP.lifestyle = { goods: [], events: [] };
+  const events = APP.lifestyle.events || [];
+  if (_lsEditEventId) {
+    const idx = events.findIndex(x => x.id === _lsEditEventId);
+    if (idx >= 0) events[idx] = ev; else events.push(ev);
+  } else {
+    events.push(ev);
+  }
+  APP.lifestyle.events = events;
+  saveLifestyleConfig();
+  closeModal();
+  _showToast(_lsEditEventId ? 'Event updated' : 'Event added');
+  renderLifestyle(document.getElementById('screen-content'));
 }
