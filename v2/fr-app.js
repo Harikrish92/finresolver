@@ -10,6 +10,7 @@ const NAV = [
   { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null         },
   { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:null         },
   { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:'LIFESTYLE' },
+  { screen:'advisor',     icon:'bot',       label:'AI Advisor',       section:'AI'        },
 ];
 
 function navigate(screen, opts = {}) {
@@ -36,7 +37,7 @@ function navigate(screen, opts = {}) {
     dashboard:'Dashboard', monthly:'Monthly Tracker',
     investments:'Investments', loans:'Loan Tracker',
     'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
-    lifestyle:'Lifestyle Tracker'
+    lifestyle:'Lifestyle Tracker', advisor:'AI Advisor'
   };
   const subs = {
     monthly:   monthName(APP.monthly.month) + ' ' + APP.monthly.year,
@@ -466,35 +467,55 @@ async function refreshLivePrices() {
   renderScreen(_screen, document.getElementById('screen-content'));
 }
 
-const _YAHOO_PROXY = 'https://corsproxy.io/?url=';
+function _timedFetch(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
+const _YAHOO_PROXIES = [
+  url => _timedFetch('https://corsproxy.io/?url='                         + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('corsproxy '  + r.status); return r.json(); }),
+  url => _timedFetch('https://api.codetabs.com/v1/proxy?quest='           + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
+  url => _timedFetch('https://thingproxy.freeboard.io/fetch/'             + url,                     8000).then(r => { if (!r.ok) throw new Error('thingproxy ' + r.status); return r.json(); }),
+  url => _timedFetch('https://api.allorigins.win/raw?url='                + encodeURIComponent(url), 8000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
+];
+
+async function _proxyFetch(url) {
+  for (const proxy of _YAHOO_PROXIES) {
+    try {
+      const data = await proxy(url);
+      if (!data || (typeof data === 'object' && data.error)) throw new Error('bad response');
+      return data;
+    } catch(e) {
+      console.warn('[V2 proxy] failed, trying next:', e.message);
+    }
+  }
+  throw new Error('All proxies failed');
+}
 
 function _yahooUrl(ticker) {
-  const base = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-  return _YAHOO_PROXY + encodeURIComponent(base);
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
 }
 
 async function _fetchYahooPrice(ticker) {
-  const r = await fetch(_yahooUrl(ticker));
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const d = await r.json();
+  const d = await _proxyFetch(_yahooUrl(ticker));
   const meta = d?.chart?.result?.[0]?.meta;
-  return { price: meta?.regularMarketPrice ?? null, currency: meta?.currency ?? 'INR' };
+  if (!meta?.regularMarketPrice) throw new Error('No price for ' + ticker);
+  return { price: meta.regularMarketPrice, currency: meta.currency ?? 'INR' };
 }
 
 async function _fetchUsdInr() {
-  const d = await (await fetch(_yahooUrl('USDINR=X'))).json();
+  const d = await _proxyFetch(_yahooUrl('USDINR=X'));
   const rate = d?.chart?.result?.[0]?.meta?.regularMarketPrice;
   if (!rate) throw new Error('USDINR fetch failed');
   return rate;
 }
 
 async function _fetchGoldINR() {
-  const [gR, fxR] = await Promise.all([
-    fetch(_yahooUrl('GC=F')),
-    fetch(_yahooUrl('USDINR=X')),
+  const [gD, fxD] = await Promise.all([
+    _proxyFetch(_yahooUrl('GC=F')),
+    _proxyFetch(_yahooUrl('USDINR=X')),
   ]);
-  const gD  = await gR.json();
-  const fxD = await fxR.json();
   const usd  = gD?.chart?.result?.[0]?.meta?.regularMarketPrice;
   const rate = fxD?.chart?.result?.[0]?.meta?.regularMarketPrice;
   if (!usd || !rate) throw new Error('Gold/FX fetch failed');

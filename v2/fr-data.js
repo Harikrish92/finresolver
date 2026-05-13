@@ -65,7 +65,11 @@ function _loanTenure(loan) { return loan.tenure  !== undefined ? Number(loan.ten
 
 // V1 stores: inv.category / inv.lots[] / inv.qty / inv.avgPrice / inv.buyPricePerGram
 // V2 stores: inv.cat / inv.qty / inv.avgPrice / inv.buyPrice / inv.livePrice
-function _invCat(inv) { return inv.cat || inv.category || 'Others'; }
+// V1 uses 'RealEstate' (no space); V2 uses 'Real Estate' — normalize on read
+function _invCat(inv) {
+  const raw = inv.cat || inv.category || 'Others';
+  return raw === 'RealEstate' ? 'Real Estate' : raw;
+}
 
 function _invTotalQty(inv) {
   if (inv.lots && inv.lots.length) return inv.lots.reduce((s, l) => s + (parseFloat(l.qty) || 0), 0);
@@ -156,7 +160,7 @@ function getPortfolioStats() {
 function invCost(inv) {
   const cat = _invCat(inv);
   if (cat === 'Gold') return (_invTotalQty(inv)) * _invGoldBuyPrice(inv);
-  if (cat === 'RealEstate' || cat === 'Real Estate') return Number(inv.buyPrice || inv.avgPrice || 0);
+  if (cat === 'Real Estate') return Number(inv.buyPrice || inv.avgPrice || 0);
   if (cat === 'EPF') return Number(inv.buyPrice || inv.avgPrice || 0);
   if (inv.lots && inv.lots.length) {
     return inv.lots.reduce((s, l) => s + (parseFloat(l.qty)||0) * (parseFloat(l.price)||parseFloat(l.avgPrice)||0), 0);
@@ -171,7 +175,7 @@ function invValue(inv) {
     const liveP   = inv.livePrice || _invGoldBuyPrice(inv);
     return grams * (liveP || 0);
   }
-  if (cat === 'RealEstate' || cat === 'Real Estate') return Number(inv.curPrice || inv.livePrice || inv.buyPrice || inv.avgPrice || 0);
+  if (cat === 'Real Estate') return Number(inv.curPrice || inv.livePrice || inv.buyPrice || inv.avgPrice || 0);
   if (cat === 'EPF') return Number(inv.curPrice || inv.livePrice || inv.buyPrice || inv.avgPrice || 0);
   const qty = _invTotalQty(inv);
   if (inv.livePrice) return qty * Number(inv.livePrice);
@@ -180,7 +184,7 @@ function invValue(inv) {
 
 function pillClass(cat) {
   const map = { Stock:'p-stock', MF:'p-mf', FD:'p-fd', Bond:'p-bond',
-    EPF:'p-epf', ESOP:'p-esop', 'Real Estate':'p-re', RealEstate:'p-re',
+    EPF:'p-epf', ESOP:'p-esop', 'Real Estate':'p-re',
     Gold:'p-gold', Others:'p-other' };
   return map[cat] || 'p-other';
 }
@@ -225,6 +229,7 @@ const IC = {
   wallet:      '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
   lifestyle:   '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
   settings:    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  bot:         '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
 };
 
 function ic(name, size = 15) {

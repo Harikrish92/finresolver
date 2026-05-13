@@ -24,7 +24,7 @@ function _setDrawerActive(screen) {
 }
 
 function _hideAllScreens() {
-  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen'].forEach(function(id) {
+  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -584,7 +584,7 @@ function showHomeScreen() {
   document.getElementById('homeScreen').style.display   = 'block';
 
   // Hide ALL module screens so nothing bleeds through on login/logout
-  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen'].forEach(function(id) {
+  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1164,6 +1164,8 @@ window.addEventListener('popstate', function(e) {
     if (typeof backToLoanList === 'function') backToLoanList();
   } else if (s === 'lifestyle') {
     goToLifestyle();
+  } else if (s === 'advisor') {
+    if (typeof goToAdvisor === 'function') goToAdvisor();
   } else {
     goToHome();
   }

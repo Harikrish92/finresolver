@@ -18,6 +18,7 @@ function renderScreen(screen, el) {
     case 'loan-detail': renderLoanDetail(el);  break;
     case 'portfolio':   renderPortfolio(el);   break;
     case 'lifestyle':   renderLifestyle(el);   break;
+    case 'advisor':     renderAdvisor(el);     break;
     default: el.innerHTML = '<p style="color:var(--t3);padding:40px">Screen not found.</p>';
   }
 }
@@ -545,7 +546,7 @@ function renderInvCards(inv) {
       const qty  = cat==='Gold' ? (_invTotalQty(i)+'g') : (_invTotalQty(i) + (_invTotalQty(i)===1?' unit':' units'));
       const avg  = cat==='Gold' ? fmt(_invGoldBuyPrice(i))+'/g' : fmt(_invAvgPrice(i));
       const gainW = Math.min(100, Math.abs(isFinite(pct)?pct:0));
-      const liveP = i.livePrice ? fmt(i.livePrice) : (i.lots && i.lots.length ? '—' : fmt(i.avgPrice||0));
+      const liveP = i.livePrice ? fmt(i.livePrice) : '—';
       return `<div class="inv-card" id="inv-card-${i.id}">
         <div class="inv-card-head">
           <div style="min-width:0">

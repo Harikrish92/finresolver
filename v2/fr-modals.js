@@ -453,7 +453,7 @@ function openEditInv(id) {
       </div>
       <div class="inp-grp">
         <div class="inp-label" id="ei-live-label">Live Price (₹${isGold?'/g':''})</div>
-        <input class="inp" id="ei-live" type="number" value="${inv.livePrice||0}">
+        <input class="inp" id="ei-live" type="number" value="${inv.livePrice||inv.curPrice||0}">
       </div>
     </div>
     <div class="modal-ft">
@@ -893,7 +893,7 @@ function _confirmInvImport() {
   _showToast(`Import complete: ${msg}.`);
   _invImportParsed = null;
 
-  const needsLookup = APP.investments.filter(i => !i.ticker && (i.cat === 'Stock' || i.cat === 'MF' || i.cat === 'ESOP'));
+  const needsLookup = APP.investments.filter(i => !i.ticker && ['Stock','MF','ESOP'].includes(_invCat(i)));
   if (needsLookup.length) {
     _showToast(`Looking up tickers for ${needsLookup.length} holding(s)…`);
     _resolveInvTickers(needsLookup).then(resolved => {
@@ -912,11 +912,9 @@ async function _resolveInvTickers(holdings) {
     try {
       const q = (h.isin && h.isin.length > 5) ? h.isin : h.name;
       const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=5&newsCount=0&enableFuzzyQuery=false&enableCb=false`;
-      const r = await fetch(_YAHOO_PROXY + encodeURIComponent(searchUrl));
-      if (!r.ok) continue;
-      const data = await r.json();
+      const data = await _proxyFetch(searchUrl);
       const quotes = data?.finance?.result?.[0]?.quotes || data?.quotes || [];
-      const isMF = h.cat === 'MF';
+      const isMF = _invCat(h) === 'MF';
       const preferred = quotes.filter(q => {
         if (!q.symbol) return false;
         if (isMF) return q.quoteType === 'MUTUALFUND' || q.symbol.endsWith('.BO') || q.symbol.endsWith('.NS');
