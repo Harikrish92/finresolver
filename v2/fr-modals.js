@@ -285,79 +285,389 @@ function confirmLogPayment(loanId) {
   navigate('loan-detail');
 }
 
-// ── ADD INVESTMENT ────────────────────────────────────────────────────────────
+// ── ADD / EDIT INVESTMENT HOLDING ──────────────────────────────────────────────
+let _aiLots = [];
+let _aiCat  = 'Stock';
+let _aiEditId = null;
+let _aiTickerDebounce = null;
+
 function openAddInv() {
-  openModal(`
+  _aiEditId = null;
+  _aiCat    = 'Stock';
+  _aiLots   = [{ id: 'lot_' + Date.now(), qty: 0, avgPrice: 0, date: new Date().toISOString().split('T')[0], notes: '' }];
+  openModal(_buildInvModalHTML(null), 'modal-lg');
+  setTimeout(() => _aiSetCat('Stock'), 0);
+}
+
+function _buildInvModalHTML(inv) {
+  const isEdit    = !!inv;
+  const cats      = ['Stock','MF','FD','Bond','EPF','ESOP','Real Estate','Gold','Others'];
+  const name      = inv ? inv.name   || '' : '';
+  const ticker    = inv ? inv.ticker || '' : '';
+  const notes     = inv ? inv.notes  || '' : '';
+  const dateSimp  = inv ? inv.date   || '' : new Date().toISOString().split('T')[0];
+  const grams     = inv ? (inv.grams || inv.qty || '') : '';
+  const goldBuy   = inv ? (inv.buyPricePerGram || inv.avgPrice || '') : '';
+  const buyP      = inv ? (inv.buyPrice || inv.avgPrice || '') : '';
+  const curP      = inv ? (inv.curPrice || '') : '';
+
+  return `
     <div class="modal-hd">
-      <div class="modal-title">${ic('trending',14)} Add Investment Holding</div>
+      <div class="modal-title">${ic(isEdit?'edit':'plus',14)} ${isEdit ? 'Edit' : 'Add'} Investment Holding</div>
       <button class="modal-close" onclick="closeModal()">${ic('x',13)}</button>
     </div>
     <div class="modal-body">
+
       <div class="inp-grp">
         <div class="inp-label">Category</div>
-        <div class="filter-tabs" style="flex-wrap:wrap">
-          ${['Stock','MF','FD','Bond','EPF','ESOP','Real Estate','Gold','Others'].map((c,i)=>
-            `<button class="ftab${i===0?' active':''}" onclick="this.closest('.filter-tabs').querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('ai-cat').value='${c}';_refreshAddInvLabels()">${c}</button>`
-          ).join('')}
+        <div class="filter-tabs" style="flex-wrap:wrap" id="ai-cat-tabs">
+          ${cats.map(c=>`<button class="ftab${c===_aiCat?' active':''}" onclick="_aiPickCat('${c}')">${c}</button>`).join('')}
         </div>
-        <input type="hidden" id="ai-cat" value="Stock">
       </div>
+
       <div class="g-2">
         <div class="inp-grp">
-          <div class="inp-label">Investment Name</div>
-          <input class="inp" id="ai-name" placeholder="e.g. Reliance Industries" autofocus>
+          <div class="inp-label">Investment Name *</div>
+          <input class="inp" id="ai-name" value="${_lsEsc(name)}" placeholder="e.g. Reliance Industries" autofocus>
         </div>
-        <div class="inp-grp">
-          <div class="inp-label">Ticker Symbol (optional)</div>
-          <input class="inp" id="ai-ticker" placeholder="e.g. RELIANCE.NS">
-        </div>
-      </div>
-      <div class="g-2">
-        <div class="inp-grp">
-          <div class="inp-label" id="ai-qty-label">Quantity / Units</div>
-          <input class="inp" id="ai-qty" type="number" placeholder="0">
-        </div>
-        <div class="inp-grp">
-          <div class="inp-label" id="ai-price-label">Average Buy Price (₹)</div>
-          <input class="inp" id="ai-price" type="number" placeholder="0">
+        <div class="inp-grp" id="ai-ticker-grp">
+          <div class="inp-label" id="ai-ticker-label">Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(for live prices)</span></div>
+          <input class="inp" id="ai-ticker" value="${_lsEsc(ticker)}" placeholder="e.g. RELIANCE.NS" oninput="_aiTickerInput()">
         </div>
       </div>
-      <div class="inp-grp">
-        <div class="inp-label">Purchase Date</div>
-        <input class="inp" id="ai-date" type="date">
+
+      <div id="ai-quote-preview" style="display:none;margin-bottom:2px;padding:10px 14px;background:var(--a05);border:1px solid var(--a20);border-radius:var(--rs);font-size:12.5px"></div>
+
+      <!-- Lots section: Stock / MF / ESOP / Bond / FD / Others -->
+      <div id="ai-lots-section">
+        <div class="inp-label" id="ai-lots-label" style="margin-bottom:6px">Purchase Records *</div>
+        <div class="tbl-wrap" style="border:1px solid var(--b);border-radius:var(--rs);overflow:hidden">
+          <table class="tbl">
+            <thead><tr>
+              <th>Date</th>
+              <th>Quantity *</th>
+              <th id="ai-lots-th-price">Avg Price (₹/unit) *</th>
+              <th>Notes</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="ai-lots-body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="_aiAddLot()">${ic('plus',11)} Add Lot</button>
+        <div style="display:flex;gap:20px;margin-top:8px;padding:9px 12px;background:var(--s2);border-radius:var(--rs);font-size:12px;flex-wrap:wrap">
+          <span>Total Qty: <strong id="ai-sum-qty">—</strong></span>
+          <span>Avg Price: <strong id="ai-sum-avg">—</strong></span>
+          <span>Total Invested: <strong id="ai-sum-total">—</strong></span>
+        </div>
+        <div class="inp-grp" style="margin-top:10px">
+          <div class="inp-label">Notes <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+          <input class="inp" id="ai-notes" value="${_lsEsc(notes)}" placeholder="Any notes about this holding">
+        </div>
       </div>
+
+      <!-- Gold section -->
+      <div id="ai-gold-section" style="display:none">
+        <div class="g-2">
+          <div class="inp-grp">
+            <div class="inp-label">Weight (grams) *</div>
+            <input class="inp" id="ai-grams" type="number" step="any" min="0" value="${grams}" placeholder="e.g. 10">
+          </div>
+          <div class="inp-grp">
+            <div class="inp-label">Buy Price (₹/g) <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+            <input class="inp" id="ai-gold-price" type="number" step="any" min="0" value="${goldBuy}" placeholder="e.g. 6500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Real Estate / EPF section -->
+      <div id="ai-re-section" style="display:none">
+        <div class="g-2">
+          <div class="inp-grp">
+            <div class="inp-label" id="ai-buy-label">Buy Price (₹)</div>
+            <input class="inp" id="ai-buy-price" type="number" step="any" min="0" value="${buyP}" placeholder="e.g. 5000000">
+          </div>
+          <div class="inp-grp">
+            <div class="inp-label" id="ai-cur-label">Current Value (₹)</div>
+            <input class="inp" id="ai-cur-price" type="number" step="any" min="0" value="${curP}" placeholder="e.g. 7500000">
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared date + notes for Gold / RE / EPF -->
+      <div id="ai-date-notes" style="display:none">
+        <div class="g-2">
+          <div class="inp-grp">
+            <div class="inp-label">Date</div>
+            <input class="inp" id="ai-date-simple" type="date" value="${dateSimp}">
+          </div>
+          <div class="inp-grp">
+            <div class="inp-label">Notes <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span></div>
+            <input class="inp" id="ai-notes-simple" value="${_lsEsc(notes)}" placeholder="optional">
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="modal-ft">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmAddInv()">Add Holding</button>
+      <button class="btn btn-primary" onclick="confirmSaveInv()">${isEdit ? 'Save Changes' : 'Add Holding'}</button>
     </div>
-  `, 'modal-lg');
+  `;
 }
 
-function _refreshAddInvLabels() {
-  const cat   = document.getElementById('ai-cat')?.value;
-  const isGold = cat === 'Gold';
-  const isEPF  = cat === 'EPF';
-  const isRE   = cat === 'Real Estate';
-  const ql = document.getElementById('ai-qty-label');
-  const pl = document.getElementById('ai-price-label');
-  if (ql) ql.textContent = isGold ? 'Weight (grams)' : isEPF ? 'Units (enter 1)' : 'Quantity / Units';
-  if (pl) pl.textContent = isGold ? 'Buy Price (₹/g)' : isEPF ? 'Total Contributed (₹)' : isRE ? 'Buy Price (₹)' : 'Average Buy Price (₹)';
+function _aiPickCat(cat) {
+  _aiReadLots();
+  _aiCat = cat;
+  document.querySelectorAll('#ai-cat-tabs .ftab').forEach(b => b.classList.toggle('active', b.textContent.trim() === cat));
+  _aiSetCat(cat);
 }
 
-function confirmAddInv() {
-  const name  = document.getElementById('ai-name')?.value.trim();
-  const cat   = document.getElementById('ai-cat')?.value||'Stock';
-  const ticker= document.getElementById('ai-ticker')?.value.trim()||'';
-  const qty   = parseFloat(document.getElementById('ai-qty')?.value)||0;
-  const price = parseFloat(document.getElementById('ai-price')?.value)||0;
-  const date  = document.getElementById('ai-date')?.value||'';
-  if (!name || !qty || !price) { alert('Please fill name, quantity and price.'); return; }
-  const newId = Math.max(0,...APP.investments.map(i=>i.id))+1;
-  APP.investments.push({ id:newId, name, ticker, cat, qty, avgPrice:price, livePrice:price, lots:[{date,qty,price}] });
+function _aiSetCat(cat) {
+  const isLots    = ['Stock','MF','Bond','FD','ESOP','Others'].includes(cat);
+  const isGold    = cat === 'Gold';
+  const isRE      = cat === 'Real Estate';
+  const isEPF     = cat === 'EPF';
+  const isLive    = ['Stock','MF','ESOP'].includes(cat);
+  const isESOPOpt = cat === 'ESOP';
+  const isSpecial = isGold || isRE || isEPF;
+
+  const set = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
+  set('ai-lots-section', isLots);
+  set('ai-gold-section', isGold);
+  set('ai-re-section',   isRE || isEPF);
+  set('ai-date-notes',   isSpecial);
+  set('ai-ticker-grp',   isLive);
+
+  if (isEPF) {
+    const bl = document.getElementById('ai-buy-label');
+    const cl = document.getElementById('ai-cur-label');
+    if (bl) bl.textContent = 'Total Contributed (₹)';
+    if (cl) cl.textContent = 'Current Balance (₹)';
+  } else if (isRE) {
+    const bl = document.getElementById('ai-buy-label');
+    const cl = document.getElementById('ai-cur-label');
+    if (bl) bl.textContent = 'Buy Price (₹)';
+    if (cl) cl.textContent = 'Current Market Value (₹)';
+  }
+
+  const thPrice = document.getElementById('ai-lots-th-price');
+  if (thPrice) thPrice.textContent = isESOPOpt ? 'Grant Price (₹/unit) (optional)' : 'Avg Price (₹/unit) *';
+
+  const lotsLabel = document.getElementById('ai-lots-label');
+  if (lotsLabel) lotsLabel.innerHTML = isESOPOpt
+    ? 'Purchase Records <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(grant price optional)</span>'
+    : 'Purchase Records *';
+
+  const tickerLabel = document.getElementById('ai-ticker-label');
+  if (tickerLabel) tickerLabel.innerHTML = isESOPOpt
+    ? 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span>'
+    : 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(for live prices)</span>';
+
+  if (isLots) {
+    if (!_aiLots.length) {
+      _aiLots = [{ id: 'lot_' + Date.now(), qty: 0, avgPrice: 0, date: new Date().toISOString().split('T')[0], notes: '' }];
+    }
+    _aiRenderLots();
+  }
+}
+
+function _aiRenderLots() {
+  const tbody = document.getElementById('ai-lots-body');
+  if (!tbody) return;
+  tbody.innerHTML = _aiLots.map((lot, i) => `<tr>
+    <td><input type="date" class="inp" style="min-width:110px" value="${lot.date||''}" oninput="_aiUpdateSummary()"></td>
+    <td><input type="number" class="inp" step="any" min="0" value="${lot.qty||''}" placeholder="10" oninput="_aiUpdateSummary()"></td>
+    <td><input type="number" class="inp" step="any" min="0" value="${lot.avgPrice||''}" placeholder="0.00" oninput="_aiUpdateSummary()"></td>
+    <td><input type="text" class="inp" value="${_lsEsc(lot.notes||'')}" placeholder="optional"></td>
+    <td><button type="button" class="btn-icon" onclick="_aiRemoveLot(${i})"${_aiLots.length<=1?' disabled':''}>${ic('x',11)}</button></td>
+  </tr>`).join('');
+  _aiUpdateSummary();
+}
+
+function _aiReadLots() {
+  document.querySelectorAll('#ai-lots-body tr').forEach((row, i) => {
+    if (!_aiLots[i]) return;
+    const inputs = row.querySelectorAll('input');
+    if (inputs[0]) _aiLots[i].date     = inputs[0].value;
+    if (inputs[1]) _aiLots[i].qty      = parseFloat(inputs[1].value) || 0;
+    if (inputs[2]) _aiLots[i].avgPrice = parseFloat(inputs[2].value) || 0;
+    if (inputs[3]) _aiLots[i].notes    = inputs[3].value;
+  });
+}
+
+function _aiAddLot() {
+  _aiReadLots();
+  _aiLots.push({ id: 'lot_' + Date.now(), qty: 0, avgPrice: 0, date: new Date().toISOString().split('T')[0], notes: '' });
+  _aiRenderLots();
+  const tbody = document.getElementById('ai-lots-body');
+  if (tbody) {
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length) rows[rows.length-1].querySelector('input').focus();
+  }
+}
+
+function _aiRemoveLot(i) {
+  if (_aiLots.length <= 1) return;
+  _aiReadLots();
+  _aiLots.splice(i, 1);
+  _aiRenderLots();
+}
+
+function _aiUpdateSummary() {
+  _aiReadLots();
+  const totalQty  = _aiLots.reduce((s, l) => s + (l.qty  || 0), 0);
+  const totalCost = _aiLots.reduce((s, l) => s + (l.qty  || 0) * (l.avgPrice || 0), 0);
+  const avgPrice  = totalQty ? totalCost / totalQty : 0;
+  const qEl = document.getElementById('ai-sum-qty');
+  const aEl = document.getElementById('ai-sum-avg');
+  const tEl = document.getElementById('ai-sum-total');
+  if (qEl) qEl.textContent = totalQty  ? totalQty.toLocaleString('en-IN', {maximumFractionDigits:4}) : '—';
+  if (aEl) aEl.textContent = totalQty  ? '₹' + avgPrice.toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  if (tEl) tEl.textContent = totalCost > 0 ? '₹' + Math.round(totalCost).toLocaleString('en-IN') : '—';
+}
+
+function _aiTickerInput() {
+  clearTimeout(_aiTickerDebounce);
+  const ticker  = document.getElementById('ai-ticker')?.value.trim().toUpperCase();
+  const preview = document.getElementById('ai-quote-preview');
+  if (!ticker) { if (preview) preview.style.display = 'none'; return; }
+  _aiTickerDebounce = setTimeout(() => _aiFetchModalQuote(ticker), 700);
+}
+
+async function _aiFetchModalQuote(ticker) {
+  const preview = document.getElementById('ai-quote-preview');
+  if (!preview) return;
+  preview.style.display = '';
+  preview.innerHTML = `<div class="row" style="gap:8px;align-items:center">${ic('refresh',12)} <span style="color:var(--t3);font-size:12px">Fetching ${_lsEsc(ticker)}…</span></div>`;
+  try {
+    const data  = await _proxyFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&fields=regularMarketPrice,regularMarketPreviousClose,shortName,currency`);
+    const r     = data?.quoteResponse?.result?.[0];
+    if (!r || !isFinite(r.regularMarketPrice)) throw new Error('no result');
+    const price  = r.regularMarketPrice;
+    const chgPct = r.regularMarketPreviousClose
+      ? (price - r.regularMarketPreviousClose) / r.regularMarketPreviousClose * 100 : 0;
+    const pos = chgPct >= 0;
+    preview.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div>
+        <div style="font-weight:600;font-size:13px">${_lsEsc(r.shortName||ticker)}</div>
+        <div style="font-size:11px;color:var(--t3)">${_lsEsc(ticker)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-weight:700;font-size:14px">₹${price.toFixed(2)}</div>
+        <div style="font-size:11px;color:${pos?'var(--accent)':'var(--red)'}">${pos?'+':''}${chgPct.toFixed(2)}% today</div>
+      </div>
+    </div>`;
+    // Auto-fill first lot price if blank
+    const firstRow = document.querySelector('#ai-lots-body tr:first-child');
+    if (firstRow) {
+      const inputs = firstRow.querySelectorAll('input');
+      if (inputs[2] && !inputs[2].value) { inputs[2].value = price.toFixed(2); _aiUpdateSummary(); }
+    }
+  } catch(e) {
+    preview.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>`;
+  }
+}
+
+function confirmSaveInv() {
+  const name = document.getElementById('ai-name')?.value.trim();
+  if (!name) { alert('Please enter a name for this holding.'); return; }
+
+  const cat       = _aiCat;
+  const isLots    = ['Stock','MF','Bond','FD','ESOP','Others'].includes(cat);
+  const isGold    = cat === 'Gold';
+  const isRE      = cat === 'Real Estate';
+  const isEPF     = cat === 'EPF';
+  const isLive    = ['Stock','MF','ESOP'].includes(cat);
+  const isESOPOpt = cat === 'ESOP';
+  // Classic stores RealEstate without space; set category for cross-view compat
+  const catV1     = cat === 'Real Estate' ? 'RealEstate' : cat;
+
+  let inv = { name, cat, category: catV1, source: 'manual' };
+
+  if (_aiEditId) {
+    const existing = APP.investments.find(i => String(i.id) === String(_aiEditId));
+    inv.id        = _aiEditId;
+    inv.isin      = existing?.isin || '';
+    inv.createdAt = existing?.createdAt || Date.now();
+  } else {
+    inv.id        = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    inv.createdAt = Date.now();
+  }
+
+  inv.ticker = isLive ? (document.getElementById('ai-ticker')?.value.trim().toUpperCase() || '') : '';
+
+  if (isGold) {
+    const grams  = parseFloat(document.getElementById('ai-grams')?.value) || 0;
+    if (grams <= 0) { alert('Please enter the weight in grams.'); return; }
+    const buyPPG = parseFloat(document.getElementById('ai-gold-price')?.value) || 0;
+    inv.grams           = grams;
+    inv.qty             = grams;
+    inv.buyPricePerGram = buyPPG;
+    inv.avgPrice        = buyPPG;
+    inv.livePrice       = buyPPG;
+    inv.date            = document.getElementById('ai-date-simple')?.value || '';
+    inv.notes           = document.getElementById('ai-notes-simple')?.value.trim() || '';
+
+  } else if (isRE) {
+    const buyPrice = parseFloat(document.getElementById('ai-buy-price')?.value) || 0;
+    const curPrice = parseFloat(document.getElementById('ai-cur-price')?.value) || 0;
+    if (buyPrice <= 0 && curPrice <= 0) { alert('Please enter the buy price or current value.'); return; }
+    inv.buyPrice  = buyPrice || curPrice;
+    inv.curPrice  = curPrice || buyPrice;
+    inv.avgPrice  = inv.buyPrice;
+    inv.livePrice = inv.curPrice;
+    inv.qty       = 1;
+    inv.date      = document.getElementById('ai-date-simple')?.value || '';
+    inv.notes     = document.getElementById('ai-notes-simple')?.value.trim() || '';
+
+  } else if (isEPF) {
+    const contrib = parseFloat(document.getElementById('ai-buy-price')?.value) || 0;
+    const balance = parseFloat(document.getElementById('ai-cur-price')?.value) || 0;
+    if (contrib <= 0 && balance <= 0) { alert('Please enter the contributed amount or current balance.'); return; }
+    inv.buyPrice  = contrib || balance;
+    inv.curPrice  = balance || contrib;
+    inv.avgPrice  = inv.buyPrice;
+    inv.livePrice = inv.curPrice;
+    inv.qty       = 1;
+    inv.date      = document.getElementById('ai-date-simple')?.value || '';
+    inv.notes     = document.getElementById('ai-notes-simple')?.value.trim() || '';
+
+  } else {
+    _aiReadLots();
+    const validLots = _aiLots.filter(l => (parseFloat(l.qty) || 0) > 0);
+    if (!validLots.length) { alert('Please enter the quantity for at least one purchase record.'); return; }
+    if (!isESOPOpt && validLots.some(l => !(parseFloat(l.avgPrice) > 0))) {
+      alert('Please enter the avg buy price for all purchase records.'); return;
+    }
+    const totalQty    = validLots.reduce((s, l) => s + (parseFloat(l.qty) || 0), 0);
+    const totalCost   = validLots.reduce((s, l) => s + (parseFloat(l.qty)||0) * (parseFloat(l.avgPrice)||0), 0);
+    const weightedAvg = totalQty ? totalCost / totalQty : 0;
+    inv.lots     = validLots.map(l => ({
+      id:       l.id || ('lot_' + Date.now() + '_' + Math.random().toString(36).slice(2,5)),
+      qty:      parseFloat(l.qty) || 0,
+      avgPrice: parseFloat(l.avgPrice) || 0,
+      date:     l.date || '',
+      notes:    l.notes || '',
+      source:   l.source || 'manual',
+    }));
+    inv.qty      = totalQty;
+    inv.avgPrice = weightedAvg;
+    inv.livePrice = weightedAvg;
+    inv.date     = validLots[0].date || '';
+    inv.notes    = document.getElementById('ai-notes')?.value.trim() || '';
+  }
+
+  if (_aiEditId) {
+    const idx = APP.investments.findIndex(i => String(i.id) === String(_aiEditId));
+    if (idx >= 0) APP.investments[idx] = inv;
+  } else {
+    APP.investments.push(inv);
+  }
+
   if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
   closeModal();
-  navigate('investments');
+  navigate(_screen || 'investments');
+  if (inv.ticker) refreshLivePrices();
 }
 
 // ── IMPORT MODAL ──────────────────────────────────────────────────────────────
@@ -409,106 +719,26 @@ function previewImport(input) {
 function openEditInv(id) {
   const inv = APP.investments.find(i => String(i.id) === String(id));
   if (!inv) return;
-  const invCat = _invCat(inv);
-  const isGold = invCat === 'Gold';
-  const cats = ['Stock','MF','FD','Bond','EPF','ESOP','Real Estate','Gold','Others'];
-  openModal(`
-    <div class="modal-hd">
-      <div class="modal-title">${ic('edit',14)} Edit Holding</div>
-      <button class="modal-close" onclick="closeModal()">${ic('x',13)}</button>
-    </div>
-    <div class="modal-body">
-      <div class="inp-grp">
-        <div class="inp-label">Category</div>
-        <div class="filter-tabs" style="flex-wrap:wrap">
-          ${cats.map(c =>
-            `<button class="ftab${c===invCat?' active':''}" onclick="
-              this.closest('.filter-tabs').querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
-              this.classList.add('active');
-              document.getElementById('ei-cat').value='${c}';
-              _refreshEditInvLabels()">${c}</button>`
-          ).join('')}
-        </div>
-        <input type="hidden" id="ei-cat" value="${invCat}">
-      </div>
-      <div class="g-2">
-        <div class="inp-grp">
-          <div class="inp-label">Investment Name</div>
-          <input class="inp" id="ei-name" value="${inv.name}" autofocus>
-        </div>
-        <div class="inp-grp">
-          <div class="inp-label">Ticker Symbol</div>
-          <input class="inp" id="ei-ticker" value="${inv.ticker||''}">
-        </div>
-      </div>
-      <div class="g-2">
-        <div class="inp-grp">
-          <div class="inp-label" id="ei-qty-label">${isGold?'Weight (grams)':'Quantity / Units'}</div>
-          <input class="inp" id="ei-qty" type="number" value="${isGold?_invTotalQty(inv):_invTotalQty(inv)}">
-        </div>
-        <div class="inp-grp">
-          <div class="inp-label" id="ei-price-label">${isGold?'Buy Price (₹/g)':'Avg Buy Price (₹)'}</div>
-          <input class="inp" id="ei-price" type="number" value="${isGold?_invGoldBuyPrice(inv):_invAvgPrice(inv)}">
-        </div>
-      </div>
-      <div class="inp-grp">
-        <div class="inp-label" id="ei-live-label">Live Price (₹${isGold?'/g':''})</div>
-        <input class="inp" id="ei-live" type="number" value="${inv.livePrice||inv.curPrice||0}">
-      </div>
-    </div>
-    <div class="modal-ft">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmEditInv('${id}')">Save Changes</button>
-    </div>
-  `, 'modal-lg');
-}
-
-function _refreshEditInvLabels() {
-  const cat    = document.getElementById('ei-cat')?.value;
-  const isGold = cat === 'Gold';
-  const isEPF  = cat === 'EPF';
-  const isRE   = cat === 'Real Estate';
-  const ql = document.getElementById('ei-qty-label');
-  const pl = document.getElementById('ei-price-label');
-  const ll = document.getElementById('ei-live-label');
-  if (ql) ql.textContent = isGold ? 'Weight (grams)' : isEPF ? 'Units (enter 1)' : 'Quantity / Units';
-  if (pl) pl.textContent = isGold ? 'Buy Price (₹/g)' : isEPF ? 'Total Contributed (₹)' : isRE ? 'Buy Price (₹)' : 'Avg Buy Price (₹)';
-  if (ll) ll.textContent = isGold ? 'Live Price (₹/g)' : isEPF ? 'Current EPF Balance (₹)' : 'Live Price (₹)';
-}
-
-function confirmEditInv(id) {
-  const inv = APP.investments.find(i => String(i.id) === String(id));
-  if (!inv) return;
-  const name   = document.getElementById('ei-name')?.value.trim();
-  const cat    = document.getElementById('ei-cat')?.value || inv.cat;
-  const ticker = document.getElementById('ei-ticker')?.value.trim() || '';
-  const qty    = parseFloat(document.getElementById('ei-qty')?.value) || 0;
-  const price  = parseFloat(document.getElementById('ei-price')?.value) || 0;
-  const live   = parseFloat(document.getElementById('ei-live')?.value) || price;
-  if (!name || !qty || !price) { alert('Please fill name, quantity/weight and price.'); return; }
-
-  inv.name      = name;
-  inv.cat       = cat;
-  inv.ticker    = ticker;
-  inv.livePrice = live;
-  if (cat === 'Gold') {
-    inv.grams    = qty;
-    inv.buyPrice = price;
-    delete inv.qty;
-    delete inv.avgPrice;
-    delete inv.lots;
+  _aiEditId = id;
+  _aiCat    = _invCat(inv);
+  const isLotsCat = ['Stock','MF','Bond','FD','ESOP','Others'].includes(_aiCat);
+  if (isLotsCat) {
+    const rawLots = (inv.lots && inv.lots.length)
+      ? inv.lots
+      : [{ qty: inv.qty || 0, avgPrice: inv.avgPrice || 0, date: inv.date || '', notes: '' }];
+    _aiLots = rawLots.map((l, i) => ({
+      id:       l.id || ('lot_' + Date.now() + '_' + i),
+      qty:      parseFloat(l.qty) || 0,
+      avgPrice: parseFloat(l.avgPrice) || parseFloat(l.price) || 0,
+      date:     l.date || '',
+      notes:    l.notes || '',
+      source:   l.source || 'manual',
+    }));
   } else {
-    inv.qty      = qty;
-    inv.avgPrice = price;
-    delete inv.grams;
-    delete inv.buyPrice;
-    const prevDate = inv.lots && inv.lots.length ? inv.lots[0].date : '';
-    inv.lots = [{ date: prevDate, qty, price }];
+    _aiLots = [];
   }
-
-  if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
-  closeModal();
-  navigate(_screen);
+  openModal(_buildInvModalHTML(inv), 'modal-lg');
+  setTimeout(() => _aiSetCat(_aiCat), 0);
 }
 
 // ── EDIT LOAN ─────────────────────────────────────────────────────────────────
@@ -876,39 +1106,51 @@ function _renderInvImportPreview(parsed) {
     </div>`;
 }
 
-function _confirmInvImport() {
+async function _confirmInvImport() {
   if (!_invImportParsed?.length) return;
+
+  const btn         = document.getElementById('inv-import-btn');
+  const needsLookup = _invImportParsed.filter(h => !h.ticker && ['Stock','MF','ESOP'].includes(h.cat));
+
+  // Resolve tickers synchronously before committing the import
+  if (needsLookup.length) {
+    if (btn) { btn.disabled = true; btn.textContent = `Resolving tickers (0/${needsLookup.length})…`; }
+    const preview = document.getElementById('inv-import-preview');
+    if (preview) {
+      preview.innerHTML += `<div id="inv-ticker-status" style="margin-top:8px;padding:10px 14px;background:var(--a05);border:1px solid var(--a20);border-radius:var(--rs);font-size:12px;color:var(--t2)">${ic('refresh',12)} Resolving tickers — please wait…</div>`;
+    }
+    await _resolveInvTickers(needsLookup, (done, total) => {
+      if (btn) btn.textContent = `Resolving tickers (${done}/${total})…`;
+      const statusEl = document.getElementById('inv-ticker-status');
+      if (statusEl) statusEl.innerHTML = `${ic('refresh',12)} Resolving tickers (${done}/${total}) — please wait…`;
+    });
+  }
+
   let added = 0, updated = 0;
   _invImportParsed.forEach(nh => {
-    const id = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const id    = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const catV1 = nh.cat === 'Real Estate' ? 'RealEstate' : nh.cat;
+    const record = { ...nh, category: catV1, livePrice: nh.avgPrice || 0 };
     const existing = APP.investments.find(i =>
-      i.name === nh.name || (nh.ticker && nh.ticker !== '' && i.ticker === nh.ticker));
-    if (existing) { Object.assign(existing, nh); updated++; }
-    else          { APP.investments.push({ ...nh, id }); added++; }
+      i.name === nh.name ||
+      (nh.ticker && nh.ticker !== '' && i.ticker === nh.ticker) ||
+      (nh.isin && nh.isin.length > 5 && i.isin === nh.isin));
+    if (existing) { Object.assign(existing, record); updated++; }
+    else          { APP.investments.push({ ...record, id }); added++; }
   });
+
   if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
   closeModal();
   navigate('investments');
   const msg = [added && `${added} added`, updated && `${updated} updated`].filter(Boolean).join(', ');
   _showToast(`Import complete: ${msg}.`);
   _invImportParsed = null;
-
-  const needsLookup = APP.investments.filter(i => !i.ticker && ['Stock','MF','ESOP'].includes(_invCat(i)));
-  if (needsLookup.length) {
-    _showToast(`Looking up tickers for ${needsLookup.length} holding(s)…`);
-    _resolveInvTickers(needsLookup).then(resolved => {
-      if (resolved > 0) {
-        if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
-        renderScreen(_screen, document.getElementById('screen-content'));
-        _showToast(`Tickers resolved for ${resolved} holding(s) — live prices ready.`);
-      }
-    });
-  }
 }
 
-async function _resolveInvTickers(holdings) {
+async function _resolveInvTickers(holdings, onProgress) {
   let resolved = 0;
-  for (const h of holdings) {
+  for (let idx = 0; idx < holdings.length; idx++) {
+    const h = holdings[idx];
     try {
       const q = (h.isin && h.isin.length > 5) ? h.isin : h.name;
       const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=5&newsCount=0&enableFuzzyQuery=false&enableCb=false`;
@@ -923,6 +1165,7 @@ async function _resolveInvTickers(holdings) {
       const best = preferred[0] || quotes.find(q => q.exchange === 'NSI' || q.exchange === 'BSE' || q.exchange === 'BSI');
       if (best?.symbol) { h.ticker = best.symbol; resolved++; }
     } catch(e) { /* skip */ }
+    if (onProgress) onProgress(idx + 1, holdings.length);
     await new Promise(res => setTimeout(res, 200));
   }
   return resolved;

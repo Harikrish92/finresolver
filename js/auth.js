@@ -254,6 +254,7 @@ function logOut() {
       .forEach(k => localStorage.removeItem(k));
     localStorage.removeItem(`fr_loans_${uid}`);
     localStorage.removeItem(`fr_investments_${uid}`);
+    localStorage.removeItem(`fr_invjourney_${uid}`);
     localStorage.removeItem(`fr_lifestyle_${uid}`);
   }
 

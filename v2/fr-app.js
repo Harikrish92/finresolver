@@ -9,27 +9,33 @@ const NAV = [
   { screen:'investments', icon:'trending',  label:'Investments',     section:null         },
   { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null         },
   { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:null         },
+  { screen:'goals',       icon:'flag',      label:'Goals',           section:null         },
   { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:'LIFESTYLE' },
   { screen:'advisor',     icon:'bot',       label:'AI Advisor',       section:'AI'        },
 ];
 
 function navigate(screen, opts = {}) {
   if (typeof _syncOnNavigate === 'function') _syncOnNavigate(screen, _screen);
-  if (opts.loanId) APP.activeLoanId = opts.loanId;
+  if (opts.loanId)  APP.activeLoanId  = opts.loanId;
+  if (opts.goalId)  APP.activeGoalId  = opts.goalId;
   _screen = screen;
 
   // update sidebar nav highlights
   document.querySelectorAll('.nav-item').forEach(el => {
     const s = el.dataset.screen;
     el.classList.toggle('active',
-      s === screen || (screen === 'loan-detail' && s === 'loans'));
+      s === screen ||
+      (screen === 'loan-detail'  && s === 'loans') ||
+      (screen === 'goal-detail'  && s === 'goals'));
   });
 
   // update bottom nav highlights
   document.querySelectorAll('.bnav-item[data-screen]').forEach(el => {
     const s = el.dataset.screen;
     el.classList.toggle('active',
-      s === screen || (screen === 'loan-detail' && s === 'loans'));
+      s === screen ||
+      (screen === 'loan-detail'  && s === 'loans') ||
+      (screen === 'goal-detail'  && s === 'goals'));
   });
 
   // breadcrumb
@@ -37,6 +43,7 @@ function navigate(screen, opts = {}) {
     dashboard:'Dashboard', monthly:'Monthly Tracker',
     investments:'Investments', loans:'Loan Tracker',
     'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
+    goals:'My Financial Goals', 'goal-detail':'Goal Detail',
     lifestyle:'Lifestyle Tracker', advisor:'AI Advisor'
   };
   const subs = {
@@ -252,6 +259,11 @@ function deleteInvestment(id) {
   if (!inv || !confirm(`Delete "${inv.name}"?`)) return;
   APP.investments = APP.investments.filter(i => String(i.id) !== String(id));
   if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
+  // Remove any goal allocations that referenced this investment
+  if (APP.goalAllocations && APP.goalAllocations.length) {
+    APP.goalAllocations = APP.goalAllocations.filter(a => String(a.investmentId) !== String(id));
+    if (typeof saveGoalsConfig === 'function') saveGoalsConfig();
+  }
   navigate(_screen);
 }
 

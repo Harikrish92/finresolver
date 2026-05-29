@@ -798,4 +798,140 @@
 
 /* duplicate 600px block removed */
 
+/* ══════════════════════════════════════════════════════════
+   Investment Journey & XIRR
+══════════════════════════════════════════════════════════ */
+
+.inv-journey-section {
+  margin-top: 2.25rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.75rem;
+  padding-bottom: 2rem;
+}
+
+.inv-journey-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;
+}
+
+/* XIRR summary strip — reuse inv-summary-strip grid but limit to 4 cols */
+.inv-journey-xirr-strip {
+  grid-template-columns: repeat(4, 1fr) !important;
+  margin-bottom: 1rem;
+}
+
+/* Portfolio value row */
+.inv-journey-pv-row {
+  display: flex; align-items: center; gap: .75rem;
+  margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.inv-journey-pv-hint {
+  font-size: .62rem; color: var(--muted); flex-shrink: 0;
+}
+
+/* Journey table card */
+.inv-journey-table-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  animation: fadeUp .35s ease both;
+}
+
+.inv-journey-table-wrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.inv-journey-table-wrap::-webkit-scrollbar       { height: 5px; }
+.inv-journey-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.inv-journey-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.inv-journey-table {
+  width: 100%; min-width: 360px; border-collapse: collapse; font-size: .76rem;
+}
+
+.inv-journey-table thead th {
+  padding: .6rem 1rem; text-align: left;
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 1;
+  white-space: nowrap;
+}
+
+.inv-journey-table tbody td {
+  padding: .55rem 1rem;
+  border-bottom: 1px solid rgba(35,45,63,.3);
+  white-space: nowrap;
+}
+.inv-journey-table tbody tr { transition: background .15s; }
+.inv-journey-table tbody tr.inv-journey-row:hover td { background: rgba(77,171,247,.04); }
+.inv-journey-table tbody tr:last-child td { border-bottom: none; }
+
+/* Year accordion header */
+.inv-journey-year-header { cursor: pointer; user-select: none; }
+.inv-journey-year-header td {
+  background: var(--surface2) !important;
+  padding: .55rem 1rem !important;
+  border-top: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  display: flex; align-items: center;
+}
+.inv-journey-year-header:hover td { background: rgba(77,171,247,.07) !important; }
+
+.inv-journey-year-arrow {
+  font-size: .65rem; color: var(--muted);
+  margin-right: .55rem; display: inline-block; min-width: .75rem;
+}
+.inv-journey-year-label {
+  font-family: var(--font-head); font-weight: 700; font-size: .88rem;
+  color: var(--accent4); margin-right: .9rem;
+}
+.inv-journey-year-stats { font-size: .71rem; }
+.inv-jy-stat-in  { color: var(--accent2); }
+.inv-jy-stat-out { color: var(--accent); }
+.inv-jy-stat-sep { color: var(--muted); margin: 0 .4rem; }
+.inv-journey-year-count {
+  margin-left: auto; font-size: .62rem; color: var(--muted); line-height: 1.6;
+}
+
+/* Data row cells */
+.inv-journey-date-cell  { color: var(--muted); font-size: .72rem; min-width: 100px; }
+.inv-journey-flow-cell  { font-weight: 600; font-size: .76rem; min-width: 130px; }
+.inv-journey-flow-in    { color: var(--accent2); }
+.inv-journey-flow-out   { color: var(--accent); }
+.inv-journey-notes-cell {
+  color: var(--muted); font-size: .68rem;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-journey-action-cell {
+  text-align: right; padding-right: .75rem !important; min-width: 60px; white-space: nowrap;
+  vertical-align: middle;
+}
+.inv-journey-action-cell .inv-lot-del-btn { display: inline-flex; }
+
+/* Edit button — blue, distinct from red delete */
+.inv-journey-edit-btn {
+  background: rgba(77,171,247,.08); border: 1px solid rgba(77,171,247,.25);
+  color: var(--accent4); border-radius: 5px; width: 22px; height: 22px;
+  font-size: .65rem; cursor: pointer; display: inline-flex;
+  align-items: center; justify-content: center;
+  transition: background .15s; margin-right: .3rem;
+}
+.inv-journey-edit-btn:hover { background: rgba(77,171,247,.22); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .inv-journey-xirr-strip { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 700px) {
+  #investmentScreen .inv-journey-section { padding-top: 1.25rem; }
+  .inv-journey-header  { flex-direction: column; align-items: stretch; }
+  .inv-journey-pv-row  { flex-direction: column; align-items: stretch; }
+  .inv-journey-pv-row .inv-form-input { max-width: 100% !important; }
+  .inv-journey-table   { min-width: 300px; }
+  .inv-journey-notes-cell { display: none; }
+  .inv-journey-table thead th:nth-child(3) { display: none; }
+  .inv-journey-year-count { display: none; }
+}
+
 

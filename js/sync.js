@@ -279,6 +279,27 @@ async function syncLoadConfig(uid) {
       .catch(e => console.warn('[Sync] Investments load failed:', e.message))
   );
 
+  // ── Investment Journey ──
+  promises.push(
+    db.collection('users').doc(uid).collection('config').doc('invJourney').get()
+      .then(async snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        let journey;
+        if (d._enc) {
+          const dec = await decryptFromStorage(d._enc, email);
+          journey = dec?.journey;
+        } else {
+          journey = d.journey;
+        }
+        if (!Array.isArray(journey)) return;
+        localStorage.setItem('fr_invjourney_' + uid, await encryptForStorage(journey, email));
+        if (typeof invJourneyData !== 'undefined') invJourneyData = journey;
+        console.info('[Sync] ✅ Investment Journey loaded from Firestore:', journey.length, 'entries');
+      })
+      .catch(e => console.warn('[Sync] Investment Journey load failed:', e.message))
+  );
+
   // ── Lifestyle ──
   promises.push(
     db.collection('users').doc(uid).collection('config').doc('lifestyle').get()

@@ -1180,6 +1180,135 @@
 
     </div>
   </div>
+
+  <!-- ── Investment Journey & XIRR ───────────────────────── -->
+  <div class="inv-journey-section" id="invJourneySection">
+
+    <div class="inv-journey-header">
+      <div class="inv-page-title" style="font-size:1.1rem">📋 Investment <span>Journey</span></div>
+      <div class="inv-header-actions">
+        <button class="btn-import" onclick="openJourneyImport()">Import Sheet</button>
+        <button class="btn" onclick="openJourneyModal(null)">+ Add Cash Flow</button>
+      </div>
+    </div>
+
+    <!-- XIRR summary cards -->
+    <div class="inv-summary-strip inv-journey-xirr-strip" id="invJourneyXirrStrip"></div>
+
+    <!-- Portfolio value input for XIRR with unrealised gains -->
+    <div class="inv-journey-pv-row">
+      <label class="inv-form-label" style="white-space:nowrap;margin-bottom:0">Current Portfolio Value (₹)</label>
+      <input type="number" class="inv-form-input" id="invJourneyPortfolioVal"
+             placeholder="Optional — include unrealised gains in XIRR"
+             oninput="renderJourneyXirr()" style="flex:1;max-width:320px;min-width:180px" />
+      <span class="inv-journey-pv-hint">Leave blank to compute XIRR from realised cash flows only</span>
+    </div>
+
+    <!-- Cash flow table -->
+    <div class="inv-journey-table-card">
+      <div id="invJourneyTableWrap"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INVESTMENT JOURNEY MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invJourneyModal">
+  <div class="inv-modal" style="max-width:420px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title" id="invJourneyModalTitle">➕ Add Cash Flow</span>
+      <button class="modal-close" onclick="closeJourneyModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+      <div class="inv-form-grid">
+
+        <!-- Type toggle -->
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Type *</label>
+          <div style="display:flex;gap:.5rem">
+            <button id="invJourneyTypeIn"  class="inv-cat-pill active-stock active" onclick="invJourneyToggleType('in')"  style="flex:1;text-align:center">💰 Invested</button>
+            <button id="invJourneyTypeOut" class="inv-cat-pill"                    onclick="invJourneyToggleType('out')" style="flex:1;text-align:center">🏧 Withdrawn</button>
+          </div>
+        </div>
+
+        <!-- Date -->
+        <div class="inv-form-field">
+          <label class="inv-form-label">Date *</label>
+          <input type="date" class="inv-form-input" id="invJourneyDate" />
+        </div>
+
+        <!-- Amount -->
+        <div class="inv-form-field">
+          <label class="inv-form-label">Amount (₹) *</label>
+          <input type="number" class="inv-form-input" id="invJourneyAmount" min="0" step="any" placeholder="e.g. 10000" />
+        </div>
+
+        <!-- Notes -->
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Notes</label>
+          <input type="text" class="inv-form-input" id="invJourneyNotes" placeholder="Optional (e.g. HDFC Top 100, SIP)" />
+        </div>
+
+      </div>
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-import" onclick="closeJourneyModal()">Cancel</button>
+      <button class="btn" onclick="saveJourneyEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INVESTMENT JOURNEY IMPORT MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invJourneyImportModal">
+  <div class="inv-modal" style="max-width:640px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title">📥 Import Cash Flows</span>
+      <button class="modal-close" onclick="closeJourneyImport()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="invJourneyImportDropzone" style="margin-bottom:1rem">
+        <input type="file" id="invJourneyImportFileInput" accept=".xlsx,.xls,.csv"
+               onchange="handleJourneyImportFile(event)" />
+        <div class="dropzone-icon">☁</div>
+        <div class="dropzone-title">Drop your file here</div>
+        <div class="dropzone-sub">or click to browse</div>
+        <div class="dropzone-formats">
+          <span class="format-tag">.xlsx</span>
+          <span class="format-tag">.xls</span>
+          <span class="format-tag">.csv</span>
+        </div>
+      </div>
+
+      <!-- Format hint -->
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:.75rem;line-height:1.5">
+        Expected columns: <strong>Date Invested · Amount Invested · Date Withdrawn · Amount Withdrawn</strong>
+        — each row may fill either or both pairs; dates as DD-MM-YYYY; a header row is auto-detected.
+      </div>
+
+      <!-- Preview -->
+      <div id="invJourneyImportPreview" style="display:none">
+        <div id="invJourneyImportSummary" style="font-size:.73rem;margin-bottom:.4rem"></div>
+        <div id="invJourneyImportWarnings" style="font-size:.68rem;color:var(--accent3);margin-bottom:.4rem"></div>
+        <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead id="invJourneyImportPreviewHead"></thead>
+            <tbody id="invJourneyImportPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-import" onclick="closeJourneyImport()">Cancel</button>
+      <button class="btn" id="invJourneyImportConfirmBtn" disabled onclick="confirmJourneyImport()">Import</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1391,12 +1520,7 @@
           <div class="inv-broker-card active" data-broker="auto"     onclick="setInvImportBroker('auto')">    <div class="inv-broker-icon" style="--bk:#6b7a99">?</div><span>Auto</span></div>
           <div class="inv-broker-card"        data-broker="zerodha"  onclick="setInvImportBroker('zerodha')"> <div class="inv-broker-icon" style="--bk:#387ed1">Z</div><span>Zerodha</span></div>
           <div class="inv-broker-card"        data-broker="groww"    onclick="setInvImportBroker('groww')">   <div class="inv-broker-icon" style="--bk:#00b386">G</div><span>Groww</span></div>
-          <div class="inv-broker-card"        data-broker="upstox"   onclick="setInvImportBroker('upstox')">  <div class="inv-broker-icon" style="--bk:#5367ff">U</div><span>Upstox</span></div>
-          <div class="inv-broker-card"        data-broker="angelone" onclick="setInvImportBroker('angelone')"><div class="inv-broker-icon" style="--bk:#e03131">A</div><span>Angel One</span></div>
           <div class="inv-broker-card"        data-broker="indmoney" onclick="setInvImportBroker('indmoney')"><div class="inv-broker-icon" style="--bk:#7c3aed">IN</div><span>INDmoney</span></div>
-          <div class="inv-broker-card"        data-broker="icici"    onclick="setInvImportBroker('icici')">   <div class="inv-broker-icon" style="--bk:#f97316">IC</div><span>ICICI Direct</span></div>
-          <div class="inv-broker-card"        data-broker="kuvera"   onclick="setInvImportBroker('kuvera')">  <div class="inv-broker-icon" style="--bk:#2d7dd2">K</div><span>Kuvera</span></div>
-          <div class="inv-broker-card"        data-broker="generic"  onclick="setInvImportBroker('generic')"> <div class="inv-broker-icon" style="--bk:#6b7a99">⚙</div><span>Generic</span></div>
         </div>
         <div class="inv-broker-steps-box" id="invBrokerSteps"></div>
       </div>

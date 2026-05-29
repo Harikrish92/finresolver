@@ -11,6 +11,9 @@
    STATE
 ══════════════════════════════════════════════════════════ */
 var investmentsData   = [];       // persisted holdings
+var invJourneyData         = [];   // [{id, date, type:'in'|'out', amount, notes}]
+var invJourneyEditId       = null;
+var invJourneyYearCollapsed = {};  // year -> true if collapsed
 var invQuoteCache     = {};       // { ticker: { price, change, changePct, name, currency, ts } }
 var goldPriceCache    = null;     // { pricePerGram, pricePerOz, ts, source }
 var usdInrRate        = null;     // number — cached USD→INR rate
@@ -18,12 +21,14 @@ var usdInrTs          = 0;        // timestamp of last USD/INR fetch
 var invSelectedId     = null;     // currently highlighted row
 
 function resetInvestmentsState() {
-  investmentsData = [];
-  invQuoteCache   = {};
-  goldPriceCache  = null;
-  usdInrRate      = null;
-  usdInrTs        = 0;
-  invSelectedId   = null;
+  investmentsData  = [];
+  invJourneyData   = [];
+  invJourneyEditId = null;
+  invQuoteCache    = {};
+  goldPriceCache   = null;
+  usdInrRate       = null;
+  usdInrTs         = 0;
+  invSelectedId    = null;
 }
 var invActiveCat      = 'ALL';    // tab filter
 var invDetailTab      = 'chart';  // chart | financials | news
@@ -179,12 +184,19 @@ function getInvKey() {
 async function loadInvestments() {
   var raw   = localStorage.getItem(getInvKey());
   var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
-  investmentsData = raw ? ((await decryptFromStorage(raw, email)) || []) : [];
+  var dec = raw ? (await decryptFromStorage(raw, email)) : null;
+  if (Array.isArray(dec)) {
+    investmentsData = dec;                       // legacy: raw array (old classic format)
+  } else if (dec && Array.isArray(dec.investments)) {
+    investmentsData = dec.investments;           // current: { investments: [...] } (v2 format)
+  } else {
+    investmentsData = [];
+  }
 }
 
 async function saveInvestments() {
   var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
-  localStorage.setItem(getInvKey(), await encryptForStorage(investmentsData, email));
+  localStorage.setItem(getInvKey(), await encryptForStorage({ investments: investmentsData }, email));
   invSyncSave();
 }
 
@@ -237,6 +249,7 @@ function goToInvestments() {
   if (tc) tc.style.display = 'none';
 
   loadInvestments();
+  loadJourney().then(renderInvJourney);
   invLoadLivePref();
   _updateLiveToggleUI();
   renderInvSummary();
@@ -1557,6 +1570,562 @@ function invTimeAgo(date) {
   if (diff < 3600) return Math.floor(diff/60) + 'm ago';
   if (diff < 86400)return Math.floor(diff/3600) + 'h ago';
   return Math.floor(diff/86400) + 'd ago';
+}
+
+/* ══════════════════════════════════════════════════════════
+   INVESTMENT JOURNEY — Cash Flows & XIRR
+══════════════════════════════════════════════════════════ */
+
+/* ── XIRR (Newton-Raphson + bisection fallback) ─────────── */
+function calcXIRR(flows) {
+  /* flows: [{amount:Number, date:Date}]
+     Investments negative (cash out of pocket), withdrawals positive. */
+  if (!flows || flows.length < 2) return null;
+  var hasPos = flows.some(function(f){ return f.amount > 0; });
+  var hasNeg = flows.some(function(f){ return f.amount < 0; });
+  if (!hasPos || !hasNeg) return null;
+
+  var sorted = flows.slice().sort(function(a,b){ return a.date - b.date; });
+  var d0     = sorted[0].date;
+  if (isNaN(d0.getTime())) return null;
+  var MS_YR  = 365.25 * 24 * 3600 * 1000;
+  var scale  = flows.reduce(function(s,f){ return s + Math.abs(f.amount); }, 0);
+  var npvTol = Math.max(1, scale * 1e-6);
+
+  function xnpv(r) {
+    var s = 0;
+    for (var i = 0; i < sorted.length; i++) {
+      var t = (sorted[i].date - d0) / MS_YR;
+      var denom = Math.pow(1 + r, t);
+      if (!isFinite(denom) || denom === 0) return NaN;
+      s += sorted[i].amount / denom;
+    }
+    return s;
+  }
+  function dxnpv(r) {
+    var s = 0;
+    for (var i = 0; i < sorted.length; i++) {
+      var t = (sorted[i].date - d0) / MS_YR;
+      if (t === 0) continue;
+      var denom = Math.pow(1 + r, t + 1);
+      if (!isFinite(denom) || denom === 0) return NaN;
+      s -= t * sorted[i].amount / denom;
+    }
+    return s;
+  }
+
+  function tryNewton(guess) {
+    var r = guess;
+    for (var i = 0; i < 400; i++) {
+      var fv = xnpv(r), dfv = dxnpv(r);
+      if (!isFinite(fv) || !isFinite(dfv) || Math.abs(dfv) < 1e-14) break;
+      var r1 = r - fv / dfv;
+      if (r1 <= -1) r1 = -0.9999;
+      if (r1 > 100)  r1 = 100;
+      if (Math.abs(r1 - r) < 1e-10) return Math.abs(xnpv(r1)) < npvTol ? r1 : null;
+      r = r1;
+    }
+    var fFinal = xnpv(r);
+    return isFinite(fFinal) && Math.abs(fFinal) < npvTol ? r : null;
+  }
+
+  var guesses = [0.1, 0.01, -0.05, 0.5, -0.3, 1.0, -0.5, 2.0, 0.3, -0.1, 0.05];
+  for (var g = 0; g < guesses.length; g++) {
+    var result = tryNewton(guesses[g]);
+    if (result !== null) return result;
+  }
+
+  /* Bisection fallback — scan for a sign change then binary-search */
+  var scanPts = [-0.99, -0.8, -0.6, -0.4, -0.2, -0.1, 0, 0.05, 0.1,
+                 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0];
+  var lo = null, hi = null;
+  var prev = xnpv(-0.999), prevR = -0.999;
+  for (var si = 0; si < scanPts.length; si++) {
+    var cur = xnpv(scanPts[si]);
+    if (isFinite(prev) && isFinite(cur) && prev * cur < 0) {
+      lo = prevR; hi = scanPts[si];
+      break;
+    }
+    if (isFinite(cur)) { prev = cur; prevR = scanPts[si]; }
+  }
+  if (lo === null) return null;
+
+  var nlo = xnpv(lo);
+  for (var b = 0; b < 200; b++) {
+    var mid = (lo + hi) / 2;
+    var nmid = xnpv(mid);
+    if (!isFinite(nmid)) break;
+    if (Math.abs(nmid) < npvTol || (hi - lo) < 1e-12) return mid;
+    if (nlo * nmid < 0) { hi = mid; }
+    else { lo = mid; nlo = nmid; }
+  }
+  var finalR = (lo + hi) / 2;
+  return Math.abs(xnpv(finalR)) < npvTol ? finalR : null;
+}
+
+/* ── Storage ─────────────────────────────────────────────── */
+function getJourneyKey() {
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid)
+    ? fbAuth.currentUser.uid
+    : (typeof currentUser !== 'undefined' && currentUser && currentUser.uid ? currentUser.uid : 'guest');
+  return 'fr_invjourney_' + uid;
+}
+
+async function loadJourney() {
+  var raw   = localStorage.getItem(getJourneyKey());
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  invJourneyData = raw ? ((await decryptFromStorage(raw, email)) || []) : [];
+}
+
+async function saveJourney() {
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  localStorage.setItem(getJourneyKey(), await encryptForStorage(invJourneyData, email));
+  journeySyncSave();
+}
+
+function journeySyncSave() {
+  if (typeof syncReady === 'undefined' || !syncReady || typeof db === 'undefined' || !db) return;
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+    ? fbAuth.currentUser.uid : null;
+  if (!uid) return;
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  encryptForStorage({ journey: invJourneyData }, email).then(function(encStr) {
+    db.collection('users').doc(uid).collection('config').doc('invJourney')
+      .set({ _enc: encStr })
+      .catch(function(e){ console.warn('[Journey] Firestore save failed:', e.message); });
+  });
+}
+
+/* ── Render: outer entry point ───────────────────────────── */
+function renderInvJourney() {
+  renderJourneyXirr();
+  renderJourneyTable();
+}
+
+/* ── Render: XIRR summary strip ─────────────────────────── */
+function renderJourneyXirr() {
+  var strip = document.getElementById('invJourneyXirrStrip');
+  if (!strip) return;
+
+  var totalIn  = 0, totalOut = 0;
+  invJourneyData.forEach(function(e) {
+    if (e.type === 'in')  totalIn  += e.amount;
+    else                  totalOut += e.amount;
+  });
+  var net = totalIn - totalOut;
+
+  var pvInput = parseFloat(document.getElementById('invJourneyPortfolioVal').value) || 0;
+
+  /* Build XIRR flows — filter out entries with missing/invalid date or zero amount */
+  var flows = invJourneyData
+    .map(function(e) {
+      var amt = Number(e.amount);
+      var d   = new Date(e.date);
+      return { amount: e.type === 'in' ? -amt : amt, date: d };
+    })
+    .filter(function(f) { return isFinite(f.amount) && f.amount !== 0 && isFinite(f.date.getTime()); });
+  if (pvInput > 0) flows.push({ amount: pvInput, date: new Date() });
+
+  var xirr = calcXIRR(flows);
+  var xirrStr, xirrColor;
+  if (xirr === null) {
+    xirrStr   = '—';
+    xirrColor = 'var(--muted)';
+  } else {
+    var pct   = (xirr * 100).toFixed(2);
+    xirrStr   = (xirr >= 0 ? '+' : '') + pct + '%';
+    xirrColor = xirr >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  }
+
+  var pvSub = pvInput > 0 ? 'Incl. portfolio value' : 'Add portfolio value below';
+
+  strip.innerHTML =
+    _jCard('Total Invested',  fmtI(totalIn),  'Sum of cash in-flows',   'var(--accent4)', 'var(--accent4)') +
+    _jCard('Total Withdrawn', fmtI(totalOut), 'Sum of cash out-flows',   'var(--accent)',  'var(--accent)')  +
+    _jCard('Net Invested',    fmtI(net),      'Invested minus withdrawn', 'var(--accent3)', '')               +
+    _jCard('XIRR',            xirrStr,        pvSub,                      xirrColor,        xirrColor);
+}
+
+function _jCard(label, value, sub, accent, color) {
+  return '<div class="inv-sum-card" style="--card-accent:' + accent + ';--card-color:' + (color || 'var(--text)') + '">'
+    + '<div class="inv-sum-label">' + label + '</div>'
+    + '<div class="inv-sum-value">' + value + '</div>'
+    + '<div class="inv-sum-sub">'   + sub   + '</div>'
+    + '</div>';
+}
+
+/* ── Render: accordion table grouped by year ────────────── */
+function renderJourneyTable() {
+  var wrap = document.getElementById('invJourneyTableWrap');
+  if (!wrap) return;
+
+  if (!invJourneyData.length) {
+    wrap.innerHTML = '<div class="inv-empty-state">'
+      + '<div class="inv-empty-icon">📋</div>'
+      + '<div class="inv-empty-title">No cash flows yet</div>'
+      + '<div class="inv-empty-sub">Record your investment in-flows and withdrawals to track your journey and calculate XIRR.</div>'
+      + '</div>';
+    return;
+  }
+
+  var byYear = {};
+  invJourneyData.forEach(function(e) {
+    var y = e.date ? e.date.slice(0, 4) : '—';
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(e);
+  });
+
+  var html = '<div class="inv-journey-table-wrap">'
+    + '<table class="inv-journey-table">'
+    + '<thead><tr>'
+    + '<th>Date</th><th>Flow</th><th>Notes</th><th></th>'
+    + '</tr></thead><tbody>';
+
+  Object.keys(byYear).sort().forEach(function(year) {
+    var entries     = byYear[year].slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    var yIn = 0, yOut = 0;
+    entries.forEach(function(e){ if (e.type === 'in') yIn += e.amount; else yOut += e.amount; });
+    var isCollapsed = !!invJourneyYearCollapsed[year];
+
+    /* Year accordion header */
+    var stats = '';
+    if (yIn)        stats += '<span class="inv-jy-stat-in">💰 ' + fmtI(yIn) + '</span>';
+    if (yIn && yOut) stats += '<span class="inv-jy-stat-sep">·</span>';
+    if (yOut)       stats += '<span class="inv-jy-stat-out">🏧 ' + fmtI(yOut) + '</span>';
+
+    html += '<tr class="inv-journey-year-header" data-year="' + year + '" onclick="toggleJourneyYear(\'' + year + '\')">'
+      + '<td colspan="4">'
+      + '<span class="inv-journey-year-arrow">' + (isCollapsed ? '▸' : '▾') + '</span>'
+      + '<span class="inv-journey-year-label">' + year + '</span>'
+      + '<span class="inv-journey-year-stats">' + stats + '</span>'
+      + '<span class="inv-journey-year-count">' + entries.length + (entries.length === 1 ? ' entry' : ' entries') + '</span>'
+      + '</td></tr>';
+
+    /* Data rows */
+    entries.forEach(function(e) {
+      var isIn    = e.type === 'in';
+      var fmtDate = e.date ? e.date.split('-').reverse().join('-') : '—';
+      var flowCls = isIn ? 'inv-journey-flow-in' : 'inv-journey-flow-out';
+      var icon    = isIn ? '💰' : '🏧';
+
+      html += '<tr class="inv-journey-row" data-year="' + year + '"'
+        + (isCollapsed ? ' style="display:none"' : '') + '>'
+        + '<td class="inv-journey-date-cell">' + fmtDate + '</td>'
+        + '<td class="inv-journey-flow-cell ' + flowCls + '">' + icon + ' ' + fmtI(e.amount) + '</td>'
+        + '<td class="inv-journey-notes-cell">' + invEsc(e.notes || '') + '</td>'
+        + '<td class="inv-journey-action-cell">'
+          + '<button class="inv-journey-edit-btn" onclick="openJourneyModal(\'' + e.id + '\')">✏</button>'
+          + '<button class="inv-lot-del-btn"      onclick="deleteJourneyEntry(\'' + e.id + '\')">✕</button>'
+        + '</td></tr>';
+    });
+  });
+
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+}
+
+function toggleJourneyYear(year) {
+  invJourneyYearCollapsed[year] = !invJourneyYearCollapsed[year];
+  var isNowCollapsed = invJourneyYearCollapsed[year];
+
+  document.querySelectorAll('.inv-journey-row[data-year="' + year + '"]').forEach(function(r) {
+    r.style.display = isNowCollapsed ? 'none' : '';
+  });
+  var arrow = document.querySelector('.inv-journey-year-header[data-year="' + year + '"] .inv-journey-year-arrow');
+  if (arrow) arrow.textContent = isNowCollapsed ? '▸' : '▾';
+}
+
+/* ── Modal: open / close / toggle type ──────────────────── */
+function openJourneyModal(id) {
+  invJourneyEditId = id || null;
+  var e     = id ? invJourneyData.find(function(x){ return x.id === id; }) : null;
+  var modal = document.getElementById('invJourneyModal');
+  if (!modal) return;
+
+  document.getElementById('invJourneyModalTitle').textContent = e ? '✏️ Edit Cash Flow' : '➕ Add Cash Flow';
+  document.getElementById('invJourneyDate').value   = e ? (e.date   || '') : new Date().toISOString().slice(0,10);
+  document.getElementById('invJourneyAmount').value = e ? (e.amount || '') : '';
+  document.getElementById('invJourneyNotes').value  = e ? (e.notes  || '') : '';
+
+  var isIn = !e || e.type === 'in';
+  document.getElementById('invJourneyTypeIn').classList.toggle('active',  isIn);
+  document.getElementById('invJourneyTypeOut').classList.toggle('active', !isIn);
+  /* Keep visual pill colour in sync */
+  _syncJourneyTypePills(isIn ? 'in' : 'out');
+
+  modal.classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('invJourneyAmount').focus(); }, 50);
+}
+
+function closeJourneyModal() {
+  var modal = document.getElementById('invJourneyModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function invJourneyToggleType(type) {
+  document.getElementById('invJourneyTypeIn').classList.toggle('active',  type === 'in');
+  document.getElementById('invJourneyTypeOut').classList.toggle('active', type === 'out');
+  _syncJourneyTypePills(type);
+}
+
+function _syncJourneyTypePills(type) {
+  var inBtn  = document.getElementById('invJourneyTypeIn');
+  var outBtn = document.getElementById('invJourneyTypeOut');
+  if (!inBtn || !outBtn) return;
+  /* Reset both, then apply active colour for selected */
+  inBtn.className  = 'inv-cat-pill' + (type === 'in'  ? ' active-stock active'  : '');
+  outBtn.className = 'inv-cat-pill' + (type === 'out' ? ' active-others active' : '');
+}
+
+/* ── Modal: save ─────────────────────────────────────────── */
+async function saveJourneyEntry() {
+  var date   = document.getElementById('invJourneyDate').value;
+  var amount = parseFloat(document.getElementById('invJourneyAmount').value);
+  var notes  = document.getElementById('invJourneyNotes').value.trim();
+  var type   = document.getElementById('invJourneyTypeIn').classList.contains('active') ? 'in' : 'out';
+
+  if (!date || !(amount > 0)) {
+    showInvToast('Please enter a valid date and a positive amount.', 'error');
+    return;
+  }
+
+  if (invJourneyEditId) {
+    var idx = invJourneyData.findIndex(function(x){ return x.id === invJourneyEditId; });
+    if (idx >= 0) invJourneyData[idx] = { id: invJourneyEditId, date: date, type: type, amount: amount, notes: notes };
+  } else {
+    invJourneyData.push({
+      id:     'jrn_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      date:   date,
+      type:   type,
+      amount: amount,
+      notes:  notes
+    });
+  }
+
+  await saveJourney();
+  closeJourneyModal();
+  renderInvJourney();
+  showInvToast(invJourneyEditId ? 'Cash flow updated.' : 'Cash flow added.', 'success');
+}
+
+/* ── Delete ──────────────────────────────────────────────── */
+async function deleteJourneyEntry(id) {
+  if (!confirm('Delete this cash flow entry?')) return;
+  invJourneyData = invJourneyData.filter(function(e){ return e.id !== id; });
+  await saveJourney();
+  renderInvJourney();
+  showInvToast('Entry deleted.', 'success');
+}
+
+/* ══════════════════════════════════════════════════════════
+   INVESTMENT JOURNEY IMPORT
+══════════════════════════════════════════════════════════ */
+var invJourneyImportParsed = null;
+
+function openJourneyImport() {
+  invJourneyImportParsed = null;
+  document.getElementById('invJourneyImportModal').classList.remove('hidden');
+  document.getElementById('invJourneyImportPreview').style.display = 'none';
+  document.getElementById('invJourneyImportConfirmBtn').disabled = true;
+  document.getElementById('invJourneyImportFileInput').value = '';
+
+  var dz = document.getElementById('invJourneyImportDropzone');
+  dz.ondragover  = function(e){ e.preventDefault(); dz.classList.add('drag-over'); };
+  dz.ondragleave = function(){ dz.classList.remove('drag-over'); };
+  dz.ondrop      = function(e){
+    e.preventDefault(); dz.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) processJourneyImportFile(e.dataTransfer.files[0]);
+  };
+}
+
+function closeJourneyImport() {
+  document.getElementById('invJourneyImportModal').classList.add('hidden');
+}
+
+function handleJourneyImportFile(e) {
+  if (e.target.files.length) processJourneyImportFile(e.target.files[0]);
+}
+
+function processJourneyImportFile(file) {
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    var reader = new FileReader();
+    reader.onload = function(ev) { parseJourneyImportRows(invCsvToRows(ev.target.result)); };
+    reader.readAsText(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var wb   = XLSX.read(ev.target.result, { type: 'array' });
+        var ws   = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        parseJourneyImportRows(rows);
+      } catch(err) {
+        showInvToast('Error reading file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    showInvToast('Unsupported format — use .xlsx, .xls or .csv', 'error');
+  }
+}
+
+/* Parse date from DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, or Excel serial number */
+function parseJourneyDate(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  var s = String(raw).trim();
+  if (!s) return null;
+
+  /* Excel serial date (integer stored as number) */
+  var num = parseFloat(s);
+  if (!isNaN(num) && num > 1000 && String(num) === s) {
+    var d = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+
+  /* DD-MM-YYYY or DD/MM/YYYY */
+  var m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+
+  /* YYYY-MM-DD */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  return null;
+}
+
+function _journeyCleanNum(v) {
+  var n = parseFloat(String(v).replace(/[₹,\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function _isJourneyHeaderRow(row) {
+  var text = row.map(function(c){ return String(c).toLowerCase(); }).join(' ');
+  return /date|amount|invest|withdraw/.test(text);
+}
+
+function parseJourneyImportRows(rows) {
+  if (!rows || !rows.length) { showInvToast('File appears empty.', 'error'); return; }
+
+  var startIdx = _isJourneyHeaderRow(rows[0]) ? 1 : 0;
+  var entries  = [];
+  var warnings = [];
+
+  rows.slice(startIdx).forEach(function(row, i) {
+    var lineNum = i + startIdx + 1;
+    var rawDateIn  = row[0];
+    var rawAmtIn   = row[1];
+    var rawDateOut = row[2];
+    var rawAmtOut  = row[3];
+    var notes      = row.length > 4 ? String(row[4] || '').trim() : '';
+
+    var dateIn  = parseJourneyDate(rawDateIn);
+    var amtIn   = _journeyCleanNum(rawAmtIn);
+    var dateOut = parseJourneyDate(rawDateOut);
+    var amtOut  = _journeyCleanNum(rawAmtOut);
+
+    if (dateIn && amtIn > 0) {
+      entries.push({ type: 'in', date: dateIn, amount: amtIn, notes: notes, _row: lineNum });
+    } else if (rawDateIn && String(rawDateIn).trim() && !dateIn) {
+      warnings.push('Row ' + lineNum + ': unrecognised invested date "' + rawDateIn + '"');
+    }
+
+    if (dateOut && amtOut > 0) {
+      entries.push({ type: 'out', date: dateOut, amount: amtOut, notes: notes, _row: lineNum });
+    } else if (rawDateOut && String(rawDateOut).trim() && !dateOut) {
+      warnings.push('Row ' + lineNum + ': unrecognised withdrawn date "' + rawDateOut + '"');
+    }
+  });
+
+  if (!entries.length) {
+    showInvToast('No valid cash flow rows found. Check the file format.', 'error');
+    return;
+  }
+
+  /* Flag duplicates against existing journey data */
+  var dupes = 0;
+  entries.forEach(function(e) {
+    e._isDupe = invJourneyData.some(function(x){
+      return x.type === e.type && x.date === e.date && x.amount === e.amount;
+    });
+    if (e._isDupe) dupes++;
+  });
+
+  invJourneyImportParsed = { entries: entries, warnings: warnings, dupes: dupes };
+  renderJourneyImportPreview(invJourneyImportParsed);
+}
+
+function renderJourneyImportPreview(parsed) {
+  var entries  = parsed.entries;
+  var warnings = parsed.warnings;
+
+  document.getElementById('invJourneyImportPreview').style.display = 'block';
+
+  var thStyle = 'padding:.4rem .6rem;text-align:left;font-size:.59rem;text-transform:uppercase;'
+              + 'letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
+  document.getElementById('invJourneyImportPreviewHead').innerHTML =
+    '<tr>'
+    + '<th style="' + thStyle + '">Type</th>'
+    + '<th style="' + thStyle + '">Date</th>'
+    + '<th style="' + thStyle + ';text-align:right">Amount (₹)</th>'
+    + '<th style="' + thStyle + '">Notes</th>'
+    + '<th style="' + thStyle + '">Status</th>'
+    + '</tr>';
+
+  var tdStyle = 'padding:.4rem .6rem;border-bottom:1px solid rgba(35,45,63,.35);font-size:.71rem;white-space:nowrap';
+  document.getElementById('invJourneyImportPreviewBody').innerHTML = entries.slice(0, 60).map(function(e) {
+    var typeLabel = e.type === 'in'
+      ? '<span style="color:var(--accent2)">💰 Invested</span>'
+      : '<span style="color:var(--accent)">🏧 Withdrawn</span>';
+    var fmtDate = e.date.split('-').reverse().join('-');
+    var status  = e._isDupe
+      ? '<span style="color:var(--accent3)">⚠ Duplicate</span>'
+      : '<span style="color:var(--accent)">New</span>';
+    return '<tr>'
+      + '<td style="' + tdStyle + '">' + typeLabel + '</td>'
+      + '<td style="' + tdStyle + '">' + fmtDate + '</td>'
+      + '<td style="' + tdStyle + ';text-align:right">' + fmtI(e.amount) + '</td>'
+      + '<td style="' + tdStyle + '">' + invEsc(e.notes) + '</td>'
+      + '<td style="' + tdStyle + '">' + status + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var totalIn  = entries.reduce(function(s, e){ return e.type === 'in'  ? s + e.amount : s; }, 0);
+  var totalOut = entries.reduce(function(s, e){ return e.type === 'out' ? s + e.amount : s; }, 0);
+  var newCount = entries.filter(function(e){ return !e._isDupe; }).length;
+
+  document.getElementById('invJourneyImportSummary').innerHTML =
+    '<strong style="color:var(--text)">' + entries.length + ' entries</strong>'
+    + ' &nbsp;·&nbsp; Invested: <strong style="color:var(--accent2)">₹' + Math.round(totalIn).toLocaleString('en-IN') + '</strong>'
+    + ' &nbsp;·&nbsp; Withdrawn: <strong style="color:var(--accent)">₹' + Math.round(totalOut).toLocaleString('en-IN') + '</strong>'
+    + (parsed.dupes ? ' &nbsp;·&nbsp; <span style="color:var(--accent3)">' + parsed.dupes + ' duplicate(s) skipped</span>' : '')
+    + (entries.length > 60 ? ' &nbsp;·&nbsp; <span style="color:var(--muted)">showing first 60</span>' : '');
+
+  document.getElementById('invJourneyImportWarnings').innerHTML = warnings.length
+    ? warnings.map(function(w){ return '<div>⚠ ' + w + '</div>'; }).join('')
+    : '';
+
+  document.getElementById('invJourneyImportConfirmBtn').disabled = newCount === 0;
+}
+
+async function confirmJourneyImport() {
+  if (!invJourneyImportParsed) return;
+  var newEntries = invJourneyImportParsed.entries.filter(function(e){ return !e._isDupe; });
+  if (!newEntries.length) { showInvToast('No new entries to import.', 'error'); return; }
+
+  newEntries.forEach(function(e) {
+    invJourneyData.push({
+      id:     'jrn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      date:   e.date,
+      type:   e.type,
+      amount: e.amount,
+      notes:  e.notes
+    });
+  });
+
+  await saveJourney();
+  closeJourneyImport();
+  renderInvJourney();
+  showInvToast(newEntries.length + ' cash flow' + (newEntries.length !== 1 ? 's' : '') + ' imported.', 'success');
 }
 
 /* ══════════════════════════════════════════════════════════

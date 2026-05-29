@@ -232,6 +232,7 @@ async function loadAllData() {
     _loadLoansConfig(),
     _loadInvestmentsConfig(),
     _loadLifestyleConfig(),
+    _loadGoalsConfig(),
   ]);
 
   _loadedYear  = year;
@@ -462,7 +463,8 @@ async function _loadInvestmentsConfig() {
   const localRaw = localStorage.getItem(localKey);
   if (localRaw) {
     const d = await decryptFromStorage(localRaw, _currentEmail);
-    if (Array.isArray(d?.investments)) APP.investments = d.investments;
+    if (Array.isArray(d)) APP.investments = d;                  // classic raw-array format
+    else if (Array.isArray(d?.investments)) APP.investments = d.investments;  // v2 wrapped format
   }
   if (_syncReady && _db) {
     try {
@@ -541,6 +543,52 @@ async function saveLifestyleConfig() {
   }
 }
 
+// ── Goals config ──────────────────────────────────────────────────────────────
+
+async function _loadGoalsConfig() {
+  const localKey = `fr_goals_${_currentUID}`;
+  const localRaw = localStorage.getItem(localKey);
+  if (localRaw) {
+    const d = await decryptFromStorage(localRaw, _currentEmail);
+    if (d && typeof d === 'object') {
+      if (Array.isArray(d.goals))           APP.goals           = d.goals;
+      if (Array.isArray(d.goalAllocations)) APP.goalAllocations = d.goalAllocations;
+    }
+  }
+  if (_syncReady && _db) {
+    try {
+      const snap = await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('goals').get();
+      if (snap.exists) {
+        const raw = snap.data()._enc || JSON.stringify(snap.data());
+        const d   = await decryptFromStorage(raw, _currentEmail);
+        if (d && typeof d === 'object') {
+          if (Array.isArray(d.goals))           APP.goals           = d.goals;
+          if (Array.isArray(d.goalAllocations)) APP.goalAllocations = d.goalAllocations;
+          localStorage.setItem(localKey, raw);
+        }
+      }
+    } catch (e) {
+      console.warn('[Sync] Goals load failed:', e);
+    }
+  }
+}
+
+async function saveGoalsConfig() {
+  if (!_currentUID) return;
+  const payload = { goals: APP.goals || [], goalAllocations: APP.goalAllocations || [] };
+  const encStr  = await encryptForStorage(payload, _currentEmail);
+  localStorage.setItem(`fr_goals_${_currentUID}`, encStr);
+  if (_syncReady && _db) {
+    try {
+      await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('goals').set({ _enc: encStr });
+    } catch (e) {
+      console.warn('[Sync] Goals save failed:', e);
+    }
+  }
+}
+
 // ── Navigation hook (called from navigate() in fr-app.js) ────────────────────
 
 function _syncOnNavigate(toScreen, fromScreen) {
@@ -602,8 +650,11 @@ async function logout() {
       { id:1, label:'HDFC CC Bill', done:false }, { id:2, label:'IDFC CC Bill', done:false },
       { id:3, label:'SC CC Bill',   done:false }, { id:4, label:'Amex CC Bill', done:false },
     ], notes: [] };
-  APP.loans       = [];
-  APP.investments = [];
+  APP.loans             = [];
+  APP.investments       = [];
+  APP.goals             = [];
+  APP.goalAllocations   = [];
+  APP.activeGoalId      = null;
 
   document.getElementById('app-layout').style.display = 'none';
   document.getElementById('login-screen').style.display = '';
