@@ -11,7 +11,6 @@ const NAV = [
   { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:null         },
   { screen:'goals',       icon:'flag',      label:'Goals',           section:null         },
   { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:'LIFESTYLE' },
-  { screen:'advisor',     icon:'bot',       label:'AI Advisor',       section:'AI'        },
 ];
 
 function navigate(screen, opts = {}) {
