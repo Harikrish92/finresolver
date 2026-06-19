@@ -24,7 +24,7 @@ function _setDrawerActive(screen) {
 }
 
 function _hideAllScreens() {
-  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen'].forEach(function(id) {
+  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -111,6 +111,18 @@ function goToLifestyle() {
       if (typeof lsRenderAll === 'function') lsRenderAll();
     });
   }
+}
+
+/** Navigate home → day planner */
+function goToDayPlanner() {
+  history.pushState({ screen: 'dayplanner' }, '');
+  _currentScreen = 'dayplanner';
+  _hideAllScreens();
+  document.getElementById('dayPlannerScreen').style.display = 'block';
+  document.getElementById('btnHamburger').style.display = 'flex';
+  var tc = document.getElementById('headerTrackerControls');
+  if (tc) tc.style.display = 'none';
+  if (typeof initDayPlanner === 'function') initDayPlanner();
 }
 
 function pfFetchLivePricesAndRender() {
@@ -1166,6 +1178,8 @@ window.addEventListener('popstate', function(e) {
     goToLifestyle();
   } else if (s === 'advisor') {
     if (typeof goToAdvisor === 'function') goToAdvisor();
+  } else if (s === 'dayplanner') {
+    goToDayPlanner();
   } else {
     goToHome();
   }
