@@ -1,0 +1,261 @@
+/* ============================================================
+   dayplanner.css — 30-minute interval Day Planner
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── Page layout ── */
+.dp-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+.dp-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.dp-title {
+  font-family: var(--font-head);
+  font-size: var(--text-h2);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.dp-date {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.dp-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ── Progress bar ── */
+.dp-progress-wrap {
+  flex: 1;
+  min-width: 160px;
+}
+
+.dp-progress-track {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: .3rem;
+}
+
+.dp-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width .4s ease;
+  width: 0%;
+}
+
+.dp-progress-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Reset button ── */
+.dp-reset-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: .4rem .9rem;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dp-reset-btn:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
+/* ── Slot list ── */
+.dp-slots {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+/* ── Individual slot ── */
+.dp-slot {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .6rem .9rem;
+  transition: background .2s, border-color .2s, opacity .2s;
+}
+
+.dp-slot.dp-past {
+  opacity: .55;
+}
+
+.dp-slot.dp-now {
+  border-color: var(--accent3);
+  background: color-mix(in srgb, var(--accent3) 8%, var(--surface));
+}
+
+.dp-slot.dp-done {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  opacity: 1;
+}
+
+.dp-slot.dp-done .dp-time {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ── Left side (check + time) ── */
+.dp-slot-left {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+
+/* ── Check button ── */
+.dp-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .75rem;
+  color: var(--accent);
+  transition: border-color .15s, background .15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.dp-check:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2));
+}
+
+.dp-slot.dp-done .dp-check {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface2));
+}
+
+/* ── Time label ── */
+.dp-time {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+/* ── NOW badge ── */
+.dp-now-badge {
+  display: inline-block;
+  background: var(--accent3);
+  color: var(--bg);
+  font-family: var(--font-body);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: .1rem .35rem;
+  border-radius: 4px;
+  vertical-align: middle;
+  animation: dp-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dp-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .6; }
+}
+
+/* ── Note input ── */
+.dp-note-wrap {
+  flex: 1;
+}
+
+.dp-note {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: .15rem .1rem;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.dp-note::placeholder {
+  color: var(--muted);
+  opacity: .6;
+}
+
+.dp-note:focus {
+  border-bottom-color: var(--border);
+}
+
+.dp-slot.dp-now .dp-note:focus {
+  border-bottom-color: var(--accent3);
+}
+
+.dp-slot.dp-done .dp-note {
+  color: var(--muted);
+}
+
+/* ── Empty state for off-hours ── */
+.dp-off-hours {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .dp-header {
+    padding: 1rem;
+  }
+
+  .dp-slot-left {
+    min-width: 80px;
+  }
+
+  .dp-time {
+    font-size: var(--text-xs);
+  }
+
+  .dp-note {
+    font-size: var(--text-xs);
+  }
+}
