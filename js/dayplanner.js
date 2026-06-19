@@ -8,6 +8,7 @@
 
   var DP_KEY = 'finresolver_dayplanner';
   var _dpTimer = null;
+  var _dpListenersAttached = false;
 
   /* ── Slot definitions: 6:00 AM → 10:00 PM, 30-min steps (32 slots) ── */
   function _dpSlots() {
@@ -154,33 +155,37 @@
     var nowRow = currentId && document.getElementById('dp-row-' + currentId);
     if (nowRow) nowRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    /* ── Delegated events ── */
-    container.addEventListener('click', function (e) {
-      var btn = e.target.closest && e.target.closest('.dp-check');
-      if (!btn) return;
-      var id  = btn.dataset.id;
-      var st  = _dpLoad();
-      if (!st[id]) st[id] = {};
-      st[id].done = !st[id].done;
-      _dpSave(st);
+    /* ── Delegated events — attach only once to avoid double-toggle on re-entry ── */
+    if (!_dpListenersAttached) {
+      _dpListenersAttached = true;
 
-      btn.textContent = st[id].done ? '✓' : '';
-      var row = document.getElementById('dp-row-' + id);
-      if (row) {
-        var s = slots.find(function (sl) { return sl.id === id; });
-        row.className = _slotClass(s, st, _nowMin(), _currentSlotId(_nowMin()));
-      }
-      _renderProgress(slots, st);
-    });
+      container.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('.dp-check');
+        if (!btn) return;
+        var id  = btn.dataset.id;
+        var st  = _dpLoad();
+        if (!st[id]) st[id] = {};
+        st[id].done = !st[id].done;
+        _dpSave(st);
 
-    container.addEventListener('input', function (e) {
-      if (!e.target.classList.contains('dp-note')) return;
-      var id  = e.target.dataset.id;
-      var st  = _dpLoad();
-      if (!st[id]) st[id] = {};
-      st[id].note = e.target.value;
-      _dpSave(st);
-    });
+        btn.textContent = st[id].done ? '✓' : '';
+        var row = document.getElementById('dp-row-' + id);
+        if (row) {
+          var s = slots.find(function (sl) { return sl.id === id; });
+          row.className = _slotClass(s, st, _nowMin(), _currentSlotId(_nowMin()));
+        }
+        _renderProgress(slots, st);
+      });
+
+      container.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('dp-note')) return;
+        var id  = e.target.dataset.id;
+        var st  = _dpLoad();
+        if (!st[id]) st[id] = {};
+        st[id].note = e.target.value;
+        _dpSave(st);
+      });
+    }
   }
 
   /* ── Public: reset ── */

@@ -296,6 +296,18 @@ function renderHomeDashboard() {
     lsEl.textContent = lsStat || '—';
   }
 
+  // Day planner stat — count of slots checked off today
+  const dpEl = document.getElementById('homeStatDayplanner');
+  if (dpEl) {
+    try {
+      const dpState = JSON.parse(localStorage.getItem('finresolver_dayplanner')) || {};
+      const dpDone  = Object.values(dpState).filter(function(v) { return v && v.done; }).length;
+      dpEl.textContent = dpDone > 0 ? dpDone + ' / 32' : '—';
+    } catch(e) {
+      dpEl.textContent = '—';
+    }
+  }
+
   // Month quick summary
 }
 
