@@ -7,6 +7,11 @@ let _adv2Snap     = null; // cached financial snapshot
 let _adv2Insights = null; // cached insights HTML (null = not yet loaded)
 let _adv2Loading  = false;
 
+// Pro subscription state (server-funded advisor, no BYOK key needed)
+let _adv2Pro         = null; // { active, expiry } — null = not loaded yet
+let _adv2ProWatchUnsub = null;
+const ADV2_PRO_PRICE_LABEL = '₹999/year';
+
 const ADV2_MODEL   = 'claude-sonnet-4-6';
 const ADV2_MAX_TOK = 1000;
 const ADV2_SYSTEM  =
@@ -159,9 +164,121 @@ async function _adv2PersistKey(key) {
   }
 }
 
+// ── PRO SUBSCRIPTION STATUS ────────────────────────────────────────────────────
+function _adv2ProActive() {
+  return !!(_adv2Pro && _adv2Pro.active);
+}
+
+async function _adv2LoadProStatus() {
+  const uid = _adv2Uid();
+  if (uid === 'guest' || typeof _db === 'undefined' || !_db) {
+    _adv2Pro = { active: false, expiry: null };
+    return _adv2Pro;
+  }
+  try {
+    const snap = await _db.collection('users').doc(uid).get();
+    const d = snap.exists ? snap.data() : {};
+    const expiryMs = d && d.proExpiry && typeof d.proExpiry.toMillis === 'function'
+      ? d.proExpiry.toMillis() : null;
+    const active = !!(d && d.pro === true && expiryMs && expiryMs > Date.now());
+    _adv2Pro = { active, expiry: expiryMs };
+  } catch(e) {
+    _adv2Pro = { active: false, expiry: null };
+  }
+  return _adv2Pro;
+}
+
+/* Live-watches the user doc after a payment redirect so Pro activates the
+   moment the Razorpay webhook lands, without a manual refresh. */
+function _adv2WatchProActivation() {
+  const uid = _adv2Uid();
+  if (uid === 'guest' || typeof _db === 'undefined' || !_db) return;
+  if (_adv2ProWatchUnsub) return; // already watching
+
+  _showToast('Payment received — activating Pro…');
+
+  const deadline = Date.now() + 60000; // stop watching after 60s
+  _adv2ProWatchUnsub = _db.collection('users').doc(uid).onSnapshot(async (snap) => {
+    const d = snap.exists ? snap.data() : {};
+    const expiryMs = d && d.proExpiry && typeof d.proExpiry.toMillis === 'function'
+      ? d.proExpiry.toMillis() : null;
+    const active = !!(d && d.pro === true && expiryMs && expiryMs > Date.now());
+    if (active) {
+      _adv2Pro = { active, expiry: expiryMs };
+      _adv2ProWatchUnsub();
+      _adv2ProWatchUnsub = null;
+      _showToast('🎉 AI Advisor Pro activated!');
+      if (_screen === 'advisor') navigate('advisor');
+    } else if (Date.now() > deadline) {
+      _adv2ProWatchUnsub();
+      _adv2ProWatchUnsub = null;
+    }
+  });
+}
+
+/* Calls the createProPaymentLink Cloud Function and redirects to the
+   Razorpay UPI-only checkout page. */
+async function _adv2StartUpgrade() {
+  if (typeof _functions === 'undefined' || !_functions) {
+    _showToast('Payments are not configured yet.');
+    return;
+  }
+  try {
+    const call = _functions.httpsCallable('createProPaymentLink');
+    const { data } = await call();
+    if (data && data.url) {
+      window.location.href = data.url;
+    } else {
+      _showToast('Could not start payment. Please try again.');
+    }
+  } catch(e) {
+    _showToast((e && e.message) || 'Could not start payment.');
+  }
+}
+
+function _adv2OpenProModal() {
+  openModal(`
+    <div class="modal-hd">
+      <div class="modal-title">✨ AI Advisor Pro</div>
+      <button class="modal-close" onclick="closeModal()">${ic('x',14)}</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
+      <p style="font-size:13px;color:var(--t2);line-height:1.7;margin:0">
+        Go Pro and FinResolver funds your AI Advisor for you — no Anthropic API key needed.
+        One-time payment, valid for 1 year.
+      </p>
+      <div style="font-family:var(--font-d);font-size:26px;font-weight:700;color:var(--t1)">
+        ${ADV2_PRO_PRICE_LABEL}
+      </div>
+      <div style="font-size:12px;color:var(--t3)">Pay securely via UPI (GPay, PhonePe, Paytm, or any UPI app) through Razorpay.</div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal()">Not now</button>
+      <button class="btn btn-primary" onclick="_adv2StartUpgrade()">Pay with UPI</button>
+    </div>
+  `);
+}
+
 // ── CLAUDE API ────────────────────────────────────────────────────────────────
+/* Pro users are server-funded via the advisorProxy Cloud Function — the
+   client never sees or needs an Anthropic key. */
+async function _adv2CallViaProxy(messages) {
+  const call = _functions.httpsCallable('advisorProxy');
+  try {
+    const { data } = await call({ system: ADV2_SYSTEM, messages });
+    return (data && data.text) || '';
+  } catch(e) {
+    if (e && e.code === 'functions/resource-exhausted') throw new Error('RATE_LIMIT');
+    throw new Error((e && e.message) || 'API_ERROR');
+  }
+}
+
 /* One-shot call — does not touch conversation history */
 async function _adv2CallRaw(userContent) {
+  if (_adv2ProActive()) {
+    return _adv2CallViaProxy([{ role: 'user', content: userContent }]);
+  }
+
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -188,6 +305,18 @@ async function _adv2CallRaw(userContent) {
 async function _adv2CallChat(userContent) {
   _adv2History.push({ role: 'user', content: userContent });
   if (_adv2History.length > 6) _adv2History.shift();
+
+  if (_adv2ProActive()) {
+    try {
+      const answer = await _adv2CallViaProxy(_adv2History);
+      _adv2History.push({ role: 'assistant', content: answer });
+      if (_adv2History.length > 6) _adv2History.shift();
+      return answer;
+    } catch(e) {
+      _adv2History.pop();
+      throw e;
+    }
+  }
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -310,11 +439,12 @@ async function _adv2LoadInsights() {
 
   if (_adv2Insights) { el.innerHTML = _adv2Insights; return; }
 
-  if (!_adv2ApiKey) {
+  if (!_adv2ApiKey && !_adv2ProActive()) {
     _adv2Insights =
       '<div class="adv2-ic adv2-ic-neutral">' +
       '<span class="adv2-ic-icon">📊</span>' +
-      '<div class="adv2-ic-text" style="color:var(--t3)">Enter your Anthropic API key via the Settings button to see personalized insights.</div>' +
+      '<div class="adv2-ic-text" style="color:var(--t3)">Enter your Anthropic API key via Settings, or ' +
+      '<a href="#" onclick="_adv2OpenProModal();return false" style="color:var(--purple)">go Pro</a> to see personalized insights.</div>' +
       '</div>';
     el.innerHTML = _adv2Insights;
     return;
@@ -359,7 +489,9 @@ async function _adv2LoadInsights() {
   } catch(e) {
     const msg = e.message === 'RATE_LIMIT'
       ? 'Rate limited — please wait a moment.'
-      : 'Could not load insights. Check your API key in Settings.';
+      : _adv2ProActive()
+        ? 'Could not load insights. Please try again shortly.'
+        : 'Could not load insights. Check your API key in Settings.';
     el.innerHTML =
       '<div class="adv2-ic adv2-ic-neutral"><span class="adv2-ic-icon">⚠️</span>' +
       '<div class="adv2-ic-text" style="color:var(--t3)">' + msg + '</div></div>';
@@ -372,7 +504,7 @@ async function adv2Send(text) {
   const inp = document.getElementById('adv2-input');
   const msg = (text || (inp && inp.value) || '').trim();
   if (!msg) return;
-  if (!_adv2ApiKey) { _adv2OpenKeyModal(); return; }
+  if (!_adv2ApiKey && !_adv2ProActive()) { _adv2OpenKeyModal(); return; }
 
   if (inp) { inp.value = ''; inp.style.height = 'auto'; }
   _adv2Loading = true;
@@ -397,7 +529,9 @@ async function adv2Send(text) {
     _adv2SetTyping(false);
     const em = e.message === 'RATE_LIMIT'
       ? 'Please wait a moment before asking again.'
-      : "Couldn't reach the advisor. Check your API key in ⚙ Settings.";
+      : _adv2ProActive()
+        ? "Couldn't reach the advisor. Please try again shortly."
+        : "Couldn't reach the advisor. Check your API key in ⚙ Settings.";
     _adv2ShowErr(em);
   } finally {
     _adv2Loading = false;
@@ -490,6 +624,13 @@ async function _adv2ConfirmKey() {
 
 // ── SCREEN RENDER ENTRY POINT ─────────────────────────────────────────────────
 async function renderAdvisor(el) {
+  await _adv2LoadProStatus();
+
+  if (location.search.includes('pro=pending')) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (!_adv2ProActive()) _adv2WatchProActivation();
+  }
+
   const hasData = APP.investments.length > 0
     || APP.loans.length > 0
     || APP.monthly.expenses.length > 0
@@ -534,6 +675,9 @@ async function renderAdvisor(el) {
         <div class="sh-sub">Personalized insights powered by Claude AI</div>
       </div>
       <div class="sh-r">
+        ${_adv2ProActive()
+          ? '<span class="adv2-pro-badge">✨ Pro</span>'
+          : '<button class="btn btn-primary btn-sm" onclick="_adv2OpenProModal()">✨ Go Pro</button>'}
         <button class="btn btn-ghost btn-sm" onclick="_adv2OpenKeyModal()">${ic('settings',12)} API Key</button>
       </div>
     </div>
@@ -614,7 +758,7 @@ async function renderAdvisor(el) {
   await _adv2LoadKey();
   _adv2LoadInsights(); // async, don't block render
 
-  if (!_adv2ApiKey) {
+  if (!_adv2ApiKey && !_adv2ProActive()) {
     setTimeout(_adv2OpenKeyModal, 350);
   }
 }

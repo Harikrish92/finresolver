@@ -67,6 +67,70 @@ That's it — no backend required. The GIS library handles the full OAuth flow.
 
 ---
 
+## ✨ AI Advisor Pro — UPI Payment Setup (v2 only, one-time)
+
+The v2 AI Advisor is BYOK by default (users paste their own Anthropic key).
+**Pro** removes that requirement — FinResolver funds the Advisor for Pro users
+after they pay a one-time UPI charge via a Razorpay **UPI-only Payment Link**.
+Since the site itself is static (GitHub Pages), this needs three small
+Firebase Cloud Functions in `functions/` to create the payment link, verify
+Razorpay's webhook, and proxy Claude calls for Pro users only.
+
+### 1. Upgrade the Firebase project to Blaze
+
+Cloud Functions that make outbound network calls (to Razorpay/Anthropic)
+require the pay-as-you-go **Blaze** plan. Firebase Console → your project →
+Upgrade.
+
+### 2. Get Razorpay credentials
+
+1. Create/sign in to a [Razorpay](https://razorpay.com) account and complete KYC.
+2. Dashboard → **Settings → API Keys** → generate `Key Id` / `Key Secret`.
+3. Dashboard → **Settings → Webhooks** → add a webhook (URL from step 4 below),
+   subscribe to the `payment_link.paid` event, and copy the **Webhook Secret**.
+
+### 3. Set the Cloud Functions secrets
+
+```bash
+cd functions && npm install
+firebase use --add          # pick your Firebase project (creates .firebaserc)
+firebase functions:secrets:set RAZORPAY_KEY_ID
+firebase functions:secrets:set RAZORPAY_KEY_SECRET
+firebase functions:secrets:set RAZORPAY_WEBHOOK_SECRET
+firebase functions:secrets:set ANTHROPIC_API_KEY   # FinResolver's own key, funds Pro usage
+```
+
+### 4. Deploy and register the webhook
+
+```bash
+firebase deploy --only functions
+```
+
+Copy the deployed `razorpayWebhook` URL (printed after deploy, looks like
+`https://<region>-<project>.cloudfunctions.net/razorpayWebhook`) into the
+Razorpay webhook you created in step 2.
+
+### 5. Lock down the billing fields in Firestore
+
+Add this to your Firestore security rules so a signed-in client can never
+set their own `pro` flag directly — only the Cloud Functions (Admin SDK,
+which bypasses rules) may write it:
+
+```
+match /users/{uid} {
+  allow read: if request.auth.uid == uid;
+  allow write: if request.auth.uid == uid
+    && !('pro' in request.resource.data.diff(resource.data).affectedKeys())
+    && !('proExpiry' in request.resource.data.diff(resource.data).affectedKeys())
+    && !('proPaymentId' in request.resource.data.diff(resource.data).affectedKeys());
+}
+```
+
+Pricing and validity period (`PRO_PRICE_PAISE`, `PRO_DURATION_DAYS`) live at
+the top of `functions/index.js`.
+
+---
+
 ## 🗄️ Data Storage
 
 Data is stored in the browser's `localStorage` with this key structure:

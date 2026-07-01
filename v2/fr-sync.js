@@ -21,6 +21,7 @@ const _GOOGLE_CID  = _FR_CONFIG.googleClientId || '';
 
 let _db          = null;
 let _fbAuth      = null;
+let _functions   = null;
 let _syncReady   = false;
 let _currentUID  = null;
 let _currentEmail = null;
@@ -88,11 +89,13 @@ function _initFirebase() {
   const BASE = 'https://www.gstatic.com/firebasejs/10.12.2';
   _loadScript(`${BASE}/firebase-app-compat.js`, () =>
     _loadScript(`${BASE}/firebase-auth-compat.js`, () =>
-      _loadScript(`${BASE}/firebase-firestore-compat.js`, () => {
+      _loadScript(`${BASE}/firebase-firestore-compat.js`, () =>
+      _loadScript(`${BASE}/firebase-functions-compat.js`, () => {
         try {
           if (!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
-          _fbAuth = firebase.auth();
-          _db     = firebase.firestore();
+          _fbAuth    = firebase.auth();
+          _db        = firebase.firestore();
+          _functions = firebase.functions();
           console.info('[Sync] Firebase ready:', _FB_CONFIG.projectId);
 
           _fbAuth.onAuthStateChanged(async fbUser => {
@@ -126,6 +129,7 @@ function _initFirebase() {
           setSyncBadge('offline');
         }
       })
+      )
     )
   );
 }

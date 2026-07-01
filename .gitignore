@@ -11,3 +11,8 @@ js/config.js
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Firebase Cloud Functions
+functions/node_modules/
+.firebaserc
+firebase-debug.log

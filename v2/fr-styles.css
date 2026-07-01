@@ -2091,6 +2091,20 @@ body {
    AI ADVISOR MODULE
 ═══════════════════════════════════════════════════════════ */
 
+/* ── Pro badge ── */
+.adv2-pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple);
+  background: var(--p10);
+  border: 1px solid rgba(168,124,255,.35);
+  border-radius: 999px;
+  padding: .3rem .75rem;
+}
+
 /* ── Empty state ── */
 .adv2-empty {
   display: flex;
