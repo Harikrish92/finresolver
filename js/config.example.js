@@ -21,4 +21,6 @@ window.FINRESOLVER_CONFIG = {
     messagingSenderId: 'YOUR_SENDER_ID',
     appId:             'YOUR_APP_ID',
   },
+  // Base URL of the deployed web-functions/ Vercel project (AI Advisor Pro backend)
+  apiBase: 'https://YOUR_PROJECT.vercel.app',
 };

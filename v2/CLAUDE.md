@@ -13,6 +13,7 @@ Static HTML/CSS/JS SPA (no build step, no npm). See root `js/config.js` for Fire
 | `fr-modals.js` | 811 | All modal forms: edit entry, add expense/income/investment/loan, import modals |
 | `fr-sync.js` | 548 | Firebase init, Google GIS + One Tap auth, Firestore CRUD, schema bridge (v1↔v2 keys), `_syncOnNavigate` hook, sync badge |
 | `fr-tweaks.js` | 163 | Tweaks panel (accent color, density, theme, live indicator) |
+| `fr-advisor.js` | — | AI Advisor screen (`renderAdvisor`, `adv2Send`), BYOK key management, and Pro subscription gating (`_adv2ProActive`, `_adv2StartUpgrade`, `_adv2WatchProActivation`) |
 
 ## Key patterns
 
@@ -36,3 +37,5 @@ Static HTML/CSS/JS SPA (no build step, no npm). See root `js/config.js` for Fire
 **Charts:** `makeChart(canvasId, config)` in `fr-app.js` wraps Chart.js, applies dark-theme defaults, and registers instances in `_chartInstances` for cleanup on navigation.
 
 **Loan-payment sync:** When a loan EMI is logged in Monthly Tracker, `autoLogLoanPayment()` mirrors it as a payment in `APP.loans[].payments[]`. Delete/edit is mirrored via `autoRemoveLoanPayment` / `autoUpdateLoanPayment`.
+
+**AI Advisor Pro (UPI):** Free users are BYOK (own Anthropic key, stored in Firestore/localStorage, called directly from the browser). Pro users pay a one-time UPI charge via a Razorpay Payment Link, created by `POST /api/create-pro-payment-link` (backend: `../web-functions/`, a Next.js API app deployed to Vercel's free plan — not Firebase Cloud Functions, which require the paid Blaze plan). A webhook (`/api/razorpay-webhook`) verifies the payment and sets `users/{uid}.pro`/`proExpiry` in Firestore via `firebase-admin`; Pro chat/insight calls go through `/api/advisor-proxy` (auth'd with the caller's Firebase ID token) instead of hitting `api.anthropic.com` directly, so the app's own Anthropic key is never exposed to the client. `_FR_CONFIG.apiBase` (from `js/config.js`) points at the deployed Vercel URL. See root `README.md` → "AI Advisor Pro — UPI Payment Setup" for the one-time backend setup.

@@ -67,6 +67,73 @@ That's it — no backend required. The GIS library handles the full OAuth flow.
 
 ---
 
+## ✨ AI Advisor Pro — UPI Payment Setup (v2 only, one-time)
+
+The v2 AI Advisor is BYOK by default (users paste their own Anthropic key).
+**Pro** removes that requirement — FinResolver funds the Advisor for Pro users
+after they pay a one-time UPI charge via a Razorpay **UPI-only Payment Link**.
+Since the site itself is static (GitHub Pages), this needs a tiny backend to
+create the payment link, verify Razorpay's webhook, and proxy Claude calls for
+Pro users only. That backend lives in `web-functions/` (a minimal Next.js app,
+API routes only) and deploys to **Vercel's free Hobby plan — no billing plan
+or credit card required.**
+
+### 1. Get Razorpay credentials
+
+1. Create/sign in to a [Razorpay](https://razorpay.com) account and complete KYC.
+2. Dashboard → **Settings → API Keys** → generate `Key Id` / `Key Secret`.
+3. Dashboard → **Settings → Webhooks** → add a webhook (URL from step 4 below),
+   subscribe to the `payment_link.paid` event, and copy the **Webhook Secret**.
+
+### 2. Get a Firebase service account (for the backend to read/write Firestore)
+
+Firebase Console → Project Settings → **Service Accounts** → Generate new
+private key. This downloads a JSON file with `project_id`, `client_email`,
+and `private_key` — you'll paste these into Vercel in the next step.
+
+### 3. Deploy `web-functions/` to Vercel
+
+1. [vercel.com](https://vercel.com) → **New Project** → import this repo.
+2. Set **Root Directory** to `web-functions` (Framework Preset: Next.js,
+   auto-detected).
+3. Add these **Environment Variables** (Project Settings → Environment Variables):
+   - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+     (from the service account JSON in step 2 — see `web-functions/.env.example`
+     for the exact format, especially the `\n` newlines in the private key)
+   - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
+   - `ANTHROPIC_API_KEY` — FinResolver's own key, funds Pro usage
+   - `ALLOWED_ORIGIN` — e.g. `https://finresolver.in`
+4. Deploy. Note the resulting URL, e.g. `https://finresolver-api.vercel.app`.
+
+### 4. Register the webhook and wire up the frontend
+
+- Paste `https://<your-project>.vercel.app/api/razorpay-webhook` into the
+  Razorpay webhook created in step 1.
+- Set `apiBase` in `js/config.js` (or the `API_BASE_URL` repo **Variable** —
+  not secret — used by the CI workflow) to that same Vercel URL.
+
+### 5. Lock down the billing fields in Firestore
+
+Add this to your Firestore security rules so a signed-in client can never
+set their own `pro` flag directly — only the backend (Admin SDK, which
+bypasses rules) may write it:
+
+```
+match /users/{uid} {
+  allow read: if request.auth.uid == uid;
+  allow write: if request.auth.uid == uid
+    && !('pro' in request.resource.data.diff(resource.data).affectedKeys())
+    && !('proExpiry' in request.resource.data.diff(resource.data).affectedKeys())
+    && !('proPaymentId' in request.resource.data.diff(resource.data).affectedKeys());
+}
+```
+
+Pricing and validity period (`PRO_PRICE_PAISE`, `PRO_DURATION_DAYS`) live at
+the top of `web-functions/pages/api/create-pro-payment-link.js` and
+`razorpay-webhook.js`.
+
+---
+
 ## 🗄️ Data Storage
 
 Data is stored in the browser's `localStorage` with this key structure:
