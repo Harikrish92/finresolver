@@ -1,0 +1,16 @@
+{
+  "name": "finresolver-api",
+  "description": "FinResolver AI Advisor Pro backend — deployed to Vercel's free Hobby plan (no billing/Blaze upgrade required)",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "firebase-admin": "^12.6.0"
+  }
+}

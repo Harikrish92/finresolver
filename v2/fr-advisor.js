@@ -216,16 +216,37 @@ function _adv2WatchProActivation() {
   });
 }
 
-/* Calls the createProPaymentLink Cloud Function and redirects to the
+/* Calls the FinResolver API (Vercel) with the caller's Firebase ID token. */
+async function _adv2ApiFetch(path, body) {
+  const base = (_FR_CONFIG && _FR_CONFIG.apiBase) || '';
+  if (!base) throw new Error('API_NOT_CONFIGURED');
+
+  const user = (typeof _fbAuth !== 'undefined' && _fbAuth) ? _fbAuth.currentUser : null;
+  if (!user) throw new Error('NOT_SIGNED_IN');
+  const idToken = await user.getIdToken();
+
+  const resp = await fetch(base + path, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': 'Bearer ' + idToken,
+    },
+    body: JSON.stringify(body || {})
+  });
+
+  const data = await resp.json().catch(function(){ return {}; });
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error('RATE_LIMIT');
+    throw new Error(data.error || 'API_ERROR');
+  }
+  return data;
+}
+
+/* Calls the createProPaymentLink API and redirects to the
    Razorpay UPI-only checkout page. */
 async function _adv2StartUpgrade() {
-  if (typeof _functions === 'undefined' || !_functions) {
-    _showToast('Payments are not configured yet.');
-    return;
-  }
   try {
-    const call = _functions.httpsCallable('createProPaymentLink');
-    const { data } = await call();
+    const data = await _adv2ApiFetch('/api/create-pro-payment-link');
     if (data && data.url) {
       window.location.href = data.url;
     } else {
@@ -260,17 +281,11 @@ function _adv2OpenProModal() {
 }
 
 // ── CLAUDE API ────────────────────────────────────────────────────────────────
-/* Pro users are server-funded via the advisorProxy Cloud Function — the
-   client never sees or needs an Anthropic key. */
+/* Pro users are server-funded via the advisorProxy API — the client never
+   sees or needs an Anthropic key. */
 async function _adv2CallViaProxy(messages) {
-  const call = _functions.httpsCallable('advisorProxy');
-  try {
-    const { data } = await call({ system: ADV2_SYSTEM, messages });
-    return (data && data.text) || '';
-  } catch(e) {
-    if (e && e.code === 'functions/resource-exhausted') throw new Error('RATE_LIMIT');
-    throw new Error((e && e.message) || 'API_ERROR');
-  }
+  const data = await _adv2ApiFetch('/api/advisor-proxy', { system: ADV2_SYSTEM, messages });
+  return (data && data.text) || '';
 }
 
 /* One-shot call — does not touch conversation history */
