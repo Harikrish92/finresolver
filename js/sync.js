@@ -325,6 +325,38 @@ async function syncLoadConfig(uid) {
       .catch(e => console.warn('[Sync] Lifestyle load failed:', e.message))
   );
 
+  // ── Day Planner config (schedule window set up on first use) ──
+  promises.push(
+    db.collection('users').doc(uid).collection('config').doc('dayplanner').get()
+      .then(async snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        let cfg;
+        if (d._enc) {
+          const dec = await decryptFromStorage(d._enc, email);
+          cfg = dec;
+        } else {
+          cfg = d;
+        }
+        if (!cfg || !cfg.slotMinutes || !(cfg.toMin > cfg.fromMin)) return;
+        localStorage.setItem('fr_dayplanner_cfg_' + uid, await encryptForStorage(cfg, email));
+        console.info('[Sync] ✅ Day Planner config loaded from Firestore');
+      })
+      .catch(e => console.warn('[Sync] Day Planner config load failed:', e.message))
+  );
+
+  // ── Pro subscription ──
+  promises.push(
+    db.collection('users').doc(uid).collection('subscription').doc('pro').get()
+      .then(async snap => {
+        if (!snap.exists) return;
+        const sub = snap.data();
+        if (typeof ProManager !== 'undefined') ProManager.setStatus(sub);
+        console.info('[Sync] ✅ Pro subscription loaded');
+      })
+      .catch(e => console.warn('[Sync] Pro subscription load failed:', e.message))
+  );
+
   await Promise.all(promises);
 
   // Hide the home screen loader now that all cloud data has been fetched

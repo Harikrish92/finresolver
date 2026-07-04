@@ -61,6 +61,42 @@
 .home-nav-card.loan      { --card-accent: var(--accent3); --card-glow: radial-gradient(ellipse at top, rgba(255,209,102,.06), transparent 70%); }
 .home-nav-card.portfolio { --card-accent: var(--purple);  --card-glow: radial-gradient(ellipse at top, rgba(167,139,250,.06), transparent 70%); }
 .home-nav-card.lifestyle { --card-accent: var(--accent2); --card-glow: radial-gradient(ellipse at top, rgba(255,107,107,.06), transparent 70%); }
+.home-nav-card.trackerhub { --card-accent: var(--accent);  --card-glow: radial-gradient(ellipse at top, rgba(0,229,160,.06), transparent 70%); }
+.home-nav-card.plannerhub { --card-accent: var(--accent3); --card-glow: radial-gradient(ellipse at top, rgba(255,209,102,.06), transparent 70%); }
+.home-nav-card.advisorhub { --card-accent: var(--purple);  --card-glow: radial-gradient(ellipse at top, rgba(167,139,250,.06), transparent 70%); }
+
+/* ── Hub screens (Tracker / Planner sub-nav): same page frame as #homeScreen/#portfolioScreen ── */
+#trackerHubScreen, #plannerHubScreen {
+  display: none;
+  position: relative; z-index: 1;
+  max-width: 1400px; margin: 0 auto;
+  padding: 1.75rem 1.5rem 5rem;
+}
+
+/* ── Top-level hub cards: slightly larger, roomier than sub-cards ── */
+.home-hub-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  max-width: 900px;
+}
+
+/* Cap card width so a low card count (e.g. 2-card Planner hub) doesn't stretch
+   cards edge-to-edge across the full row. */
+#trackerHubScreen .home-nav-grid, #plannerHubScreen .home-nav-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 260px));
+  justify-content: center;
+}
+.home-hub-grid .home-nav-card { padding: 2.5rem 1.75rem; }
+.home-hub-grid .home-nav-icon { font-size: 2.6rem; }
+.home-hub-grid .home-nav-title { font-size: 1.05rem; }
+
+/* ── Hub screen back-to-home button ── */
+.hub-back-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  font-family: var(--font-mono); font-size: .72rem; padding: .32rem .7rem;
+  border-radius: 6px; cursor: pointer; margin-bottom: .75rem;
+  transition: border-color .15s, color .15s;
+}
+.hub-back-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .home-nav-card.coming-soon {
   opacity: .5; cursor: default;

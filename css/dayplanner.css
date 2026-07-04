@@ -34,6 +34,51 @@
   font-size: var(--text-sm);
 }
 
+/* ── Date navigation (prev / next / today) ── */
+.dp-date-nav {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.dp-date-arrow {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: .85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, color .15s;
+  padding: 0;
+}
+
+.dp-date-arrow:hover {
+  border-color: var(--accent3);
+  color: var(--accent3);
+}
+
+.dp-today-btn {
+  background: transparent;
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  font-family: var(--font-body);
+  font-size: .68rem;
+  font-weight: 600;
+  padding: .2rem .6rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+
+.dp-today-btn:hover { opacity: .8; }
+.dp-today-btn.hidden { display: none; }
+
 .dp-header-row {
   display: flex;
   align-items: center;
@@ -233,6 +278,35 @@
   color: var(--muted);
 }
 
+/* ── Repeat-daily toggle ── */
+.dp-repeat {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .75rem;
+  opacity: .4;
+  transition: opacity .15s, border-color .15s, background .15s;
+  padding: 0;
+}
+
+.dp-repeat:hover {
+  opacity: .85;
+  border-color: var(--accent3);
+}
+
+.dp-repeat.active {
+  opacity: 1;
+  border-color: var(--accent3);
+  background: color-mix(in srgb, var(--accent3) 18%, var(--surface2));
+}
+
 /* ── Empty state for off-hours ── */
 .dp-off-hours {
   text-align: center;
@@ -240,6 +314,79 @@
   color: var(--muted);
   font-size: var(--text-sm);
 }
+
+/* ── First-time setup modal ── */
+.dp-modal-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(7,10,16,.72); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  animation: fadeUp .2s ease both;
+}
+.dp-modal-overlay.hidden { display: none; }
+
+.dp-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 0;
+  width: 100%; max-width: 420px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  animation: fadeUp .25s ease both;
+}
+
+.dp-modal-header {
+  padding: 1.1rem 1.4rem .9rem; border-bottom: 1px solid var(--border);
+}
+.dp-modal-title {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+  color: var(--text);
+}
+
+.dp-modal-body {
+  padding: 1.25rem 1.4rem;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+.dp-modal-desc {
+  font-size: var(--text-sm); color: var(--muted); line-height: 1.6;
+}
+
+.dp-modal-footer {
+  display: flex; justify-content: flex-end; gap: .65rem;
+  padding: .9rem 1.4rem 1.1rem; border-top: 1px solid var(--border);
+}
+
+.dp-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.dp-form-field { display: flex; flex-direction: column; gap: .3rem; }
+.dp-form-label {
+  font-size: .68rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted);
+}
+.dp-form-input {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .5rem .75rem;
+  font-size: var(--text-sm); color: var(--text);
+  font-family: var(--font-body); width: 100%;
+  transition: border-color .15s;
+  outline: none;
+}
+.dp-form-input:focus { border-color: var(--accent3); }
+select.dp-form-input { cursor: pointer; }
+select.dp-form-input option { background: var(--surface); }
+
+.dp-setup-error {
+  font-size: var(--text-xs); color: var(--accent2);
+  background: rgba(255,107,107,.08); border: 1px solid rgba(255,107,107,.3);
+  border-radius: 8px; padding: .5rem .75rem;
+}
+
+.dp-btn-primary {
+  padding: .5rem 1.25rem; font-size: var(--text-sm); font-weight: 600;
+  background: var(--accent3); color: var(--bg); border: none;
+  border-radius: 8px; cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity .15s, transform .1s;
+}
+.dp-btn-primary:hover { opacity: .88; transform: translateY(-1px); }
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
@@ -257,5 +404,11 @@
 
   .dp-note {
     font-size: var(--text-xs);
+  }
+
+  .dp-repeat {
+    width: 22px;
+    height: 22px;
+    font-size: .65rem;
   }
 }

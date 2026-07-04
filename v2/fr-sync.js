@@ -233,6 +233,7 @@ async function loadAllData() {
     _loadInvestmentsConfig(),
     _loadLifestyleConfig(),
     _loadGoalsConfig(),
+    _loadDayPlannerConfig(),
   ]);
 
   _loadedYear  = year;
@@ -543,6 +544,49 @@ async function saveLifestyleConfig() {
   }
 }
 
+// ── Day Planner config (schedule window) ─────────────────────────────────────
+// Same Firestore path as classic v1 UI (users/{uid}/config/dayplanner), so a
+// user's schedule window is shared between Classic and Modern.
+
+async function _loadDayPlannerConfig() {
+  const localKey = `fr_dayplanner_cfg_${_currentUID}`;
+  const localRaw = localStorage.getItem(localKey);
+  if (localRaw) {
+    const d = await decryptFromStorage(localRaw, _currentEmail);
+    if (d && d.slotMinutes && d.toMin > d.fromMin) APP.dayplanner.config = d;
+  }
+  if (_syncReady && _db) {
+    try {
+      const snap = await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('dayplanner').get();
+      if (snap.exists) {
+        const raw = snap.data()._enc || JSON.stringify(snap.data());
+        const d   = await decryptFromStorage(raw, _currentEmail);
+        if (d && d.slotMinutes && d.toMin > d.fromMin) {
+          APP.dayplanner.config = d;
+          localStorage.setItem(localKey, raw);
+        }
+      }
+    } catch (e) {
+      console.warn('[Sync] Day Planner config load failed:', e);
+    }
+  }
+}
+
+async function saveDayPlannerConfig() {
+  if (!_currentUID || !APP.dayplanner.config) return;
+  const encStr = await encryptForStorage(APP.dayplanner.config, _currentEmail);
+  localStorage.setItem(`fr_dayplanner_cfg_${_currentUID}`, encStr);
+  if (_syncReady && _db) {
+    try {
+      await _db.collection('users').doc(_currentUID)
+        .collection('config').doc('dayplanner').set({ _enc: encStr });
+    } catch (e) {
+      console.warn('[Sync] Day Planner config save failed:', e);
+    }
+  }
+}
+
 // ── Goals config ──────────────────────────────────────────────────────────────
 
 async function _loadGoalsConfig() {
@@ -655,6 +699,7 @@ async function logout() {
   APP.goals             = [];
   APP.goalAllocations   = [];
   APP.activeGoalId      = null;
+  APP.dayplanner        = { config: null, slots: {} };
 
   document.getElementById('app-layout').style.display = 'none';
   document.getElementById('login-screen').style.display = '';

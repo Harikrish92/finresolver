@@ -203,6 +203,23 @@ body {
   color: var(--accent)
 }
 
+.nav-item.disabled {
+  cursor: default;
+  opacity: .5;
+  pointer-events: none
+}
+
+.nav-upcoming {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--s3);
+  color: var(--t3);
+  border: 1px solid var(--b)
+}
+
 .ni {
   width: 18px;
   height: 18px;
@@ -1342,6 +1359,14 @@ body {
   transform: translateY(-2px)
 }
 
+.dash-card-upcoming {
+  opacity: .6
+}
+
+.dash-card-upcoming:hover {
+  transform: none
+}
+
 .dash-icon {
   width: 38px;
   height: 38px;
@@ -1978,6 +2003,11 @@ body {
 
 .bnav-item.active {
   color: var(--accent)
+}
+
+.bnav-item.disabled {
+  opacity: .5;
+  pointer-events: none
 }
 
 .bnav-item svg {
@@ -2664,3 +2694,143 @@ body {
     grid-template-columns: 1fr
   }
 }
+
+/* ── DAY PLANNER ─────────────────────────────────── */
+.dpv2-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px
+}
+
+.dpv2-slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--s1);
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  padding: 9px 14px;
+  transition: background .2s, border-color .2s, opacity .2s
+}
+
+.dpv2-slot.done {
+  border-color: var(--accent);
+  background: var(--a10)
+}
+
+.dpv2-slot.done .dpv2-time {
+  text-decoration: line-through;
+  color: var(--t3)
+}
+
+.dpv2-slot.now {
+  border-color: var(--gold);
+  background: rgba(255, 201, 71, .06)
+}
+
+.dpv2-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--b2);
+  background: var(--s2);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0
+}
+
+.dpv2-slot.done .dpv2-check {
+  border-color: var(--accent);
+  background: var(--a20)
+}
+
+.dpv2-time {
+  font-family: var(--font-m);
+  font-size: 12.5px;
+  color: var(--t1);
+  white-space: nowrap;
+  min-width: 82px;
+  display: flex;
+  align-items: center;
+  gap: 6px
+}
+
+.dpv2-now-badge {
+  background: var(--gold);
+  color: #1a1400;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  border-radius: 4px
+}
+
+.dpv2-note {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 12.5px;
+  padding: 2px 0;
+  outline: none;
+  transition: border-color .2s
+}
+
+.dpv2-note:focus { border-bottom-color: var(--b3) }
+.dpv2-note::placeholder { color: var(--t3) }
+
+.dpv2-repeat {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--b2);
+  background: var(--s2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: .4;
+  transition: opacity .15s, border-color .15s, background .15s;
+  padding: 0
+}
+
+.dpv2-repeat:hover { opacity: .85; border-color: var(--gold) }
+.dpv2-repeat.active { opacity: 1; border-color: var(--gold); background: rgba(255, 201, 71, .12) }
+
+.dpv2-date-arrow {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--b2);
+  background: var(--s2);
+  color: var(--t1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  padding: 0
+}
+.dpv2-date-arrow:hover { border-color: var(--gold); color: var(--gold) }
+
+.dpv2-today-btn {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 20px;
+  cursor: pointer
+}
+.dpv2-today-btn:hover { opacity: .8 }

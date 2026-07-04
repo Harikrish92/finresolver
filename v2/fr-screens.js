@@ -21,6 +21,7 @@ function renderScreen(screen, el) {
     case 'goal-detail': renderGoalDetail(el);  break;
     case 'lifestyle':   renderLifestyle(el);   break;
     case 'advisor':     renderAdvisor(el);     break;
+    case 'dayplanner':  renderDayPlanner(el);  break;
     default: el.innerHTML = '<p style="color:var(--t3);padding:40px">Screen not found.</p>';
   }
 }
@@ -117,6 +118,7 @@ function renderDashboard(el) {
       ${dashCard('investments','trending','icon-blue',   'Investment Portfolio', fmt(currentValue,true),'Current value',       (pnl>=0?'+':'')+fmt(Math.abs(pnl),true)+' P&L', pnl>=0?'badge-up':'badge-dn', true)}
       ${dashCard('loans',      'card',    'icon-red',    'Loan Tracker',        fmt(outstanding,true), 'Outstanding balance',  fmt(totalEMI,true)+'/mo EMI', 'badge-neu')}
       ${dashCard('portfolio',  'target',  'icon-gold',   'Portfolio & FIRE',    fmt(fireNum,true),    'FIRE number',           firePct+'% funded',           'badge-up')}
+      ${dashCard('advisor',    'bot',     'icon-purple', 'AI Advisor',          'Coming soon',        'Powered by Claude',    'Upcoming',                    'badge-neu', false, true)}
     </div>
 
     <div class="g-2">
@@ -165,8 +167,8 @@ function miniStat(label, val, cls) {
   </div>`;
 }
 
-function dashCard(screen, iconKey, iconCls, label, val, sub, badge, badgeCls, live=false) {
-  return `<div class="dash-card" onclick="navigate('${screen}')">
+function dashCard(screen, iconKey, iconCls, label, val, sub, badge, badgeCls, live=false, upcoming=false) {
+  return `<div class="dash-card${upcoming ? ' dash-card-upcoming' : ''}" onclick="navigate('${screen}')">
     <div class="row" style="justify-content:space-between">
       <div class="dash-icon ${iconCls}">${ic(iconKey,18)}</div>
       <div class="row" style="gap:6px">

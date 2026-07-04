@@ -195,6 +195,9 @@ function applyUser(user, skipSave = false) {
   currentUser = user;
   if (!skipSave) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
 
+  // Init pro status from localStorage cache (Firestore truth loaded later by sync.js)
+  if (typeof ProManager !== 'undefined') ProManager.init(user.uid);
+
   // ── FIX: Update all user-facing DOM FIRST, before showing any screen ──
   // showHomeScreen() calls renderHomeDashboard() which reads currentUser.name.
   // Avatar/username must be set before that call, not after.
@@ -256,10 +259,14 @@ function logOut() {
     localStorage.removeItem(`fr_investments_${uid}`);
     localStorage.removeItem(`fr_invjourney_${uid}`);
     localStorage.removeItem(`fr_lifestyle_${uid}`);
+    localStorage.removeItem(`fr_dayplanner_cfg_${uid}`);
   }
 
   localStorage.removeItem(SESSION_KEY);
   currentUser = null;
+
+  // Reset pro status so the next user starts with a clean slate
+  if (typeof ProManager !== 'undefined') ProManager.reset();
 
   // Reset all in-memory state immediately so a subsequent login cannot see
   // the previous user's data before the new user's data loads.

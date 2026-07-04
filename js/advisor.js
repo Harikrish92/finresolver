@@ -3,6 +3,9 @@
    FinResolver · finresolver.in
    ============================================================ */
 
+/* Feature flag — AI Advisor is still being built. Flip to true when ready. */
+var ADVISOR_ENABLED = false;
+
 /* ── Module state ── */
 var _advisorApiKey   = null;   // loaded from Firestore / localStorage
 var _advisorHistory  = [];     // rolling last-6 messages [{role, content}]
@@ -132,9 +135,14 @@ function getFinancialSnapshot() {
           gainLossPct:  cost > 0 ? Math.round(((val - cost) / cost) * 1000) / 10 : 0
         };
         if (h.ticker) entry.ticker       = h.ticker;
+        if (h.isin)   entry.isin         = h.isin;
         if (qty)      entry.qty          = Math.round(qty * 100) / 100;
         if (avgPx)    entry.avgBuyPrice  = Math.round(avgPx);
         if (livePx)   entry.currentPrice = Math.round(livePx);
+        var _hSrc = (typeof invGetHoldingSources === 'function')
+                    ? invGetHoldingSources(h)
+                    : (h.source && h.source !== 'manual' ? [h.source] : []);
+        if (_hSrc.length) entry.brokers = _hSrc;
         holdingsList.push(entry);
       }
     });
@@ -620,8 +628,16 @@ async function advisorSaveKey() {
    9. SCREEN ENTRY POINT
 ───────────────────────────────────────────────────────────── */
 
-async function goToAdvisor() {
-  history.pushState({ screen: 'advisor' }, '');
+async function goToAdvisor(_fromPopstate) {
+  if (!ADVISOR_ENABLED) {
+    if (typeof showToast === 'function') showToast("AI Advisor is coming soon — we're still building it!", 'info');
+    return;
+  }
+  if (typeof ProManager !== 'undefined' && !ProManager.isPro()) {
+    ProManager.showUpgradeModal('AI Advisor');
+    return;
+  }
+  if (!_fromPopstate) history.pushState({ screen: 'advisor' }, '');
 
   /* Hide all other screens (home.js helper) */
   if (typeof _hideAllScreens === 'function') _hideAllScreens();

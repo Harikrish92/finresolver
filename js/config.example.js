@@ -21,4 +21,7 @@ window.FINRESOLVER_CONFIG = {
     messagingSenderId: 'YOUR_SENDER_ID',
     appId:             'YOUR_APP_ID',
   },
+  // Razorpay: create an account at razorpay.com, copy your Key ID from
+  // Settings → API Keys. The Key Secret goes in the Firebase Function env only.
+  razorpayKey: 'YOUR_RAZORPAY_KEY_ID',
 };

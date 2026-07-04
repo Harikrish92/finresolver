@@ -24,7 +24,7 @@ function _setDrawerActive(screen) {
 }
 
 function _hideAllScreens() {
-  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen'].forEach(function(id) {
+  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen','trackerHubScreen','plannerHubScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -93,9 +93,37 @@ function goToPortfolio() {
   pfFetchLivePricesAndRender();
 }
 
-/** Navigate home → lifestyle tracker */
-function goToLifestyle() {
-  history.pushState({ screen: 'lifestyle' }, '');
+/** Navigate home → Tracker hub (Monthly / Investments / Loans / Lifestyle).
+ *  Pass _fromPopstate=true when called in response to a browser back/forward
+ *  navigation so we don't push a duplicate history entry (which would corrupt
+ *  the history stack and get the back button stuck — see goToLifestyle). */
+function goToTrackerHub(_fromPopstate) {
+  if (!_fromPopstate) history.pushState({ screen: 'tracker-hub' }, '');
+  _currentScreen = 'tracker-hub';
+  _hideAllScreens();
+  document.getElementById('trackerHubScreen').style.display = 'block';
+  document.getElementById('btnHamburger').style.display = 'flex';
+  var tc = document.getElementById('headerTrackerControls');
+  if (tc) tc.style.display = 'none';
+}
+
+/** Navigate home → Planner hub (FIRE & Insights / Day Planner). See goToTrackerHub re: _fromPopstate. */
+function goToPlannerHub(_fromPopstate) {
+  if (!_fromPopstate) history.pushState({ screen: 'planner-hub' }, '');
+  _currentScreen = 'planner-hub';
+  _hideAllScreens();
+  document.getElementById('plannerHubScreen').style.display = 'block';
+  document.getElementById('btnHamburger').style.display = 'flex';
+  var tc = document.getElementById('headerTrackerControls');
+  if (tc) tc.style.display = 'none';
+}
+
+/** Navigate home → lifestyle tracker. See goToTrackerHub re: _fromPopstate —
+ *  required now that lifestyle is nested two levels deep (home → Tracker hub →
+ *  lifestyle): without this guard, pressing back from lifestyle would re-push
+ *  the tracker-hub state instead of unwinding to it, trapping the back button. */
+function goToLifestyle(_fromPopstate) {
+  if (!_fromPopstate) history.pushState({ screen: 'lifestyle' }, '');
   _enterTracker('lifestyle');
   document.getElementById('lifestyleScreen').style.display = 'block';
 
@@ -113,9 +141,9 @@ function goToLifestyle() {
   }
 }
 
-/** Navigate home → day planner */
-function goToDayPlanner() {
-  history.pushState({ screen: 'dayplanner' }, '');
+/** Navigate home → day planner. See goToTrackerHub re: _fromPopstate. */
+function goToDayPlanner(_fromPopstate) {
+  if (!_fromPopstate) history.pushState({ screen: 'dayplanner' }, '');
   _currentScreen = 'dayplanner';
   _hideAllScreens();
   document.getElementById('dayPlannerScreen').style.display = 'block';
@@ -230,7 +258,7 @@ function renderHomeDashboard() {
         const liveG = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
         totalInvCurrentVal += liveG > 0 ? grams * liveG
                                         : grams * (h.buyPricePerGram || h.avgPrice || 0);
-      } else if (h.category === 'RealEstate') {
+      } else if (h.category === 'RealEstate' || h.category === 'EPF') {
         totalInvCurrentVal += h.curPrice || h.buyPrice || h.avgPrice || 0;
       } else {
         const qty = h.qty || 0;
@@ -300,9 +328,8 @@ function renderHomeDashboard() {
   const dpEl = document.getElementById('homeStatDayplanner');
   if (dpEl) {
     try {
-      const dpState = JSON.parse(localStorage.getItem('finresolver_dayplanner')) || {};
-      const dpDone  = Object.values(dpState).filter(function(v) { return v && v.done; }).length;
-      dpEl.textContent = dpDone > 0 ? dpDone + ' / 32' : '—';
+      const stats  = (typeof dpTodayStats === 'function') ? dpTodayStats() : { done: 0, total: 0 };
+      dpEl.textContent = stats.done > 0 ? stats.done + (stats.total ? ' / ' + stats.total : '') : '—';
     } catch(e) {
       dpEl.textContent = '—';
     }
@@ -342,7 +369,7 @@ function renderPortfolioOverview() {
         const grams  = Number(h.grams || h.qty || 0);
         const liveG  = (typeof goldPriceCache !== 'undefined' && goldPriceCache?.pricePerGram) || 0;
         val = liveG > 0 ? grams * liveG : grams * Number(h.buyPricePerGram || h.avgPrice || 0);
-      } else if (h.category === 'RealEstate') {
+      } else if (h.category === 'RealEstate' || h.category === 'EPF') {
         val = Number(h.curPrice || h.buyPrice || h.avgPrice || 0);
       } else if (h.ticker && typeof invQuoteCache !== 'undefined' && invQuoteCache[h.ticker]?.price) {
         const _q = invQuoteCache[h.ticker];
@@ -608,7 +635,7 @@ function showHomeScreen() {
   document.getElementById('homeScreen').style.display   = 'block';
 
   // Hide ALL module screens so nothing bleeds through on login/logout
-  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen'].forEach(function(id) {
+  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen','trackerHubScreen','plannerHubScreen'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -699,7 +726,8 @@ function homeFetchLivePricesOnce() {
 
 /* ════════════════════════════════════════════════════════════════════════════
    FIRST-TIME INTRO WALKTHROUGH
-   5 slides: Welcome (modal) → Monthly → Investment → Loan → FIRE (spotlight)
+   8 slides: Welcome (modal) → Monthly → Investment → Loan → FIRE
+            → Lifestyle → AI Advisor → Day Planner (spotlight)
    Ring, callout, and tracker panel live OUTSIDE the overlay so they aren't
    trapped by its backdrop-filter stacking context.
 ════════════════════════════════════════════════════════════════════════════ */
@@ -719,54 +747,39 @@ const INTRO_SLIDES = [
   },
   {
     type: 'spotlight',
-    selector: '.home-nav-card.tracker',
+    selector: '.home-nav-card.trackerhub',
     icon: '📊',
-    title: 'Monthly <span>Tracker</span>',
-    sub: 'Every month, record income, expenses, SIPs and EMIs in one place. Totals and charts update instantly.',
+    title: '<span>Tracker</span>',
+    sub: 'Everything you record — expenses, investments, loans and household goods — grouped in one place.',
     features: [
-      { icon: '💸', title: 'Expenses & Income',   desc: 'Add entries with descriptions and optional dates.' },
-      { icon: '📈', title: 'Investments & Loans', desc: 'Track monthly SIPs and EMIs side by side.' },
-      { icon: '✅', title: 'Monthly Checklist',   desc: 'Mark off recurring payments so nothing slips.' },
-      { icon: '✨', title: 'Smart Fill',           desc: 'Pre-populate recurring items from past months in one click.' },
+      { icon: '💸', title: 'Monthly Tracker',    desc: 'Income, expenses, SIPs and EMIs with a Smart Fill shortcut.' },
+      { icon: '📈', title: 'Investment Tracker', desc: 'Live prices, P&L and asset allocation across every category.' },
+      { icon: '🏦', title: 'Loan Tracker',       desc: 'EMI schedule, amortization and full payoff timeline.' },
+      { icon: '🏠', title: 'Lifestyle Tracker',  desc: 'Household goods, warranties and important dates.' },
     ]
   },
   {
     type: 'spotlight',
-    selector: '.home-nav-card.investment',
-    icon: '📈',
-    title: 'Investment <span>Tracker</span>',
-    sub: 'Your entire portfolio with live prices, P&L and asset allocation across every category.',
-    features: [
-      { icon: '⚡', title: 'Live Prices',       desc: 'NSE/BSE stocks & MFs via Yahoo Finance. Auto-refreshes every 60s.' },
-      { icon: '🥇', title: 'All Asset Classes', desc: 'Stocks, MF, FD, EPF, ESOP, Real Estate, Gold & more.' },
-      { icon: '📉', title: 'Price Charts',      desc: 'Interactive chart, financials & news for each holding.' },
-      { icon: '⬆',  title: 'Broker Import',    desc: 'Import from Zerodha, Groww, Upstox and others.' },
-    ]
-  },
-  {
-    type: 'spotlight',
-    selector: '.home-nav-card.loan',
-    icon: '🏦',
-    title: 'Loan <span>Tracker</span>',
-    sub: 'Model every loan you hold and see exactly when you\'ll be debt-free.',
-    features: [
-      { icon: '🧮', title: 'EMI Calculator', desc: 'Enter principal, rate & tenure to get the exact monthly EMI.' },
-      { icon: '📅', title: 'Amortization',   desc: 'Month-by-month principal vs interest with payoff date.' },
-      { icon: '💳', title: 'Payment Log',    desc: 'Record actual payments and track outstanding balance.' },
-      { icon: '📊', title: 'Visual Charts',  desc: 'Pie chart of principal vs interest + balance timeline.' },
-    ]
-  },
-  {
-    type: 'spotlight',
-    selector: '.home-nav-card.portfolio',
+    selector: '.home-nav-card.plannerhub',
     icon: '🔥',
-    title: 'FIRE &amp; <span>Insights</span>',
-    sub: 'Your complete financial picture — net worth, savings rate, FIRE number and spending patterns, all auto-calculated.',
+    title: '<span>Planner</span>',
+    sub: 'Your financial picture and your daily schedule, both in one hub.',
     features: [
-      { icon: '💰', title: 'Net Worth',     desc: 'Total investments + cash minus all loan balances.' },
-      { icon: '🔥', title: 'FIRE Number',   desc: '25× annual expenses — track your financial independence goal.' },
-      { icon: '📊', title: 'Savings Rate',  desc: 'YTD income saved as a percentage, updated each month.' },
-      { icon: '💡', title: 'Insights',      desc: 'Auto-observations on biggest categories and spending trends.' },
+      { icon: '💰', title: 'FIRE & Insights', desc: 'Net worth, savings rate, FIRE number and spending patterns.' },
+      { icon: '📋', title: 'Day Planner',     desc: 'A custom time-block schedule for your day, set up once.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '.home-nav-card.advisorhub',
+    icon: '🤖',
+    title: 'AI <span>Advisor</span>',
+    sub: 'Chat with a personal finance assistant powered by Claude that actually understands your data.',
+    features: [
+      { icon: '💬', title: 'Ask Anything',      desc: 'Get answers about your spending, investments and loans in plain English.' },
+      { icon: '🧠', title: 'Knows Your Data',   desc: 'Reads your real numbers to give personalised, actionable advice.' },
+      { icon: '🎯', title: 'Smart Suggestions', desc: 'Spot savings opportunities and ways to reach your FIRE goal faster.' },
+      { icon: '🔒', title: 'Private & Secure',  desc: 'Your API key is stored securely and your data never leaves your account.' },
     ]
   },
 ];
@@ -875,6 +888,13 @@ function _introHighlightCard(selector) {
   const card = selector ? document.querySelector(selector) : null;
   if (!card) return;
   _introHighlightedCard = card;
+
+  // Bring the card into the UPPER part of the viewport (not centered) so there
+  // is a large area *below* it for the tracker panel — otherwise the panel's
+  // max-height gets capped to a sliver and the details become unreadable.
+  // Synchronous 'auto' scroll so the rect we measure below is already up to date.
+  const targetTop = Math.max(96, window.innerHeight * 0.22);
+  window.scrollBy({ top: card.getBoundingClientRect().top - targetTop, behavior: 'auto' });
 
   // #homeScreen has z-index:1 which traps children in its stacking context.
   // Remove it so the card's z-index is evaluated against the root context and
@@ -1187,11 +1207,15 @@ window.addEventListener('popstate', function(e) {
   if (s === 'loans') {
     if (typeof backToLoanList === 'function') backToLoanList();
   } else if (s === 'lifestyle') {
-    goToLifestyle();
+    goToLifestyle(true);
   } else if (s === 'advisor') {
-    if (typeof goToAdvisor === 'function') goToAdvisor();
+    if (typeof goToAdvisor === 'function') goToAdvisor(true);
   } else if (s === 'dayplanner') {
-    goToDayPlanner();
+    goToDayPlanner(true);
+  } else if (s === 'tracker-hub') {
+    goToTrackerHub(true);
+  } else if (s === 'planner-hub') {
+    goToPlannerHub(true);
   } else {
     goToHome();
   }

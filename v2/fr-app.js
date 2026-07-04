@@ -3,17 +3,26 @@ let _screen = 'dashboard';
 let _sidebarCollapsed = false;
 let _chartInstances = {};
 
+// Feature flag — AI Advisor is still being built. Flip to true when ready.
+const ADVISOR_ENABLED = false;
+
 const NAV = [
-  { screen:'dashboard',   icon:'home',      label:'Dashboard',       section:'OVERVIEW'   },
-  { screen:'monthly',     icon:'calendar',  label:'Monthly Tracker', section:'FINANCE'    },
-  { screen:'investments', icon:'trending',  label:'Investments',     section:null         },
-  { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null         },
-  { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:null         },
-  { screen:'goals',       icon:'flag',      label:'Goals',           section:null         },
-  { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:'LIFESTYLE' },
+  { screen:'dashboard',   icon:'home',      label:'Dashboard',       section:'OVERVIEW'  },
+  { screen:'monthly',     icon:'calendar',  label:'Monthly Tracker', section:'TRACKER'   },
+  { screen:'investments', icon:'trending',  label:'Investments',     section:null        },
+  { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null        },
+  { screen:'lifestyle',   icon:'lifestyle', label:'Lifestyle Tracker',section:null        },
+  { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:'PLANNER'   },
+  { screen:'goals',       icon:'flag',      label:'Goals',           section:null        },
+  { screen:'dayplanner',  icon:'clock',     label:'Day Planner',     section:null        },
+  { screen:'advisor',     icon:'bot',       label:'AI Advisor',      section:'ADVISOR'   },
 ];
 
 function navigate(screen, opts = {}) {
+  if (screen === 'advisor' && !ADVISOR_ENABLED) {
+    if (typeof _showToast === 'function') _showToast("AI Advisor is coming soon — we're still building it!");
+    return;
+  }
   if (typeof _syncOnNavigate === 'function') _syncOnNavigate(screen, _screen);
   if (opts.loanId)  APP.activeLoanId  = opts.loanId;
   if (opts.goalId)  APP.activeGoalId  = opts.goalId;
@@ -43,7 +52,7 @@ function navigate(screen, opts = {}) {
     investments:'Investments', loans:'Loan Tracker',
     'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
     goals:'My Financial Goals', 'goal-detail':'Goal Detail',
-    lifestyle:'Lifestyle Tracker', advisor:'AI Advisor'
+    lifestyle:'Lifestyle Tracker', advisor:'AI Advisor', dayplanner:'Day Planner'
   };
   const subs = {
     monthly:   monthName(APP.monthly.month) + ' ' + APP.monthly.year,
@@ -88,9 +97,10 @@ function toggleTheme() {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
+// NOTE: fr-sync.js overrides this stub with the real GIS flow. The walkthrough
+// trigger lives in showApp() so every login path (incl. the override) hits it.
 function loginGoogle() {
   showApp();
-  if (!localStorage.getItem('fr_wt_seen')) showWalkthrough();
 }
 
 function loginGuest() {
@@ -109,6 +119,12 @@ function showApp() {
   document.getElementById('sb-user-initials').textContent = APP.user.initials;
 
   navigate('dashboard');
+
+  // First-time walkthrough — runs once per browser regardless of which login
+  // path got us here (Google sign-in, session restore or guest). The real
+  // loginGoogle() lives in fr-sync.js and overrides the stub below, so the
+  // trigger has to sit here, the single chokepoint every path passes through.
+  if (!localStorage.getItem('fr_wt_seen')) showWalkthrough();
 }
 
 // ── WALKTHROUGH ───────────────────────────────────────────────────────────────
@@ -118,6 +134,9 @@ const WT_STEPS = [
   { icon:'trending', title:'Investment Portfolio',           desc:'Track stocks, mutual funds, gold, real estate and more with live prices. Import from Zerodha, Groww, Upstox and 5 other brokers.' },
   { icon:'card',     title:'Loan Tracker',                   desc:'Monitor all your loans in one place. View full amortization schedules, payment history and outstanding balance curves.' },
   { icon:'target',   title:'Portfolio & FIRE Number',        desc:'See your net worth, asset allocation and your FIRE number — the corpus you need to retire early based on your spending.' },
+  { icon:'flag',     title:'Goals',                          desc:'Set savings and investment goals, track progress towards each one and see exactly when you\'ll get there at your current pace.' },
+  { icon:'lifestyle',title:'Lifestyle Tracker',              desc:'Catalogue your household goods, keep tabs on warranties and never miss an important date or renewal again.' },
+  { icon:'bot',      title:'AI Advisor',                     desc:'Chat with a personal finance assistant powered by Claude that reads your real data to give personalised, actionable advice.' },
 ];
 let _wtStep = 0;
 
@@ -165,10 +184,12 @@ function buildSidebarNav() {
     if (item.section) {
       html += `<div class="nav-section">${item.section}</div>`;
     }
+    const isDisabled = item.screen === 'advisor' && !ADVISOR_ENABLED;
     html += `
-      <div class="nav-item" data-screen="${item.screen}" onclick="navigate('${item.screen}')">
+      <div class="nav-item${isDisabled ? ' disabled' : ''}" data-screen="${item.screen}" onclick="${isDisabled ? '' : `navigate('${item.screen}')`}">
         <div class="ni">${ic(item.icon, 16)}</div>
         <span class="nav-label">${item.label}</span>
+        ${isDisabled ? '<span class="nav-upcoming">Upcoming</span>' : ''}
       </div>`;
   });
   nav.innerHTML = html;

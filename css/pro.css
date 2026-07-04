@@ -1,0 +1,310 @@
+/* ============================================================
+   pro.css — Free / Pro tier UI: upgrade gate, pricing, badges
+   FinResolver · finresolver.in
+   ============================================================ */
+
+/* ── Pro gate modal (upgrade prompt) ───────────────────────── */
+#proGateModal {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  background: rgba(8, 12, 22, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+#proGateModal.hidden { display: none; }
+
+.pro-gate-card {
+  background: var(--surface, #141928);
+  border: 1px solid rgba(0, 229, 160, 0.25);
+  border-radius: 18px;
+  padding: 2rem 1.75rem 1.75rem;
+  width: min(440px, 100%);
+  position: relative;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: proGateIn .22s ease-out;
+}
+@keyframes proGateIn {
+  from { opacity: 0; transform: translateY(18px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pro-gate-close {
+  position: absolute;
+  top: .85rem;
+  right: .85rem;
+  background: var(--surface2, #1a2030);
+  border: 1px solid var(--border, #2a3348);
+  border-radius: 6px;
+  color: var(--muted, #6b7a99);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: .85rem;
+  transition: color .15s;
+}
+.pro-gate-close:hover { color: var(--text, #e8edf5); }
+
+.pro-gate-lock {
+  font-size: 2.2rem;
+  text-align: center;
+  margin-bottom: .5rem;
+}
+.pro-gate-title {
+  font-family: var(--font-heading, Syne, sans-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text, #e8edf5);
+  margin-bottom: .4rem;
+}
+.pro-gate-subtitle {
+  text-align: center;
+  color: var(--muted, #6b7a99);
+  font-size: .88rem;
+  margin-bottom: 1.2rem;
+}
+.pro-gate-subtitle strong { color: var(--accent, #00e5a0); }
+
+/* ── Pricing card ───────────────────────────────────────────── */
+.pro-pricing-card {
+  background: linear-gradient(135deg, rgba(0,229,160,.08) 0%, rgba(77,171,247,.07) 100%);
+  border: 1px solid rgba(0, 229, 160, 0.22);
+  border-radius: 12px;
+  padding: .9rem 1.1rem;
+  margin-bottom: 1.1rem;
+  text-align: center;
+}
+.pro-pricing-earlybird {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--accent3, #f0b429);
+  text-transform: uppercase;
+  margin-bottom: .4rem;
+}
+.pro-pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .9rem;
+}
+.pro-pricing-original {
+  font-size: 1rem;
+  color: var(--muted, #6b7a99);
+  text-decoration: line-through;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+.pro-pricing-price {
+  font-family: var(--font-heading, Syne, sans-serif);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent, #00e5a0);
+  line-height: 1;
+}
+.pro-pricing-period {
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--muted, #6b7a99);
+}
+.pro-pricing-discount {
+  margin-top: .3rem;
+  font-size: .75rem;
+  color: var(--accent3, #f0b429);
+  font-weight: 600;
+}
+
+/* ── Benefits list ──────────────────────────────────────────── */
+.pro-benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .38rem .6rem;
+}
+.pro-benefits-list li {
+  font-size: .8rem;
+  color: var(--text2, #c0cce0);
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+@media (max-width: 400px) {
+  .pro-benefits-list { grid-template-columns: 1fr; }
+}
+
+/* ── CTA button ─────────────────────────────────────────────── */
+.pro-upgrade-btn {
+  width: 100%;
+  padding: .85rem;
+  background: var(--accent, #00e5a0);
+  color: #0a1020;
+  border: none;
+  border-radius: 10px;
+  font-size: .95rem;
+  font-weight: 700;
+  font-family: var(--font-heading, Syne, sans-serif);
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  margin-bottom: .55rem;
+}
+.pro-upgrade-btn:hover { opacity: .9; transform: translateY(-1px); }
+.pro-upgrade-btn:active { transform: translateY(0); opacity: 1; }
+
+.pro-gate-note {
+  text-align: center;
+  font-size: .72rem;
+  color: var(--muted, #6b7a99);
+}
+
+/* ── Success / Fail / Activating modals ─────────────────────── */
+#proSuccessModal,
+#proFailModal,
+#proActivatingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10200;
+  background: rgba(8, 12, 22, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+#proSuccessModal.hidden,
+#proFailModal.hidden,
+#proActivatingOverlay.hidden { display: none; }
+
+.pro-result-card {
+  background: var(--surface, #141928);
+  border: 1px solid var(--border, #2a3348);
+  border-radius: 18px;
+  padding: 2rem 1.75rem;
+  width: min(360px, 100%);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: proGateIn .22s ease-out;
+}
+.pro-result-icon { font-size: 2.8rem; margin-bottom: .6rem; }
+.pro-result-title {
+  font-family: var(--font-heading, Syne, sans-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text, #e8edf5);
+  margin-bottom: .45rem;
+}
+.pro-result-sub {
+  color: var(--muted, #6b7a99);
+  font-size: .86rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.55;
+}
+.pro-activating-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(0,229,160,.2);
+  border-top-color: var(--accent, #00e5a0);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 0 auto 1rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Lock badges on nav drawer items ───────────────────────── */
+.nav-pro-badge {
+  margin-left: auto;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  background: rgba(0, 229, 160, .1);
+  color: var(--accent, #00e5a0);
+  border: 1px solid rgba(0, 229, 160, .25);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* ── Lock overlay on home nav cards ────────────────────────── */
+.home-nav-card {
+  position: relative;
+  overflow: hidden;
+}
+.pro-lock-badge {
+  position: absolute;
+  top: .55rem;
+  right: .55rem;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  background: rgba(10, 16, 32, .72);
+  color: var(--accent, #00e5a0);
+  border: 1px solid rgba(0, 229, 160, .3);
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.home-nav-card.pro-locked-card {
+  opacity: .82;
+}
+.home-nav-card.pro-locked-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, transparent 60%, rgba(0,229,160,.04));
+  pointer-events: none;
+}
+
+/* ── Insights section pro gate overlay ─────────────────────── */
+.insights-pro-gate {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: rgba(10, 16, 32, 0.78);
+  backdrop-filter: blur(3px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  cursor: pointer;
+  transition: background .15s;
+  z-index: 2;
+}
+.insights-pro-gate:hover { background: rgba(10, 16, 32, 0.65); }
+.insights-pro-gate.hidden { display: none; }
+.insights-pro-lock { font-size: 1.8rem; }
+.insights-pro-label {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--accent, #00e5a0);
+  letter-spacing: .04em;
+}
+
+/* ── Pro crown badge in header ──────────────────────────────── */
+#proBadgeHeader {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(0,229,160,.12), rgba(77,171,247,.1));
+  border: 1px solid rgba(0,229,160,.3);
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--accent, #00e5a0);
+  cursor: default;
+  flex-shrink: 0;
+}
