@@ -544,14 +544,26 @@ async function _fetchUsdInr() {
 }
 
 async function _fetchGoldINR() {
-  const [gD, fxD] = await Promise.all([
-    _proxyFetch(_yahooUrl('GC=F')),
-    _proxyFetch(_yahooUrl('USDINR=X')),
-  ]);
-  const usd  = gD?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  const rate = fxD?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  if (!usd || !rate) throw new Error('Gold/FX fetch failed');
-  return (usd * rate) / 31.1035; // USD/oz → INR/gram
+  // Primary: CoinGecko — PAX Gold is backed 1:1 by 1 troy oz, returns INR directly
+  // (no CORS proxy needed; avoids relying solely on the flaky public Yahoo proxies below)
+  try {
+    const r = await _timedFetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=inr', 7000);
+    if (!r.ok) throw new Error('CG HTTP ' + r.status);
+    const data = await r.json();
+    const oz = data?.['pax-gold']?.inr;
+    if (!oz || oz <= 0) throw new Error('CG: no price');
+    return oz / 31.1035; // INR/oz → INR/gram
+  } catch(e) {
+    // Fallback: Yahoo Finance GC=F (COMEX gold, USD/troy oz) + USDINR=X
+    const [gD, fxD] = await Promise.all([
+      _proxyFetch(_yahooUrl('GC=F')),
+      _proxyFetch(_yahooUrl('USDINR=X')),
+    ]);
+    const usd  = gD?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    const rate = fxD?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (!usd || !rate) throw new Error('Gold/FX fetch failed');
+    return (usd * rate) / 31.1035; // USD/oz → INR/gram
+  }
 }
 
 function _showToast(msg) {
