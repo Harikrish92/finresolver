@@ -56,6 +56,12 @@
   border-color: var(--accent);
 }
 
+.hc-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .hc-step-hidden { display: none; }
 
 .hc-desc {
@@ -120,7 +126,6 @@
 .hc-dark-green  { background: var(--a10); color: var(--accent); }
 
 .hc-note-box {
-  margin-top: 14px;
   background: var(--g10);
   border: 1px solid rgba(255, 201, 71, .3);
   border-radius: var(--rs);

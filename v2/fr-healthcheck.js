@@ -9,7 +9,7 @@ let _hcData = _hcDefaultData();
 let _hcGoldPricePerGram = 0;
 
 function _hcDefaultData() {
-  return { efSavings: 0, efUseGold: false, efGoldGrams: 0, efManualExpense: null, medicalCover: 1000000, termCover: 0 };
+  return { efSavings: 0, efUseGold: false, efGoldGrams: 0, efManualExpense: null, medicalCover: 0, termCover: 0 };
 }
 
 /* ── Per-user config persistence (mirrors _loadLifestyleConfig/saveLifestyleConfig in fr-sync.js) ── */
@@ -306,7 +306,7 @@ function _hcModalHtml() {
 
         <div class="inp-grp">
           <div class="inp-label">Your current Medical Insurance cover (₹)</div>
-          <input class="inp" id="hcMedicalCover" type="number" oninput="hcRecalc()" value="${_hcData.medicalCover}" />
+          <input class="inp" id="hcMedicalCover" type="number" placeholder="0" oninput="hcRecalc()" value="${_hcData.medicalCover || ''}" />
         </div>
 
         <div class="hc-result-card">

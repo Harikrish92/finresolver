@@ -12,7 +12,7 @@
   var _hcGoldPricePerGram = 0;
 
   function _hcDefaultData() {
-    return { efSavings: 0, efUseGold: false, efGoldGrams: 0, efManualExpense: null, medicalCover: 1000000, termCover: 0 };
+    return { efSavings: 0, efUseGold: false, efGoldGrams: 0, efManualExpense: null, medicalCover: 0, termCover: 0 };
   }
 
   /* ── Per-user config persistence (mirrors js/dayplanner.js) ── */
@@ -278,7 +278,7 @@
     if (efGold)    efGold.checked  = !!_hcData.efUseGold;
     if (efGrams)   efGrams.value   = _hcData.efGoldGrams || '';
     if (efManual)  efManual.value  = _hcData.efManualExpense != null ? _hcData.efManualExpense : '';
-    if (medical)   medical.value   = _hcData.medicalCover;
+    if (medical)   medical.value   = _hcData.medicalCover || '';
     if (termCover) termCover.value = _hcData.termCover || '';
 
     var modal = document.getElementById('healthCheckModal');
