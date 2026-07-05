@@ -7,6 +7,7 @@
   <title>FinResolver — Personal Finance Dashboard</title>
   <link rel="stylesheet" href="fr-styles.css?v=3">
   <link rel="stylesheet" href="fr-goals.css">
+  <link rel="stylesheet" href="fr-healthcheck.css">
   <link rel="icon" type="image/png" href="../finresolver.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -203,6 +204,7 @@
           <button class="iBtn" title="Notifications">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
+          <button class="iBtn" style="font-size:15px" onclick="openHealthCheckV2()" title="Finance Health Checkup">🩺</button>
           <!-- Theme toggle — always visible -->
           <button class="theme-iBtn" id="theme-btn-topbar" onclick="toggleTheme()" title="Toggle theme">
             <svg id="theme-icon-topbar" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -304,6 +306,7 @@
 <script src="fr-sync.js?v=1"></script>
 <script src="fr-goals.js"></script>
 <script src="fr-dayplanner.js"></script>
+<script src="fr-healthcheck.js"></script>
 <script src="fr-advisor.js"></script>
 <script>
   // Expand the toggle label on wider screens

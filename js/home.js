@@ -198,6 +198,46 @@ function pfFetchLivePricesAndRender() {
   });
 }
 
+/** Average of the last 3 months' total expense (including the current month), plus how many of those months had data. Reused by the home dashboard's FIRE number and the Finance Health Checkup. */
+function getAvgMonthlyExpenseData() {
+  const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid)
+              ? fbAuth.currentUser.uid : (currentUser?.uid || 'guest');
+  const now = new Date();
+  const yr  = now.getFullYear();
+  const mo  = now.getMonth();
+
+  let totalExp = 0, monthsWithData = 0;
+  for (let i = 0; i < 3; i++) {
+    let m = mo - i, y = yr;
+    if (m < 0) { m += 12; y--; }
+    const d = getCachedMonthData(uid, y, m);
+    if (d) { totalExp += sumArr(d.expense || []); monthsWithData++; }
+  }
+  const avgMonthlyExp = monthsWithData ? totalExp / monthsWithData : 0;
+  return { avgMonthlyExp, monthsWithData };
+}
+
+/** Total outstanding balance across all open loans — use in-memory loansData (already decrypted). Reused by the home dashboard and the Finance Health Checkup. */
+function getTotalLoanOutstanding() {
+  let totalLoanOutstanding = 0;
+  try {
+    const loans = (typeof loansData !== 'undefined') ? loansData : [];
+    loans.forEach(loan => {
+      if (loan.closed) return;
+      // Simple outstanding: principal - payments made
+      let outstanding = Number(loan.principal || 0);
+      const payments = loan.payments || [];
+      payments.forEach(p => { outstanding -= Number(p.amount || 0); });
+      // Use schedule-based outstanding if calcLoanStats is available
+      if (typeof calcLoanStats === 'function') {
+        try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
+      }
+      if (outstanding > 0) totalLoanOutstanding += outstanding;
+    });
+  } catch(e) {}
+  return totalLoanOutstanding;
+}
+
 /** Render the home dashboard stats */
 function renderHomeDashboard() {
   // Safety guard: fmtCrore is defined in insights.js — if not yet loaded, bail
@@ -225,15 +265,7 @@ function renderHomeDashboard() {
   const isSyncing = typeof syncReady !== 'undefined' && !syncReady
                     && typeof db !== 'undefined' && db !== null;
 
-  // Last 3 months total expense for FIRE — Fix 3: now populated by prefetch
-  let totalExp = 0, monthsWithData = 0;
-  for (let i = 0; i < 3; i++) {
-    let m = mo - i, y = yr;
-    if (m < 0) { m += 12; y--; }
-    const d = getCachedMonthData(uid, y, m);
-    if (d) { totalExp += sumArr(d.expense || []); monthsWithData++; }
-  }
-  const avgMonthlyExp = monthsWithData ? totalExp / monthsWithData : 0;
+  const { avgMonthlyExp, monthsWithData } = getAvgMonthlyExpenseData();
   const fireNumber    = avgMonthlyExp * 12 * 25;
 
   // YTD savings = Income − Expenses − Loan repayments
@@ -269,22 +301,7 @@ function renderHomeDashboard() {
   } catch(e) {}
 
   // Total loan outstanding balance — use in-memory loansData (already decrypted)
-  let totalLoanOutstanding = 0;
-  try {
-    const loans = (typeof loansData !== 'undefined') ? loansData : [];
-    loans.forEach(loan => {
-      if (loan.closed) return;
-      // Simple outstanding: principal - payments made
-      let outstanding = Number(loan.principal || 0);
-      const payments = loan.payments || [];
-      payments.forEach(p => { outstanding -= Number(p.amount || 0); });
-      // Use schedule-based outstanding if calcLoanStats is available
-      if (typeof calcLoanStats === 'function') {
-        try { outstanding = calcLoanStats(loan).outstanding; } catch(e) {}
-      }
-      if (outstanding > 0) totalLoanOutstanding += outstanding;
-    });
-  } catch(e) {}
+  const totalLoanOutstanding = getTotalLoanOutstanding();
 
   const monthName = MONTHS[mo];
   const name      = currentUser?.name?.split(' ')[0] || 'there';

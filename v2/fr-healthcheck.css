@@ -1,0 +1,147 @@
+/* ── FINANCE HEALTH CHECKUP ───────────────────────────────────────────────── */
+
+.hc-progress {
+  display: flex;
+  gap: 8px;
+  padding: 0 22px;
+  margin-top: 14px;
+}
+
+.hc-progress-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--t3);
+  cursor: pointer;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--b2);
+  transition: color var(--ease), border-color var(--ease);
+}
+
+.hc-progress-step.active { color: var(--t1); border-color: var(--accent); }
+.hc-progress-step.done   { color: var(--accent); border-color: var(--accent); }
+
+.hc-progress-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--s2);
+  border: 1px solid var(--b2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.hc-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--b2);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.hc-tab-dot.hc-amber       { background: var(--gold); }
+.hc-tab-dot.hc-light-green { background: #8bd674; }
+.hc-tab-dot.hc-dark-green  { background: var(--accent); }
+
+.hc-progress-step.active .hc-progress-num,
+.hc-progress-step.done .hc-progress-num {
+  background: var(--accent);
+  color: #06231a;
+  border-color: var(--accent);
+}
+
+.hc-step-hidden { display: none; }
+
+.hc-desc {
+  font-size: 13px;
+  color: var(--t2);
+  line-height: 1.6;
+}
+
+.hc-expense-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  background: var(--s2);
+  border: 1px solid var(--b);
+  border-radius: var(--rs);
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.hc-expense-value { font-family: var(--font-m); color: var(--t1); font-weight: 600; white-space: nowrap; }
+
+.hc-gold-note { font-size: 11.5px; color: var(--t2); margin-top: 6px; line-height: 1.5; }
+
+.hc-result-card {
+  background: var(--s2);
+  border: 1px solid var(--b);
+  border-radius: var(--r);
+  padding: 16px 18px;
+}
+
+.hc-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--t2);
+  padding: 5px 0;
+}
+
+.hc-result-row.hc-result-total {
+  border-top: 1px solid var(--b);
+  margin-top: 6px;
+  padding-top: 10px;
+  color: var(--t1);
+  font-weight: 700;
+}
+
+.hc-result-value { font-family: var(--font-m); color: var(--t1); font-weight: 600; }
+
+.hc-badge {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.hc-amber       { background: var(--g10); color: var(--gold); }
+.hc-light-green { background: rgba(139, 214, 116, .15); color: #8bd674; }
+.hc-dark-green  { background: var(--a10); color: var(--accent); }
+
+.hc-note-box {
+  margin-top: 14px;
+  background: var(--g10);
+  border: 1px solid rgba(255, 201, 71, .3);
+  border-radius: var(--rs);
+  padding: 11px 14px;
+  font-size: 11.5px;
+  color: var(--gold);
+  line-height: 1.5;
+}
+
+.hc-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--t1);
+  cursor: pointer;
+}
+
+.hc-checkbox-label input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

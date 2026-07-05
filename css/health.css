@@ -1,0 +1,284 @@
+/* ============================================================
+   health.css — Finance Health Checkup
+   FinResolver · finresolver.in
+   ============================================================ */
+
+.hc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(4px);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.hc-modal-overlay.hidden { display: none; }
+
+.hc-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  animation: fadeUp .3s ease;
+}
+
+.hc-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 0;
+}
+
+.hc-modal-title {
+  font-family: var(--font-head);
+  font-size: var(--text-h3);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hc-modal-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: .25rem;
+  border-radius: 6px;
+  transition: color .2s, background .2s;
+}
+
+.hc-modal-close:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+
+.hc-progress {
+  display: flex;
+  gap: .5rem;
+  padding: 1rem 1.5rem 0;
+}
+
+.hc-progress-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  cursor: pointer;
+  padding-bottom: .6rem;
+  border-bottom: 2px solid var(--border);
+  transition: color .2s, border-color .2s;
+}
+
+.hc-progress-step.active { color: var(--text); border-color: var(--accent); }
+.hc-progress-step.done   { color: var(--accent); border-color: var(--accent); }
+
+.hc-progress-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .7rem;
+  flex-shrink: 0;
+}
+
+.hc-progress-step.active .hc-progress-num,
+.hc-progress-step.done .hc-progress-num {
+  background: var(--accent);
+  color: #06231a;
+  border-color: var(--accent);
+}
+
+.hc-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.hc-tab-dot.hc-amber       { background: #ffd166; }
+.hc-tab-dot.hc-light-green { background: #8bd674; }
+.hc-tab-dot.hc-dark-green  { background: var(--accent); }
+
+.hc-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.hc-step-hidden { display: none; }
+
+.hc-modal-desc {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.hc-form-field { margin-bottom: 1rem; }
+
+.hc-form-label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-bottom: .4rem;
+}
+
+.hc-form-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: .65rem .9rem;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.hc-form-input:focus { border-color: var(--accent); }
+
+.hc-checkbox-field { display: flex; align-items: center; }
+
+.hc-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: var(--text-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hc-checkbox-label input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.hc-expense-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  margin-bottom: 1rem;
+  font-size: var(--text-sm);
+  gap: .75rem;
+}
+
+.hc-expense-value { font-family: var(--font-mono); color: var(--text); font-weight: 600; white-space: nowrap; }
+
+.hc-gold-note { font-size: var(--text-xs); color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+
+.hc-result-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-top: .5rem;
+}
+
+.hc-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  padding: .3rem 0;
+}
+
+.hc-result-row.hc-result-total {
+  border-top: 1px solid var(--border);
+  margin-top: .4rem;
+  padding-top: .6rem;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.hc-result-value { font-family: var(--font-mono); color: var(--text); font-weight: 600; }
+
+.hc-badge {
+  display: inline-block;
+  margin-top: .7rem;
+  padding: .3rem .8rem;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.hc-amber       { background: rgba(255,209,102,.15); color: #ffd166; }
+.hc-light-green { background: rgba(139,214,116,.15); color: #8bd674; }
+.hc-dark-green  { background: rgba(0,229,160,.15);   color: var(--accent); }
+
+.hc-note-box {
+  margin-top: 1rem;
+  background: rgba(255,209,102,.1);
+  border: 1px solid rgba(255,209,102,.3);
+  border-radius: 8px;
+  padding: .75rem .9rem;
+  font-size: var(--text-xs);
+  color: #ffd166;
+  line-height: 1.5;
+}
+
+.hc-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  padding: 1rem 1.5rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.hc-btn-secondary {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+
+.hc-btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+
+.hc-btn-primary {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #06231a;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  margin-left: auto;
+  transition: opacity .2s;
+}
+
+.hc-btn-primary:hover { opacity: .9; }
+
+@media (max-width: 640px) {
+  .hc-modal-overlay { align-items: flex-end; padding: 0; }
+  .hc-modal { max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-height: 85vh; }
+  .hc-progress-step span:last-child { display: none; }
+}
