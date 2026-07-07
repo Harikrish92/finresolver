@@ -1,0 +1,245 @@
+/* ============================================================
+   quickadd-bot.css — Classic UI skin for the Quick Add widget
+   Reuses Classic's design tokens from variables.css
+   FinResolver · finresolver.in
+   ============================================================ */
+
+.qab-hidden { display: none !important; }
+
+.qab-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 68px;
+  height: 68px;
+  border: none;
+  border-radius: 25%;
+  background: transparent;
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+  z-index: 9990;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.qab-fab:hover { transform: scale(1.06); box-shadow: 0 8px 24px rgba(0, 0, 0, .4); }
+
+/* Fallback "+" glyph (image failed to load) carries its own circular
+   background so it still reads as a button even though .qab-fab itself
+   is transparent. */
+.qab-fab-icon {
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.qab-fab-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.1);
+}
+
+.qab-panel {
+  position: fixed;
+  bottom: 104px;
+  right: 24px;
+  width: 320px;
+  max-height: 72vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .45);
+  z-index: 9991;
+  font-family: var(--font-body);
+  color: var(--text);
+}
+
+.qab-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.qab-back,
+.qab-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: color .15s ease;
+}
+.qab-back:hover,
+.qab-close:hover { color: var(--text); }
+
+.qab-header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.qab-title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.qab-subtitle {
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.qab-panel-body { padding: 16px; }
+
+.qab-select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.qab-btn { font-family: var(--font-body); }
+
+.qab-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s ease, transform .1s ease;
+}
+.qab-type-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.qab-btn-icon { font-size: 22px; }
+
+.qab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qab-field { display: flex; flex-direction: column; gap: 4px; }
+
+.qab-field-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--muted);
+}
+
+.qab-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  width: 100%;
+}
+.qab-input:focus { outline: none; border-color: var(--accent); }
+
+.qab-field-invalid .qab-input { border-color: var(--accent2); }
+
+.qab-error {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--accent2);
+  min-height: 14px;
+}
+
+.qab-submit-btn {
+  margin-top: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s ease;
+}
+.qab-submit-btn:hover { opacity: .88; }
+
+.qab-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.qab-confirm-msg {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.qab-confirm-actions { display: flex; gap: 10px; }
+
+.qab-undo-btn,
+.qab-done-btn {
+  font-family: var(--font-body);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.qab-undo-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.qab-undo-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+.qab-done-btn {
+  background: var(--accent);
+  border: none;
+  color: var(--bg);
+}
+.qab-done-btn:hover { opacity: .88; }
+
+@media (max-width: 480px) {
+  .qab-panel { width: calc(100vw - 32px); right: 16px; bottom: 96px; }
+  .qab-fab { right: 16px; bottom: 16px; }
+}

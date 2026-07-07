@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="fr-styles.css?v=3">
   <link rel="stylesheet" href="fr-goals.css">
   <link rel="stylesheet" href="fr-healthcheck.css">
+  <link rel="stylesheet" href="fr-quickadd-bot.css">
   <link rel="icon" type="image/png" href="../finresolver.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -228,43 +229,13 @@
 </div><!-- #app -->
 
   <!-- ── MOBILE BOTTOM NAV ──────────────────────────────────────────────────── -->
+  <div class="bnav-sheet-overlay" id="bnav-sheet-overlay" onclick="closeBnavSheet()"></div>
+  <div class="bnav-sheet" id="bnav-sheet">
+    <div class="bnav-sheet-title" id="bnav-sheet-title"></div>
+    <div class="bnav-sheet-items" id="bnav-sheet-items"></div>
+  </div>
   <nav class="bottom-nav" id="bottom-nav">
-    <div class="bnav-item active" data-screen="dashboard" onclick="navigate('dashboard')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Home</span>
-    </div>
-    <div class="bnav-item" data-screen="monthly" onclick="navigate('monthly')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <span>Monthly</span>
-    </div>
-    <div class="bnav-item" data-screen="investments" onclick="navigate('investments')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-      <span>Invest</span>
-    </div>
-    <div class="bnav-item" data-screen="loans" onclick="navigate('loans')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      <span>Loans</span>
-    </div>
-    <div class="bnav-item" data-screen="portfolio" onclick="navigate('portfolio')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-      <span>FIRE</span>
-    </div>
-    <div class="bnav-item" data-screen="goals" onclick="navigate('goals')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-      <span>Goals</span>
-    </div>
-    <div class="bnav-item" data-screen="lifestyle" onclick="navigate('lifestyle')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-      <span>Lifestyle</span>
-    </div>
-    <div class="bnav-item" data-screen="dayplanner" onclick="navigate('dayplanner')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span>Planner</span>
-    </div>
-    <div class="bnav-item disabled" data-screen="advisor">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-      <span>Advisor</span>
-    </div>
+    <!-- Built by fr-app.js buildBottomNav() -->
   </nav>
 
 <!-- ── WALKTHROUGH OVERLAY ──────────────────────────────────────────────────── -->
@@ -308,6 +279,7 @@
 <script src="fr-dayplanner.js"></script>
 <script src="fr-healthcheck.js"></script>
 <script src="fr-advisor.js"></script>
+<script src="../js/quickadd-bot.js"></script>
 <script>
   // Expand the toggle label on wider screens
   function updateToggleLabel() {

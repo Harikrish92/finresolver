@@ -2016,6 +2016,94 @@ body {
   stroke-width: 1.75
 }
 
+.bnav-item.sheet-open:not(.active) {
+  color: var(--t1)
+}
+
+/* ── MOBILE BOTTOM-NAV PICKER SHEET ────────────────── */
+.bnav-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 18, .55);
+  z-index: 149;
+  opacity: 0;
+  transition: opacity .18s var(--ease)
+}
+
+.bnav-sheet-overlay.open {
+  display: block;
+  opacity: 1
+}
+
+.bnav-sheet {
+  display: none;
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 68px;
+  background: var(--s1);
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  z-index: 150;
+  padding: 14px 10px;
+  transform: translateY(12px);
+  opacity: 0;
+  transition: transform .18s var(--ease), opacity .18s var(--ease)
+}
+
+.bnav-sheet.open {
+  display: block;
+  transform: translateY(0);
+  opacity: 1
+}
+
+.bnav-sheet-title {
+  font-family: var(--font-d);
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 8px 10px
+}
+
+.bnav-sheet-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px
+}
+
+.bnav-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 10px;
+  border-radius: var(--rs);
+  color: var(--t2);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease)
+}
+
+.bnav-sheet-item:hover {
+  background: var(--s2)
+}
+
+.bnav-sheet-item.active {
+  color: var(--accent);
+  background: var(--s2)
+}
+
+.bnav-sheet-item svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.75;
+  flex-shrink: 0
+}
+
 /* ── ACCORDION PANELS ──────────────────────────────── */
 .acc-wrap {
   background: var(--s1);

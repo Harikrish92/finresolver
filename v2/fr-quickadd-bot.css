@@ -1,0 +1,252 @@
+/* ============================================================
+   fr-quickadd-bot.css — Modern UI skin for the Quick Add widget
+   Reuses Modern's design tokens from fr-styles.css
+   FinResolver · finresolver.in
+   ============================================================ */
+
+.qab-hidden { display: none !important; }
+
+.qab-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 68px;
+  height: 68px;
+  border: none;
+  border-radius: 25%;
+  background: transparent;
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  z-index: 9990;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+.qab-fab:hover { transform: scale(1.06); }
+
+/* Fallback "+" glyph (image failed to load) carries its own circular
+   background so it still reads as a button even though .qab-fab itself
+   is transparent. */
+.qab-fab-icon {
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.qab-fab-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.1);
+}
+
+.qab-panel {
+  position: fixed;
+  bottom: 104px;
+  right: 24px;
+  width: 320px;
+  max-height: 72vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--s1);
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  z-index: 9991;
+  font-family: var(--font);
+  color: var(--t1);
+}
+
+.qab-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--b2);
+  flex-shrink: 0;
+}
+
+.qab-back,
+.qab-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--t3);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--rs);
+  transition: color .15s var(--ease);
+}
+.qab-back:hover,
+.qab-close:hover { color: var(--t1); }
+
+.qab-header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.qab-title {
+  font-family: var(--font-d);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--t1);
+}
+
+.qab-subtitle {
+  font-family: var(--font);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--t3);
+}
+
+.qab-panel-body { padding: 16px; }
+
+.qab-select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.qab-btn { font-family: var(--font); }
+
+.qab-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 8px;
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  background: var(--s2);
+  color: var(--t1);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s var(--ease), transform .1s var(--ease);
+}
+.qab-type-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.qab-btn-icon { font-size: 22px; }
+
+.qab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qab-field { display: flex; flex-direction: column; gap: 4px; }
+
+.qab-field-label {
+  font-family: var(--font-m);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--t3);
+}
+
+.qab-input {
+  background: var(--s2);
+  border: 1px solid var(--b2);
+  border-radius: var(--rs);
+  padding: 9px 10px;
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 13.5px;
+  width: 100%;
+}
+.qab-input:focus { outline: none; border-color: var(--accent); }
+
+.qab-field-invalid .qab-input { border-color: var(--red); }
+
+.qab-error {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--red);
+  min-height: 14px;
+}
+
+.qab-submit-btn {
+  margin-top: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--rs);
+  padding: 10px;
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s var(--ease);
+}
+.qab-submit-btn:hover { opacity: .88; }
+
+.qab-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.qab-confirm-msg {
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--t1);
+}
+
+.qab-confirm-actions { display: flex; gap: 10px; }
+
+.qab-undo-btn,
+.qab-done-btn {
+  font-family: var(--font);
+  padding: 8px 18px;
+  border-radius: var(--rs);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease);
+}
+
+.qab-undo-btn {
+  background: transparent;
+  border: 1px solid var(--b2);
+  color: var(--t3);
+}
+.qab-undo-btn:hover { border-color: var(--red); color: var(--red); }
+
+.qab-done-btn {
+  background: var(--accent);
+  border: none;
+  color: var(--bg);
+}
+.qab-done-btn:hover { opacity: .88; }
+
+/* Clear the mobile bottom nav bar (~68px tall, see fr-styles.css .bottom-nav)
+   so FinBolt doesn't sit on top of / hide the nav items behind it. */
+@media (max-width: 768px) {
+  .qab-fab { bottom: 92px; }
+  .qab-panel { bottom: 172px; }
+}
+
+@media (max-width: 480px) {
+  .qab-panel { width: calc(100vw - 32px); right: 16px; }
+  .qab-fab { right: 16px; }
+}

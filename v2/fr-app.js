@@ -18,6 +18,25 @@ const NAV = [
   { screen:'advisor',     icon:'bot',       label:'AI Advisor',      section:'ADVISOR'   },
 ];
 
+// Bottom-nav (mobile) shows one tab per sidebar section; sections with
+// multiple screens open a picker sheet instead of navigating directly.
+const BNAV_LABELS = { OVERVIEW:'Home', TRACKER:'Tracker', PLANNER:'Planner', ADVISOR:'Advisor' };
+
+function _navGroups() {
+  const groups = [];
+  NAV.forEach(item => {
+    if (item.section) groups.push({ section: item.section, items: [] });
+    groups[groups.length - 1].items.push(item);
+  });
+  return groups;
+}
+
+function _navGroupFor(screen) {
+  const s = screen === 'loan-detail' ? 'loans' : screen === 'goal-detail' ? 'goals' : screen;
+  const g = _navGroups().find(g => g.items.some(i => i.screen === s));
+  return g ? g.section : null;
+}
+
 function navigate(screen, opts = {}) {
   if (screen === 'advisor' && !ADVISOR_ENABLED) {
     if (typeof _showToast === 'function') _showToast("AI Advisor is coming soon — we're still building it!");
@@ -27,6 +46,7 @@ function navigate(screen, opts = {}) {
   if (opts.loanId)  APP.activeLoanId  = opts.loanId;
   if (opts.goalId)  APP.activeGoalId  = opts.goalId;
   _screen = screen;
+  if (typeof closeBnavSheet === 'function') closeBnavSheet();
 
   // update sidebar nav highlights
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -38,12 +58,9 @@ function navigate(screen, opts = {}) {
   });
 
   // update bottom nav highlights
-  document.querySelectorAll('.bnav-item[data-screen]').forEach(el => {
-    const s = el.dataset.screen;
-    el.classList.toggle('active',
-      s === screen ||
-      (screen === 'loan-detail'  && s === 'loans') ||
-      (screen === 'goal-detail'  && s === 'goals'));
+  const activeBnavGroup = _navGroupFor(screen);
+  document.querySelectorAll('.bnav-item[data-group]').forEach(el => {
+    el.classList.toggle('active', el.dataset.group === activeBnavGroup);
   });
 
   // breadcrumb
@@ -193,6 +210,54 @@ function buildSidebarNav() {
       </div>`;
   });
   nav.innerHTML = html;
+}
+
+// ── BOTTOM NAV (mobile) ────────────────────────────────────────────────────────
+let _bnavOpenGroup = null;
+
+function buildBottomNav() {
+  const nav = document.getElementById('bottom-nav');
+  nav.innerHTML = _navGroups().map(g => {
+    const first = g.items[0];
+    const isMulti = g.items.length > 1;
+    const isDisabled = g.section === 'ADVISOR' && !ADVISOR_ENABLED;
+    const action = isDisabled ? ''
+      : isMulti ? `onclick="toggleBnavSheet('${g.section}')"`
+      : `onclick="navigate('${first.screen}')"`;
+    return `
+      <div class="bnav-item${isDisabled ? ' disabled' : ''}${g.section === 'OVERVIEW' ? ' active' : ''}" data-group="${g.section}" ${action}>
+        ${ic(first.icon, 20)}
+        <span>${BNAV_LABELS[g.section] || g.section}</span>
+      </div>`;
+  }).join('');
+}
+
+function toggleBnavSheet(section) {
+  if (_bnavOpenGroup === section) closeBnavSheet();
+  else openBnavSheet(section);
+}
+
+function openBnavSheet(section) {
+  const group = _navGroups().find(g => g.section === section);
+  if (!group) return;
+  _bnavOpenGroup = section;
+  document.getElementById('bnav-sheet-title').textContent = BNAV_LABELS[section] || section;
+  document.getElementById('bnav-sheet-items').innerHTML = group.items.map(item => `
+    <div class="bnav-sheet-item${item.screen === _screen ? ' active' : ''}" onclick="navigate('${item.screen}'); closeBnavSheet();">
+      ${ic(item.icon, 18)}
+      <span>${item.label}</span>
+    </div>`).join('');
+  document.getElementById('bnav-sheet').classList.add('open');
+  document.getElementById('bnav-sheet-overlay').classList.add('open');
+  document.querySelectorAll('.bnav-item[data-group]').forEach(el =>
+    el.classList.toggle('sheet-open', el.dataset.group === section));
+}
+
+function closeBnavSheet() {
+  _bnavOpenGroup = null;
+  document.getElementById('bnav-sheet').classList.remove('open');
+  document.getElementById('bnav-sheet-overlay').classList.remove('open');
+  document.querySelectorAll('.bnav-item.sheet-open').forEach(el => el.classList.remove('sheet-open'));
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────────────────────
@@ -577,6 +642,7 @@ function _showToast(msg) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   buildSidebarNav();
+  buildBottomNav();
   document.getElementById('app-layout').style.display = 'none';
   document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
 
@@ -599,6 +665,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (!autoLoggedIn) document.getElementById('login-screen').style.display = '';
   document.getElementById('boot-loader').style.display = 'none';
+
+  // Quick Add widget adapter — bridges the app-agnostic QuickAddBot core
+  // to Modern's `APP` global and the loan-payment auto-sync helpers above.
+  if (typeof QuickAddBot !== 'undefined') {
+    const QAB_PLURAL = { expense: 'expenses', income: 'income', investment: 'investments', loan: 'loans' };
+    QuickAddBot.init({
+      fabIcon: '../FinBolt.png',
+      getLoans: () => APP.loans.map(l => ({ id: l.id, name: l.name })),
+      onSubmit: (type, entry) => {
+        const pluralType = QAB_PLURAL[type];
+        if (entry.loanId) entry.loanId = parseInt(entry.loanId, 10) || null;
+        entry.id = Math.max(0, ...APP.monthly[pluralType].map(e => e.id)) + 1;
+        if (entry.loanId) autoLogLoanPayment(entry);
+        APP.monthly[pluralType].push(entry);
+        navigate('monthly');
+        return () => {
+          if (entry.loanId && entry.paymentId) autoRemoveLoanPayment(entry.loanId, entry.paymentId);
+          APP.monthly[pluralType] = APP.monthly[pluralType].filter(e => e.id !== entry.id);
+          navigate('monthly');
+        };
+      },
+    });
+  }
 
   // Tweaks panel protocol
   window.addEventListener('message', e => {

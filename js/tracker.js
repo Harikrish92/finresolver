@@ -328,3 +328,27 @@ function initNotesEvents() {
     });
   }
 }
+
+/* ── Quick Add widget adapter ─────────────────────────────────
+   Bridges the app-agnostic QuickAddBot core to Classic's `data`
+   global and the loan-payment auto-sync helpers above. */
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof QuickAddBot === 'undefined') return;
+  QuickAddBot.init({
+    fabIcon: 'FinBolt.png',
+    getLoans: () => (typeof loansData !== 'undefined' ? loansData : [])
+      .map(l => ({ id: l.id, name: l.name })),
+    onSubmit: (type, entry) => {
+      if (entry.loanId) autoLogLoanPayment(entry);
+      data[type].push(entry);
+      saveData(); render();
+      return () => {
+        const idx = data[type].indexOf(entry);
+        if (idx === -1) return;
+        if (entry.loanId && entry.paymentId) autoRemoveLoanPayment(entry.loanId, entry.paymentId);
+        data[type].splice(idx, 1);
+        saveData(); render();
+      };
+    },
+  });
+});
