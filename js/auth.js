@@ -227,6 +227,7 @@ function applyUser(user, skipSave = false) {
   if (menuSignOut) menuSignOut.style.display = isGuest ? 'none'  : 'block';
 
   document.getElementById('loginScreen').style.display = 'none';
+  if (typeof QuickAddBot !== 'undefined') QuickAddBot.show();
 
   // Now show home — renderHomeDashboard() will see the correct user
   if (typeof showHomeScreen === 'function') {
@@ -286,6 +287,7 @@ function logOut() {
 
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('appMain').style.display     = 'none';
+  if (typeof QuickAddBot !== 'undefined') QuickAddBot.hide();
 
   // Also hide home screen if present
   const homeScreen = document.getElementById('homeScreen');

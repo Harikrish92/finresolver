@@ -12,9 +12,13 @@
 window.QuickAddBot = (function () {
   'use strict';
 
-  var opts  = null;
-  var els   = {};
-  var state = { screen: 'select', type: null, undo: null };
+  var opts    = null;
+  var els     = {};
+  var state   = { screen: 'select', type: null, undo: null, justDragged: false };
+  var visible = false; // show()/hide() may be called before build() runs
+
+  var SIDE_KEY = 'fr_qab_side';
+  var DRAG_THRESHOLD = 6; // px of horizontal movement before a press counts as a drag, not a tap
 
   var TYPES = {
     expense:    { label: 'Add Expense',       icon: '💸' },
@@ -62,7 +66,7 @@ window.QuickAddBot = (function () {
 
   function build() {
     var fabInner = opts.fabIcon
-      ? '<img class="qab-fab-icon-img" src="' + escHtml(opts.fabIcon) + '" alt="FinBolt" />'
+      ? '<img class="qab-fab-icon-img" src="' + escHtml(opts.fabIcon) + '" alt="FinBolt" draggable="false" />'
       : '<span class="qab-fab-icon">+</span>';
 
     els.root = document.createElement('div');
@@ -82,6 +86,7 @@ window.QuickAddBot = (function () {
         '</div>' +
         '<div class="qab-panel-body"></div>' +
       '</div>';
+    els.root.classList.add('qab-hidden');
     document.body.appendChild(els.root);
 
     els.fab   = els.root.querySelector('.qab-fab');
@@ -91,9 +96,17 @@ window.QuickAddBot = (function () {
     els.title = els.root.querySelector('.qab-title');
     els.body  = els.root.querySelector('.qab-panel-body');
 
-    els.fab.addEventListener('click', togglePanel);
+    els.fab.addEventListener('click', function () {
+      // A drag-and-release that just finished fires a click right after —
+      // swallow that one so dragging doesn't also pop the panel open.
+      if (state.justDragged) { state.justDragged = false; return; }
+      togglePanel();
+    });
     els.close.addEventListener('click', closePanel);
     els.back.addEventListener('click', goToSelect);
+
+    applySide(loadSide());
+    initDrag();
 
     var fabImg = els.root.querySelector('.qab-fab-icon-img');
     if (fabImg) {
@@ -131,6 +144,72 @@ window.QuickAddBot = (function () {
   function togglePanel() {
     if (els.panel.classList.contains('qab-hidden')) openPanel();
     else closePanel();
+  }
+
+  /* ── horizontal drag-to-reposition ───────────────────────────────
+     FinBolt can cover content on narrow screens (bottom nav, other
+     FABs). Dragging it sideways snaps it to whichever bottom corner
+     — left or right — it's released closer to; the vertical position
+     always stays pinned to the bottom via CSS. The choice persists
+     across sessions via localStorage. */
+
+  function loadSide() {
+    try { return localStorage.getItem(SIDE_KEY) === 'left' ? 'left' : 'right'; }
+    catch (e) { return 'right'; }
+  }
+
+  function saveSide(side) {
+    try { localStorage.setItem(SIDE_KEY, side); } catch (e) {}
+  }
+
+  function applySide(side) {
+    els.fab.classList.toggle('qab-side-left', side === 'left');
+    els.panel.classList.toggle('qab-side-left', side === 'left');
+  }
+
+  function initDrag() {
+    var drag = null;
+
+    els.fab.addEventListener('pointerdown', function (e) {
+      if (e.isPrimary === false) return;
+      state.justDragged = false; // guard against a browser skipping the post-drag click
+      var rect = els.fab.getBoundingClientRect();
+      drag = { pointerId: e.pointerId, startX: e.clientX, startLeft: rect.left, width: rect.width, dragging: false };
+    });
+
+    els.fab.addEventListener('pointermove', function (e) {
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      var dx = e.clientX - drag.startX;
+      if (!drag.dragging) {
+        if (Math.abs(dx) < DRAG_THRESHOLD) return;
+        drag.dragging = true;
+        try { els.fab.setPointerCapture(drag.pointerId); } catch (err) {}
+        els.fab.classList.add('qab-dragging');
+        closePanel();
+      }
+      var maxLeft = window.innerWidth - drag.width - 4;
+      var newLeft = Math.min(maxLeft, Math.max(4, drag.startLeft + dx));
+      els.fab.style.left  = newLeft + 'px';
+      els.fab.style.right = 'auto';
+    });
+
+    function endDrag(e) {
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      if (drag.dragging) {
+        var center = els.fab.getBoundingClientRect().left + drag.width / 2;
+        var side   = center < window.innerWidth / 2 ? 'left' : 'right';
+        els.fab.classList.remove('qab-dragging');
+        els.fab.style.left  = '';
+        els.fab.style.right = '';
+        applySide(side);
+        saveSide(side);
+        state.justDragged = true;
+      }
+      drag = null;
+    }
+
+    els.fab.addEventListener('pointerup', endDrag);
+    els.fab.addEventListener('pointercancel', endDrag);
   }
 
   /* ── screen: type select ─────────────────────────────────────── */
@@ -295,12 +374,29 @@ window.QuickAddBot = (function () {
     els.body.querySelector('.qab-done-btn').addEventListener('click', closePanel);
   }
 
+  /* ── show/hide ────────────────────────────────────────────────
+     The FAB starts hidden (built but not shown) so hosts can keep it
+     off the login screen and only reveal it once a user is signed in. */
+
+  function show() {
+    visible = true;
+    if (els.root) els.root.classList.remove('qab-hidden');
+  }
+
+  function hide() {
+    visible = false;
+    if (!els.root) return;
+    closePanel();
+    els.root.classList.add('qab-hidden');
+  }
+
   /* ── public API ──────────────────────────────────────────────── */
 
   function init(options) {
     opts = options || {};
     if (!els.root) build();
+    if (visible) show();
   }
 
-  return { init: init };
+  return { init: init, show: show, hide: hide };
 })();

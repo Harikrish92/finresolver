@@ -23,9 +23,19 @@
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   z-index: 9990;
-  transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), left .18s var(--ease), right .18s var(--ease);
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
 }
 .qab-fab:hover { transform: scale(1.06); }
+.qab-fab.qab-dragging { transition: none; cursor: grabbing; }
+
+/* Snapped to the left side after a horizontal drag (see QuickAddBot drag
+   handling in quickadd-bot.js) — keeps FinBolt off content it would
+   otherwise cover, especially the mobile bottom nav / FAB-heavy screens. */
+.qab-fab.qab-side-left  { left: 24px; right: auto; }
+.qab-panel.qab-side-left { left: 24px; right: auto; }
 
 /* Fallback "+" glyph (image failed to load) carries its own circular
    background so it still reads as a button even though .qab-fab itself
@@ -49,6 +59,9 @@
   object-fit: cover;
   display: block;
   transform: scale(1.1);
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 .qab-panel {
@@ -249,4 +262,6 @@
 @media (max-width: 480px) {
   .qab-panel { width: calc(100vw - 32px); right: 16px; }
   .qab-fab { right: 16px; }
+  .qab-fab.qab-side-left  { left: 16px; right: auto; }
+  .qab-panel.qab-side-left { left: 16px; right: auto; }
 }

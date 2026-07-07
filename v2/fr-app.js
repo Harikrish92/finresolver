@@ -130,6 +130,7 @@ function showApp() {
   const layout = document.getElementById('app-layout');
   layout.style.display = 'flex';
   layout.style.width   = '100%';
+  if (typeof QuickAddBot !== 'undefined') QuickAddBot.show();
 
   document.getElementById('sb-user-name').textContent    = APP.user.name;
   document.getElementById('sb-user-email').textContent   = APP.user.email;

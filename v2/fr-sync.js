@@ -703,6 +703,7 @@ async function logout() {
 
   document.getElementById('app-layout').style.display = 'none';
   document.getElementById('login-screen').style.display = '';
+  if (typeof QuickAddBot !== 'undefined') QuickAddBot.hide();
 }
 
 // ── Sync badge ────────────────────────────────────────────────────────────────
