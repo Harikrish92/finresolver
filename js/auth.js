@@ -261,6 +261,11 @@ function logOut() {
     localStorage.removeItem(`fr_invjourney_${uid}`);
     localStorage.removeItem(`fr_lifestyle_${uid}`);
     localStorage.removeItem(`fr_dayplanner_cfg_${uid}`);
+    const dpPrefix = `finresolver_dayplanner_${uid}_`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(dpPrefix))
+      .forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(`finresolver_dayplanner_recurring_${uid}`);
   }
 
   localStorage.removeItem(SESSION_KEY);
