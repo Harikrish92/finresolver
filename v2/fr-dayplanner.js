@@ -1,14 +1,19 @@
 // ── DAY PLANNER ───────────────────────────────────────────────────────────────
 // Config (schedule window) syncs per-user via Firestore (fr-sync.js), same
 // Firestore path (users/{uid}/config/dayplanner) as the classic v1 UI.
-// Slot completion state is kept in the same per-day localStorage keys the
-// classic UI uses ('finresolver_dayplanner_YYYY-MM-DD', same 'dp_<minutes>'
-// slot ids), and recurring "repeat daily" templates share the same
-// 'finresolver_dayplanner_recurring' key — so both UIs stay in sync.
+// Slot completion state is kept in the same per-user, per-day localStorage keys
+// the classic UI uses ('finresolver_dayplanner_<uid>_YYYY-MM-DD', same
+// 'dp_<minutes>' slot ids), and recurring "repeat daily" templates share the
+// same 'finresolver_dayplanner_recurring_<uid>' key — so both UIs stay in sync
+// for the same signed-in user.
 
 const DP_LEGACY_KEY   = 'finresolver_dayplanner';           // pre-2026-07 flat "today only" key — migrated on first load
 const DP_KEY_PREFIX    = 'finresolver_dayplanner_';
 const DP_RECURRING_KEY = 'finresolver_dayplanner_recurring';
+
+function _dpv2Uid() {
+  return (typeof _currentUID !== 'undefined' && _currentUID) ? _currentUID : 'guest';
+}
 let _dpv2Timer = null;
 let _dpv2ViewDate = new Date(); // resets to "today" every time the screen is opened via navigate()
 
@@ -26,8 +31,9 @@ function _dpv2Slots(cfg) {
 // ── Date helpers ──
 function _dpv2DateKey(date) {
   const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
-  return DP_KEY_PREFIX + y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+  return DP_KEY_PREFIX + _dpv2Uid() + '_' + y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
 }
+function _dpv2RecurringKey() { return DP_RECURRING_KEY + '_' + _dpv2Uid(); }
 function _dpv2InputDate(date) {
   const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
   return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
@@ -53,11 +59,11 @@ function _dpv2MigrateLegacy() {
 
 // ── Recurring-task templates ──
 function _dpv2LoadRecurring() {
-  try { return JSON.parse(localStorage.getItem(DP_RECURRING_KEY)) || {}; }
+  try { return JSON.parse(localStorage.getItem(_dpv2RecurringKey())) || {}; }
   catch (e) { return {}; }
 }
 function _dpv2SaveRecurring(rec) {
-  try { localStorage.setItem(DP_RECURRING_KEY, JSON.stringify(rec)); } catch (e) {}
+  try { localStorage.setItem(_dpv2RecurringKey(), JSON.stringify(rec)); } catch (e) {}
 }
 function _dpv2ToggleRepeat(id, noteValue) {
   const rec = _dpv2LoadRecurring();

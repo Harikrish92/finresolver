@@ -7,8 +7,8 @@
   'use strict';
 
   var DP_LEGACY_KEY   = 'finresolver_dayplanner';            // pre-2026-07 flat "today only" key — migrated on first load
-  var DP_KEY_PREFIX    = 'finresolver_dayplanner_';           // + YYYY-MM-DD, one entry per day
-  var DP_RECURRING_KEY = 'finresolver_dayplanner_recurring';  // { [slotId]: {note} } — tasks that auto-appear on every day
+  var DP_KEY_PREFIX    = 'finresolver_dayplanner_';           // + <uid>_YYYY-MM-DD, one entry per user per day
+  var DP_RECURRING_KEY = 'finresolver_dayplanner_recurring';  // + _<uid> — { [slotId]: {note} } — tasks that auto-appear on every day
   var _dpTimer = null;
   var _dpListenersAttached = false;
   var _dpConfig = null;   // { slotMinutes, fromMin, toMin } — loaded per-user, first-run if null
@@ -72,8 +72,10 @@
   /* ── Date helpers ── */
   function _dpDateKey(date) {
     var y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
-    return DP_KEY_PREFIX + y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+    return DP_KEY_PREFIX + _dpUid() + '_' + y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
   }
+
+  function _dpRecurringKey() { return DP_RECURRING_KEY + '_' + _dpUid(); }
 
   function _dpInputDate(date) {
     var y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
@@ -110,12 +112,12 @@
 
   /* ── Recurring-task templates: tasks marked "repeat daily" pre-fill every day ── */
   function _dpLoadRecurring() {
-    try { return JSON.parse(localStorage.getItem(DP_RECURRING_KEY)) || {}; }
+    try { return JSON.parse(localStorage.getItem(_dpRecurringKey())) || {}; }
     catch (e) { return {}; }
   }
 
   function _dpSaveRecurring(rec) {
-    try { localStorage.setItem(DP_RECURRING_KEY, JSON.stringify(rec)); }
+    try { localStorage.setItem(_dpRecurringKey(), JSON.stringify(rec)); }
     catch (e) { /* quota exceeded — silent fail */ }
   }
 
