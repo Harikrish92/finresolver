@@ -52,6 +52,105 @@
       .catch(function (e) { console.warn('[DayPlanner] Firestore save failed:', e.message); });
   }
 
+  /* ── Firestore sync: day-state + recurring templates. Each calendar day is
+     its own doc (users/{uid}/dayplanner_days/{YYYY-MM-DD}) so history doesn't
+     bloat a single blob; recurring templates share one doc like config does. ── */
+  function _dpDbReady() {
+    return typeof db !== 'undefined' && db && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser;
+  }
+
+  var _dpSyncedDayKeys   = {};    // dates already reconciled with Firestore this session
+  var _dpRecurringSynced = false;
+  var _dpDaySaveTimer    = null;
+
+  async function _dpDecrypt(raw) {
+    var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+    return typeof decryptFromStorage === 'function' ? decryptFromStorage(raw, email) : JSON.parse(raw);
+  }
+
+  async function _dpEncrypt(obj) {
+    var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+    return typeof encryptForStorage === 'function' ? encryptForStorage(obj, email) : JSON.stringify(obj);
+  }
+
+  async function _dpFetchDayFromFirestore(date) {
+    if (!_dpDbReady()) return null;
+    try {
+      var snap = await db.collection('users').doc(fbAuth.currentUser.uid)
+        .collection('dayplanner_days').doc(_dpInputDate(date)).get();
+      if (!snap.exists) return null;
+      var raw = snap.data()._enc;
+      if (!raw) return null;
+      var dec = await _dpDecrypt(raw);
+      return (dec && typeof dec === 'object') ? dec : null;
+    } catch (e) { console.warn('[DayPlanner] Firestore day load failed:', e.message); return null; }
+  }
+
+  function _dpPushDayToFirestore(date, state) {
+    if (!_dpDbReady()) return;
+    var uid = fbAuth.currentUser.uid, docId = _dpInputDate(date);
+    (async function () {
+      try {
+        var enc = await _dpEncrypt(state);
+        await db.collection('users').doc(uid).collection('dayplanner_days').doc(docId).set({ _enc: enc });
+      } catch (e) { console.warn('[DayPlanner] Firestore day save failed:', e.message); }
+    })();
+  }
+
+  function _dpDeleteDayFromFirestore(date) {
+    if (!_dpDbReady()) return;
+    db.collection('users').doc(fbAuth.currentUser.uid)
+      .collection('dayplanner_days').doc(_dpInputDate(date)).delete()
+      .catch(function (e) { console.warn('[DayPlanner] Firestore day delete failed:', e.message); });
+  }
+
+  // Pull a day's cloud state into the local cache the first time it's viewed
+  // this session; every save afterwards keeps local + cloud in sync going forward.
+  async function _dpEnsureDaySynced(date) {
+    var key = _dpDateKey(date);
+    if (_dpSyncedDayKeys[key]) return;
+    _dpSyncedDayKeys[key] = true;
+    var cloud = await _dpFetchDayFromFirestore(date);
+    if (cloud) localStorage.setItem(key, JSON.stringify(cloud));
+  }
+
+  async function _dpFetchRecurringFromFirestore() {
+    if (!_dpDbReady()) return null;
+    try {
+      var snap = await db.collection('users').doc(fbAuth.currentUser.uid)
+        .collection('config').doc('dayplanner_recurring').get();
+      if (!snap.exists) return null;
+      var raw = snap.data()._enc;
+      if (!raw) return null;
+      var dec = await _dpDecrypt(raw);
+      return (dec && typeof dec === 'object') ? dec : null;
+    } catch (e) { console.warn('[DayPlanner] Firestore recurring load failed:', e.message); return null; }
+  }
+
+  function _dpPushRecurringToFirestore(rec) {
+    if (!_dpDbReady()) return;
+    var uid = fbAuth.currentUser.uid;
+    (async function () {
+      try {
+        var enc = await _dpEncrypt(rec);
+        await db.collection('users').doc(uid).collection('config').doc('dayplanner_recurring').set({ _enc: enc });
+      } catch (e) { console.warn('[DayPlanner] Firestore recurring save failed:', e.message); }
+    })();
+  }
+
+  async function _dpEnsureRecurringSynced() {
+    if (_dpRecurringSynced) return;
+    _dpRecurringSynced = true;
+    var cloud = await _dpFetchRecurringFromFirestore();
+    if (cloud) localStorage.setItem(_dpRecurringKey(), JSON.stringify(cloud));
+  }
+
+  // Called by sync.js at login so the home-dashboard stat is correct without
+  // requiring the user to open the Day Planner screen first.
+  async function dpSyncTodayFromFirestore() {
+    await Promise.all([_dpEnsureDaySynced(new Date()), _dpEnsureRecurringSynced()]);
+  }
+
   /* ── Slot definitions: driven by the loaded config ── */
   function _dpSlots(cfg) {
     var slots = [];
@@ -99,6 +198,8 @@
   function _dpSave(date, state) {
     try { localStorage.setItem(_dpDateKey(date), JSON.stringify(state)); }
     catch (e) { /* quota exceeded — silent fail */ }
+    if (_dpDaySaveTimer) clearTimeout(_dpDaySaveTimer);
+    _dpDaySaveTimer = setTimeout(function () { _dpPushDayToFirestore(date, state); }, 500);
   }
 
   /* ── One-time migration: pre-2026-07 installs kept a single flat key for "today" ── */
@@ -119,6 +220,7 @@
   function _dpSaveRecurring(rec) {
     try { localStorage.setItem(_dpRecurringKey(), JSON.stringify(rec)); }
     catch (e) { /* quota exceeded — silent fail */ }
+    _dpPushRecurringToFirestore(rec);
   }
 
   function _dpToggleRepeat(id, noteValue) {
@@ -313,6 +415,7 @@
     var label = _dpIsToday(_dpViewDate) ? 'today' : _formatDate(_dpViewDate);
     if (!window.confirm('Clear all slots for ' + label + '?')) return;
     localStorage.removeItem(_dpDateKey(_dpViewDate));
+    _dpDeleteDayFromFirestore(_dpViewDate);
     _dpRenderWithConfig();
   }
 
@@ -336,18 +439,21 @@
   }
 
   /* ── Public: day navigation ── */
-  function dpPrevDay() {
+  async function dpPrevDay() {
     _dpViewDate.setDate(_dpViewDate.getDate() - 1);
+    await _dpEnsureDaySynced(_dpViewDate);
     _dpRenderWithConfig();
   }
 
-  function dpNextDay() {
+  async function dpNextDay() {
     _dpViewDate.setDate(_dpViewDate.getDate() + 1);
+    await _dpEnsureDaySynced(_dpViewDate);
     _dpRenderWithConfig();
   }
 
-  function dpGoToday() {
+  async function dpGoToday() {
     _dpViewDate = new Date();
+    await _dpEnsureDaySynced(_dpViewDate);
     _dpRenderWithConfig();
   }
 
@@ -434,7 +540,7 @@
     if (modal) modal.classList.add('hidden');
   }
 
-  function dpCopyFromDate() {
+  async function dpCopyFromDate() {
     var input = document.getElementById('dpCopySourceDate');
     var errEl = document.getElementById('dpCopyError');
     var val   = input && input.value;
@@ -451,6 +557,8 @@
       _fail("Pick a different day than the one you're viewing.");
       return;
     }
+
+    await _dpEnsureDaySynced(srcDate);
 
     var validIds = {};
     _dpSlots(_dpConfig).forEach(function (s) { validIds[s.id] = true; });
@@ -490,6 +598,18 @@
     return { done: done, total: slots.length };
   }
 
+  /* ── Public: reset in-memory state on sign-out (mirrors resetLifestyleState in
+     js/lifestyle.js) so a subsequent login on the same page can't see the
+     previous user's schedule config or "already synced" cache markers. ── */
+  function resetDayPlannerState() {
+    if (_dpTimer) { clearInterval(_dpTimer); _dpTimer = null; }
+    if (_dpDaySaveTimer) { clearTimeout(_dpDaySaveTimer); _dpDaySaveTimer = null; }
+    _dpConfig = null;
+    _dpViewDate = null;
+    _dpSyncedDayKeys = {};
+    _dpRecurringSynced = false;
+  }
+
   /* ── Public: entry point ── */
   async function initDayPlanner() {
     _dpMigrateLegacy();
@@ -501,11 +621,15 @@
       return;
     }
 
+    await Promise.all([_dpEnsureDaySynced(_dpViewDate), _dpEnsureRecurringSynced()]);
+
     _dpHideSetupModal();
     _dpRenderWithConfig();
   }
 
   window.initDayPlanner   = initDayPlanner;
+  window.resetDayPlannerState     = resetDayPlannerState;
+  window.dpSyncTodayFromFirestore = dpSyncTodayFromFirestore;
   window.dpReset          = dpReset;
   window.dpSaveSetup      = dpSaveSetup;
   window.dpSlotCount      = dpSlotCount;

@@ -790,8 +790,8 @@ const INTRO_SLIDES = [
     type: 'spotlight',
     selector: '.home-nav-card.advisorhub',
     icon: '🤖',
-    title: 'AI <span>Advisor</span>',
-    sub: 'Chat with a personal finance assistant powered by Claude that actually understands your data.',
+    title: '<span>FINOVA</span>',
+    sub: 'Chat with a personal finance assistant powered by AI that actually understands your data.',
     features: [
       { icon: '💬', title: 'Ask Anything',      desc: 'Get answers about your spending, investments and loans in plain English.' },
       { icon: '🧠', title: 'Knows Your Data',   desc: 'Reads your real numbers to give personalised, actionable advice.' },

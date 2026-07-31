@@ -345,6 +345,14 @@ async function syncLoadConfig(uid) {
       .catch(e => console.warn('[Sync] Day Planner config load failed:', e.message))
   );
 
+  // ── Day Planner today's data + recurring templates (module owns its own
+  // encrypt/decrypt + Firestore paths — see js/dayplanner.js) so the
+  // home-dashboard stat is correct without opening the Day Planner screen ──
+  promises.push(
+    (typeof dpSyncTodayFromFirestore === 'function' ? dpSyncTodayFromFirestore() : Promise.resolve())
+      .catch(e => console.warn('[Sync] Day Planner data load failed:', e.message))
+  );
+
   // ── Pro subscription ──
   promises.push(
     db.collection('users').doc(uid).collection('subscription').doc('pro').get()

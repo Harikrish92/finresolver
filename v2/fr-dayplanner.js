@@ -47,6 +47,109 @@ function _dpv2LoadState(date) {
 }
 function _dpv2SaveState(date, state) {
   try { localStorage.setItem(_dpv2DateKey(date), JSON.stringify(state)); } catch (e) {}
+  if (_dpv2DaySaveTimer) clearTimeout(_dpv2DaySaveTimer);
+  _dpv2DaySaveTimer = setTimeout(() => _dpv2PushDayToFirestore(date, state), 500);
+}
+
+// ── Firestore sync: day-state + recurring templates (mirrors classic v1's
+// js/dayplanner.js — same Firestore paths, so both UIs stay in sync for the
+// same signed-in user). Config sync already lives in fr-sync.js; task data
+// is self-contained here since it doesn't fit fr-sync.js's single-blob
+// per-module pattern (one doc per calendar day). ──
+function _dpv2DbReady() {
+  return typeof _db !== 'undefined' && _db && _currentUID;
+}
+
+let _dpv2SyncedDayKeys   = {};
+let _dpv2RecurringSynced = false;
+let _dpv2DaySaveTimer    = null;
+
+async function _dpv2FetchDayFromFirestore(date) {
+  if (!_dpv2DbReady()) return null;
+  try {
+    const snap = await _db.collection('users').doc(_currentUID)
+      .collection('dayplanner_days').doc(_dpv2InputDate(date)).get();
+    if (!snap.exists) return null;
+    const raw = snap.data()._enc;
+    if (!raw) return null;
+    const dec = await decryptFromStorage(raw, _currentEmail);
+    return (dec && typeof dec === 'object') ? dec : null;
+  } catch (e) { console.warn('[DayPlanner] Firestore day load failed:', e); return null; }
+}
+
+function _dpv2PushDayToFirestore(date, state) {
+  if (!_dpv2DbReady()) return;
+  const uid = _currentUID, docId = _dpv2InputDate(date);
+  (async () => {
+    try {
+      const enc = await encryptForStorage(state, _currentEmail);
+      await _db.collection('users').doc(uid).collection('dayplanner_days').doc(docId).set({ _enc: enc });
+    } catch (e) { console.warn('[DayPlanner] Firestore day save failed:', e); }
+  })();
+}
+
+function _dpv2DeleteDayFromFirestore(date) {
+  if (!_dpv2DbReady()) return;
+  _db.collection('users').doc(_currentUID)
+    .collection('dayplanner_days').doc(_dpv2InputDate(date)).delete()
+    .catch(e => console.warn('[DayPlanner] Firestore day delete failed:', e));
+}
+
+// Pull a day's cloud state into the local cache the first time it's viewed
+// this session; every save afterwards keeps local + cloud in sync going forward.
+async function _dpv2EnsureDaySynced(date) {
+  const key = _dpv2DateKey(date);
+  if (_dpv2SyncedDayKeys[key]) return;
+  _dpv2SyncedDayKeys[key] = true;
+  const cloud = await _dpv2FetchDayFromFirestore(date);
+  if (cloud) localStorage.setItem(key, JSON.stringify(cloud));
+}
+
+async function _dpv2FetchRecurringFromFirestore() {
+  if (!_dpv2DbReady()) return null;
+  try {
+    const snap = await _db.collection('users').doc(_currentUID)
+      .collection('config').doc('dayplanner_recurring').get();
+    if (!snap.exists) return null;
+    const raw = snap.data()._enc;
+    if (!raw) return null;
+    const dec = await decryptFromStorage(raw, _currentEmail);
+    return (dec && typeof dec === 'object') ? dec : null;
+  } catch (e) { console.warn('[DayPlanner] Firestore recurring load failed:', e); return null; }
+}
+
+function _dpv2PushRecurringToFirestore(rec) {
+  if (!_dpv2DbReady()) return;
+  const uid = _currentUID;
+  (async () => {
+    try {
+      const enc = await encryptForStorage(rec, _currentEmail);
+      await _db.collection('users').doc(uid).collection('config').doc('dayplanner_recurring').set({ _enc: enc });
+    } catch (e) { console.warn('[DayPlanner] Firestore recurring save failed:', e); }
+  })();
+}
+
+async function _dpv2EnsureRecurringSynced() {
+  if (_dpv2RecurringSynced) return;
+  _dpv2RecurringSynced = true;
+  const cloud = await _dpv2FetchRecurringFromFirestore();
+  if (cloud) localStorage.setItem(_dpv2RecurringKey(), JSON.stringify(cloud));
+}
+
+// Called by fr-sync.js's loadAllData() at login so the dashboard is correct
+// without requiring the user to open the Day Planner screen first.
+async function dpv2SyncTodayFromFirestore() {
+  await Promise.all([_dpv2EnsureDaySynced(new Date()), _dpv2EnsureRecurringSynced()]);
+}
+
+// Called by fr-sync.js's logout() so a subsequent login on the same page
+// can't see the previous user's "already synced" cache markers.
+function resetDayPlannerV2State() {
+  if (_dpv2Timer) { clearInterval(_dpv2Timer); _dpv2Timer = null; }
+  if (_dpv2DaySaveTimer) { clearTimeout(_dpv2DaySaveTimer); _dpv2DaySaveTimer = null; }
+  _dpv2ViewDate = new Date();
+  _dpv2SyncedDayKeys = {};
+  _dpv2RecurringSynced = false;
 }
 
 function _dpv2MigrateLegacy() {
@@ -64,6 +167,7 @@ function _dpv2LoadRecurring() {
 }
 function _dpv2SaveRecurring(rec) {
   try { localStorage.setItem(_dpv2RecurringKey(), JSON.stringify(rec)); } catch (e) {}
+  _dpv2PushRecurringToFirestore(rec);
 }
 function _dpv2ToggleRepeat(id, noteValue) {
   const rec = _dpv2LoadRecurring();
@@ -111,6 +215,21 @@ function renderDayPlanner(el) {
 
   const cfg = APP.dayplanner && APP.dayplanner.config;
   if (!cfg) { el.innerHTML = _dpv2SetupHtml(); return; }
+
+  // Kick off a background reconcile the first time this day/the recurring
+  // templates are viewed this session; re-render once when it resolves so
+  // cloud edits (e.g. made on another device) appear without a page refresh.
+  const dayKey = _dpv2DateKey(_dpv2ViewDate);
+  if (!_dpv2SyncedDayKeys[dayKey]) {
+    _dpv2EnsureDaySynced(_dpv2ViewDate).then(() => {
+      if (_screen === 'dayplanner') renderDayPlanner(document.getElementById('screen-content'));
+    });
+  }
+  if (!_dpv2RecurringSynced) {
+    _dpv2EnsureRecurringSynced().then(() => {
+      if (_screen === 'dayplanner') renderDayPlanner(document.getElementById('screen-content'));
+    });
+  }
 
   const slots    = _dpv2Slots(cfg);
   const state    = _dpv2EffectiveState(_dpv2ViewDate);
@@ -282,22 +401,26 @@ function dpv2ResetDay() {
   const label = _dpv2IsToday(_dpv2ViewDate) ? 'today' : _dpv2ViewDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   if (!confirm('Clear all slots for ' + label + '?')) return;
   localStorage.removeItem(_dpv2DateKey(_dpv2ViewDate));
+  _dpv2DeleteDayFromFirestore(_dpv2ViewDate);
   renderDayPlanner(document.getElementById('screen-content'));
 }
 
 // ── Day navigation ──
-function dpv2PrevDay() {
+async function dpv2PrevDay() {
   _dpv2ViewDate = new Date(_dpv2ViewDate.getTime());
   _dpv2ViewDate.setDate(_dpv2ViewDate.getDate() - 1);
+  await _dpv2EnsureDaySynced(_dpv2ViewDate);
   renderDayPlanner(document.getElementById('screen-content'));
 }
-function dpv2NextDay() {
+async function dpv2NextDay() {
   _dpv2ViewDate = new Date(_dpv2ViewDate.getTime());
   _dpv2ViewDate.setDate(_dpv2ViewDate.getDate() + 1);
+  await _dpv2EnsureDaySynced(_dpv2ViewDate);
   renderDayPlanner(document.getElementById('screen-content'));
 }
-function dpv2GoToday() {
+async function dpv2GoToday() {
   _dpv2ViewDate = new Date();
+  await _dpv2EnsureDaySynced(_dpv2ViewDate);
   renderDayPlanner(document.getElementById('screen-content'));
 }
 
@@ -329,7 +452,7 @@ function dpv2OpenCopyModal() {
   `);
 }
 
-function dpv2CopyFromDate() {
+async function dpv2CopyFromDate() {
   const input = document.getElementById('dpv2-copy-source');
   const errEl = document.getElementById('dpv2-copy-error');
   const val   = input && input.value;
@@ -344,6 +467,8 @@ function dpv2CopyFromDate() {
     fail("Pick a different day than the one you're viewing.");
     return;
   }
+
+  await _dpv2EnsureDaySynced(srcDate);
 
   const cfg = APP.dayplanner && APP.dayplanner.config;
   const validIds = {};

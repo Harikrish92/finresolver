@@ -3,8 +3,8 @@ let _screen = 'dashboard';
 let _sidebarCollapsed = false;
 let _chartInstances = {};
 
-// Feature flag — AI Advisor is still being built. Flip to true when ready.
-const ADVISOR_ENABLED = false;
+// Feature flag — AI Advisor is live.
+const ADVISOR_ENABLED = true;
 
 const NAV = [
   { screen:'dashboard',   icon:'home',      label:'Dashboard',       section:'OVERVIEW'  },
@@ -15,7 +15,7 @@ const NAV = [
   { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:'PLANNER'   },
   { screen:'goals',       icon:'flag',      label:'Goals',           section:null        },
   { screen:'dayplanner',  icon:'clock',     label:'Day Planner',     section:null        },
-  { screen:'advisor',     icon:'bot',       label:'AI Advisor',      section:'ADVISOR'   },
+  { screen:'advisor',     icon:'bot',       label:'FINOVA',          section:'ADVISOR'   },
 ];
 
 // Bottom-nav (mobile) shows one tab per sidebar section; sections with
@@ -39,7 +39,7 @@ function _navGroupFor(screen) {
 
 function navigate(screen, opts = {}) {
   if (screen === 'advisor' && !ADVISOR_ENABLED) {
-    if (typeof _showToast === 'function') _showToast("AI Advisor is coming soon — we're still building it!");
+    if (typeof _showToast === 'function') _showToast("FINOVA is coming soon — we're still building it!");
     return;
   }
   if (typeof _syncOnNavigate === 'function') _syncOnNavigate(screen, _screen);
@@ -69,7 +69,7 @@ function navigate(screen, opts = {}) {
     investments:'Investments', loans:'Loan Tracker',
     'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
     goals:'My Financial Goals', 'goal-detail':'Goal Detail',
-    lifestyle:'Lifestyle Tracker', advisor:'AI Advisor', dayplanner:'Day Planner'
+    lifestyle:'Lifestyle Tracker', advisor:'FINOVA', dayplanner:'Day Planner'
   };
   const subs = {
     monthly:   monthName(APP.monthly.month) + ' ' + APP.monthly.year,
@@ -154,7 +154,7 @@ const WT_STEPS = [
   { icon:'target',   title:'Portfolio & FIRE Number',        desc:'See your net worth, asset allocation and your FIRE number — the corpus you need to retire early based on your spending.' },
   { icon:'flag',     title:'Goals',                          desc:'Set savings and investment goals, track progress towards each one and see exactly when you\'ll get there at your current pace.' },
   { icon:'lifestyle',title:'Lifestyle Tracker',              desc:'Catalogue your household goods, keep tabs on warranties and never miss an important date or renewal again.' },
-  { icon:'bot',      title:'AI Advisor',                     desc:'Chat with a personal finance assistant powered by Claude that reads your real data to give personalised, actionable advice.' },
+  { icon:'bot',      title:'FINOVA',                         desc:'Chat with a personal finance assistant powered by AI that reads your real data to give personalised, actionable advice.' },
 ];
 let _wtStep = 0;
 

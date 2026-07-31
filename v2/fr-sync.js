@@ -234,12 +234,13 @@ async function loadAllData() {
     _loadLifestyleConfig(),
     _loadGoalsConfig(),
     _loadDayPlannerConfig(),
+    dpv2SyncTodayFromFirestore(),
   ]);
 
   _loadedYear  = year;
   _loadedMonth = month;
 
-  await _loadRecentHistory(3);
+  await _loadRecentHistory(6);
 
   // Re-render current screen with real data
   const sc = document.getElementById('screen-content');
@@ -676,6 +677,26 @@ async function logout() {
     google.accounts.id.disableAutoSelect();
     if (_currentEmail) google.accounts.id.revoke(_currentEmail, () => {});
   }
+
+  // Clear all localStorage data for this user so the next user starts clean
+  // (mirrors classic v1's logOut() in js/auth.js — same key shapes, since v2
+  // shares localStorage with v1 for the same signed-in user). v2 previously
+  // never scrubbed any of this on sign-out.
+  const signedOutUid = _currentUID;
+  if (signedOutUid) {
+    const dataPrefix = `fr_data_${signedOutUid}_`;
+    const dpPrefix    = `finresolver_dayplanner_${signedOutUid}_`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(dataPrefix) || k.startsWith(dpPrefix))
+      .forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(`fr_loans_${signedOutUid}`);
+    localStorage.removeItem(`fr_investments_${signedOutUid}`);
+    localStorage.removeItem(`fr_lifestyle_${signedOutUid}`);
+    localStorage.removeItem(`fr_goals_${signedOutUid}`);
+    localStorage.removeItem(`fr_dayplanner_cfg_${signedOutUid}`);
+    localStorage.removeItem(`finresolver_dayplanner_recurring_${signedOutUid}`);
+  }
+  if (typeof resetDayPlannerV2State === 'function') resetDayPlannerV2State();
 
   _syncReady   = false;
   _currentUID  = null;

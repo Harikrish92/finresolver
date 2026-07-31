@@ -24,4 +24,13 @@ window.FINRESOLVER_CONFIG = {
   // Razorpay: create an account at razorpay.com, copy your Key ID from
   // Settings → API Keys. The Key Secret goes in the Firebase Function env only.
   razorpayKey: 'YOUR_RAZORPAY_KEY_ID',
+  // FINOVA (AI Advisor): get a key at console.anthropic.com → API Keys → Create Key.
+  // NOTE: unlike the Firebase/Google values above, this is a real bearer
+  // secret with no origin restriction — it ships in the public bundle, so
+  // dedicate a key to this app and set a low spending cap in the console.
+  anthropicApiKey: 'YOUR_ANTHROPIC_API_KEY',
+  // Backup model used automatically if the Claude key above is rate-limited
+  // or out of credits. Get a free key at openrouter.ai/keys. Same public-
+  // bundle caveat as anthropicApiKey — cap its spend too.
+  openRouterApiKey: 'YOUR_OPENROUTER_API_KEY',
 };

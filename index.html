@@ -202,9 +202,8 @@
     </button>
     <div class="nav-drawer-sep"></div>
     <div class="nav-drawer-group-label">Advisor</div>
-    <button class="nav-drawer-item disabled" data-screen="advisor" disabled>
-      <span class="nav-drawer-icon">🤖</span> AI Advisor
-      <span class="nav-drawer-upcoming">Upcoming</span>
+    <button class="nav-drawer-item" data-screen="advisor" onclick="closeNavDrawer();goToAdvisor()">
+      <span class="nav-drawer-icon">🤖</span> FINOVA
     </button>
   </div>
 </nav>
@@ -373,13 +372,12 @@
       <div class="home-nav-badge">2 tools</div>
     </div>
 
-    <div class="home-nav-card advisorhub coming-soon">
+    <div class="home-nav-card advisorhub" onclick="goToAdvisor()">
       <div class="home-nav-icon">🤖</div>
       <div class="home-nav-title">Advisor</div>
-      <div class="home-nav-stat" style="color:var(--purple)">Claude</div>
-      <div class="home-nav-stat-label">Powered by</div>
+      <div class="home-nav-stat" style="color:var(--purple)">FINOVA</div>
       <div class="home-nav-desc">Personalized financial insights &amp; AI-powered advice</div>
-      <div class="home-nav-badge">Upcoming</div>
+      <div class="home-nav-badge">AI-powered</div>
     </div>
 
   </div>
@@ -856,10 +854,9 @@
   <!-- Page header -->
   <div class="adv-page-header">
     <div>
-      <div class="adv-page-title">🤖 AI Financial <span>Advisor</span></div>
-      <div class="adv-page-sub">Personalized insights &amp; advice powered by Claude AI</div>
+      <div class="adv-page-title">🤖 <span>FINOVA</span></div>
+      <div class="adv-page-sub">Personalized insights &amp; advice powered by AI</div>
     </div>
-    <button class="adv-settings-btn" onclick="advisorShowKeyModal()" title="API Key Settings">⚙️ Settings</button>
   </div>
 
   <!-- Empty state: shown when no financial data exists -->
@@ -897,13 +894,22 @@
       </div>
     </div>
 
-    <!-- Proactive insights: auto-generated on load -->
+    <!-- Proactive insights: auto-generated on load, collapsible to leave room for chat -->
     <div class="adv-insights-section">
-      <div class="adv-insights-title">Key Insights</div>
-      <div class="adv-insights-cards" id="advisorInsightsCards">
-        <div class="adv-insight-card adv-insight-neutral">
-          <span class="adv-insight-icon"><span class="adv-dot-pulse"></span></span>
-          <div class="adv-insight-text" style="color:var(--muted)">Loading your insights…</div>
+      <div class="adv-insights-head" onclick="toggleAdvInsights()">
+        <div class="adv-insights-title">Key Insights</div>
+        <div class="adv-insights-head-actions">
+          <button class="adv-insights-refresh" title="Refresh insights"
+            onclick="event.stopPropagation(); _advisorLoadInsights(_advisorSnapshot)">↻</button>
+          <span class="adv-insights-arrow" id="advInsightsArrow">▾</span>
+        </div>
+      </div>
+      <div class="adv-insights-body" id="advInsightsBody">
+        <div class="adv-insights-cards" id="advisorInsightsCards">
+          <div class="adv-insight-card adv-insight-neutral">
+            <span class="adv-insight-icon"><span class="adv-dot-pulse"></span></span>
+            <div class="adv-insight-text" style="color:var(--muted)">Loading your insights…</div>
+          </div>
         </div>
       </div>
     </div>
@@ -924,7 +930,7 @@
         <div class="adv-chat-welcome">
           <div class="adv-welcome-icon">🤖</div>
           <div class="adv-welcome-text">
-            Hi! I'm your AI financial advisor powered by Claude. I've analyzed your real financial data and I'm ready to give you personalized, actionable advice. Ask me anything!
+            Hi! I'm FINOVA, your AI financial advisor. I've analyzed your real financial data and I'm ready to give you personalized, actionable advice. Ask me anything!
           </div>
         </div>
       </div>
@@ -932,7 +938,7 @@
       <!-- Typing indicator -->
       <div class="adv-typing" id="advisorTyping" style="display:none">
         <div class="adv-typing-dots"><span></span><span></span><span></span></div>
-        <span>Advisor is thinking…</span>
+        <span>FINOVA is thinking…</span>
       </div>
 
       <!-- Error banner -->
@@ -952,43 +958,6 @@
       </div>
 
     </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     AI ADVISOR — API KEY MODAL
-════════════════════════════════════════════════════════════ -->
-<div class="adv-modal-overlay hidden" id="advisorKeyModal">
-  <div class="adv-modal">
-
-    <div class="adv-modal-header">
-      <span class="adv-modal-title">🔑 Anthropic API Key</span>
-      <button class="adv-modal-close" onclick="advisorHideKeyModal()">✕</button>
-    </div>
-
-    <div class="adv-modal-body">
-      <div class="adv-modal-desc">
-        The AI Advisor uses Claude (by Anthropic). Paste your API key below — it is stored
-        securely in your account and never shared.<br /><br />
-        Get your key at
-        <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>
-        → API Keys → Create Key.
-      </div>
-      <input
-        class="adv-key-input"
-        id="advisorKeyInput"
-        type="password"
-        placeholder="sk-ant-api03-…"
-        onkeydown="if(event.key==='Enter') advisorSaveKey()"
-      />
-      <div class="adv-key-error" id="advisorKeyError"></div>
-    </div>
-
-    <div class="adv-modal-footer">
-      <button class="adv-modal-btn-cancel" onclick="advisorHideKeyModal()">Cancel</button>
-      <button class="adv-modal-btn-save" onclick="advisorSaveKey()">Save Key</button>
-    </div>
-
   </div>
 </div>
 
@@ -2200,7 +2169,7 @@
       <li>📈 Investment Tracker + live prices</li>
       <li>🔥 FIRE &amp; Portfolio analytics</li>
       <li>🏠 Lifestyle Tracker</li>
-      <li>🤖 AI Financial Advisor</li>
+      <li>🤖 FINOVA — AI Financial Advisor</li>
       <li>📁 Excel / CSV Import</li>
       <li>✨ Smart Fill &amp; Pattern Insights</li>
       <li>🏦 Unlimited loans</li>

@@ -7,7 +7,7 @@
   'use strict';
 
   const FEATURE_LABELS = {
-    advisor: 'AI Advisor',
+    advisor: 'FINOVA',
   };
 
   // Paused until the Razorpay merchant account is live post-KYC.

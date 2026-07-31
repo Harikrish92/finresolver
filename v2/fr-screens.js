@@ -118,7 +118,7 @@ function renderDashboard(el) {
       ${dashCard('investments','trending','icon-blue',   'Investment Portfolio', fmt(currentValue,true),'Current value',       (pnl>=0?'+':'')+fmt(Math.abs(pnl),true)+' P&L', pnl>=0?'badge-up':'badge-dn', true)}
       ${dashCard('loans',      'card',    'icon-red',    'Loan Tracker',        fmt(outstanding,true), 'Outstanding balance',  fmt(totalEMI,true)+'/mo EMI', 'badge-neu')}
       ${dashCard('portfolio',  'target',  'icon-gold',   'Portfolio & FIRE',    fmt(fireNum,true),    'FIRE number',           firePct+'% funded',           'badge-up')}
-      ${dashCard('advisor',    'bot',     'icon-purple', 'AI Advisor',          'Coming soon',        'Powered by Claude',    'Upcoming',                    'badge-neu', false, true)}
+      ${dashCard('advisor',    'bot',     'icon-purple', 'FINOVA',              'Chat now',            'Powered by AI',    'AI-powered',                  'badge-up',  false, !ADVISOR_ENABLED)}
     </div>
 
     <div class="g-2">

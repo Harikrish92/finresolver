@@ -281,6 +281,7 @@ function logOut() {
   if (typeof resetLoansState === 'function') resetLoansState();
   if (typeof resetInvestmentsState === 'function') resetInvestmentsState();
   if (typeof resetLifestyleState === 'function') resetLifestyleState();
+  if (typeof resetDayPlannerState === 'function') resetDayPlannerState();
 
   // Reset guest UI
   const guestBanner = document.getElementById('guestBanner');

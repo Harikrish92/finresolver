@@ -30,6 +30,11 @@ Static HTML/CSS/JS SPA (no build step, no npm). See root `js/config.js` for Fire
 - Monthly: `users/{uid}/months/{year}_{month-1}` (month is 0-indexed in storage, 1-indexed in `APP.monthly`)
 - Loans: `users/{uid}/config/loans`
 - Investments: `users/{uid}/config/investments`
+- Lifestyle: `users/{uid}/config/lifestyle`
+- Goals: `users/{uid}/config/goals`
+- Day Planner schedule config: `users/{uid}/config/dayplanner`
+- Day Planner recurring ("repeat daily") templates: `users/{uid}/config/dayplanner_recurring`
+- Day Planner per-day slot state: `users/{uid}/dayplanner_days/{YYYY-MM-DD}` (one doc per calendar day; synced/pushed from `fr-dayplanner.js` itself, not `fr-sync.js`, since it doesn't fit the single-blob-per-module pattern)
 
 **Encryption:** All Firestore/localStorage data is AES-GCM encrypted via `../js/crypto.js`, keyed by the user's email. Functions: `encryptForStorage(payload, email)` / `decryptFromStorage(raw, email)`.
 
