@@ -837,6 +837,28 @@ function _adv2AppendBubble(role, text) {
   // makeChart() looks the canvas up via document.getElementById().
   if (role === 'assistant') _adv2HydrateCharts(div);
   chat.scrollTop = chat.scrollHeight;
+
+  _adv2BindFollowupClicks(chat);
+}
+
+/* Clicking a "💬 Ask me: ..." suggestion populates the input box with the
+   suggested question instead of requiring the user to retype it. Delegated
+   on the chat container (bound once) since bubbles are appended dynamically. */
+function _adv2BindFollowupClicks(chat) {
+  if (chat.dataset.followupBound) return;
+  chat.dataset.followupBound = '1';
+  chat.addEventListener('click', function(e) {
+    const el = e.target.closest && e.target.closest('.adv2-followup');
+    if (!el) return;
+    const q = el.textContent.replace(/^\s*💬\s*Ask me:\s*/, '').trim();
+    if (!q) return;
+    const inp = document.getElementById('adv2-input');
+    if (!inp) return;
+    inp.value = q;
+    inp.style.height = 'auto';
+    inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
+    inp.focus();
+  });
 }
 
 function _adv2SetTyping(show) {
@@ -859,7 +881,7 @@ function _adv2ShowErr(msg) {
 function _adv2WelcomeHtml() {
   return '<div class="adv2-welcome">' +
     '<div class="adv2-welcome-avatar">🤖</div>' +
-    '<div class="adv2-welcome-bubble">Hi! I\'m your AI financial advisor. I have access to your real financial data and I\'m ready to give personalized, actionable advice. Ask me anything!</div>' +
+    '<div class="adv2-welcome-bubble">Hi! I\'m your FINOVA, AI financial advisor. I have access to your real financial data and I\'m ready to give personalized, actionable advice. Ask me anything!</div>' +
     '</div>';
 }
 

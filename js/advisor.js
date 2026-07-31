@@ -920,6 +920,28 @@ function _advAppendMsg(role, text) {
   chat.appendChild(div);
   /* Scroll to latest message */
   chat.scrollTop = chat.scrollHeight;
+
+  _advBindFollowupClicks(chat);
+}
+
+/* Clicking a "💬 Ask me: ..." suggestion populates the input box with the
+   suggested question instead of requiring the user to retype it. Delegated
+   on the chat container (bound once) since messages are appended dynamically. */
+function _advBindFollowupClicks(chat) {
+  if (chat.dataset.followupBound) return;
+  chat.dataset.followupBound = '1';
+  chat.addEventListener('click', function(e) {
+    var el = e.target.closest && e.target.closest('.adv-followup');
+    if (!el) return;
+    var q = el.textContent.replace(/^\s*💬\s*Ask me:\s*/, '').trim();
+    if (!q) return;
+    var inp = document.getElementById('advisorInput');
+    if (!inp) return;
+    inp.value = q;
+    inp.style.height = 'auto';
+    inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+    inp.focus();
+  });
 }
 
 function _advShowTyping(show) {
