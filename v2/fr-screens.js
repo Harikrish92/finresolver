@@ -275,7 +275,8 @@ function renderMonthly(el) {
               ${c.done?`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:''}
             </div>
             <span>${c.label}</span>
-            <button class="btn-icon ml-auto" onclick="APP.monthly.checklist=APP.monthly.checklist.filter(x=>x.id!==${c.id});navigate('monthly')">${ic('x',11)}</button>
+            <button class="btn-icon ml-auto${c.repeat?' active':''}" title="${c.repeat?'Repeats every month — click to stop':'Repeat this item every month'}" onclick="toggleCheckRepeat(${c.id})">${ic('refresh',11)}</button>
+            <button class="btn-icon" onclick="APP.monthly.checklist=APP.monthly.checklist.filter(x=>x.id!==${c.id});navigate('monthly')">${ic('x',11)}</button>
           </div>`).join('')}
       </div>
       <div class="card">

@@ -192,17 +192,24 @@ function toggleCheck(i) {
   saveData(); render();
 }
 
+function toggleCheckRepeat(i) {
+  data.checklist[i].repeat = !data.checklist[i].repeat;
+  saveData(); render();
+}
+
 function delCheck(i) {
   data.checklist.splice(i, 1);
   saveData(); render();
 }
 
 function addCheckItem() {
-  const inp = document.getElementById('checkDesc');
+  const inp    = document.getElementById('checkDesc');
+  const repeat = document.getElementById('checkRepeat');
   const val = inp.value.trim();
   if (!val) return;
-  data.checklist.push({ label: val, done: false });
+  data.checklist.push({ label: val, done: false, repeat: !!(repeat && repeat.checked) });
   inp.value = '';
+  if (repeat) repeat.checked = false;
   saveData(); render();
 }
 

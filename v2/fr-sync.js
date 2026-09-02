@@ -66,14 +66,18 @@ function _emptyMonthly(year, month) {
     year, month,
     initialBalance: 0,
     expenses: [], income: [], investments: [], loans: [],
-    checklist: [
-      { id: 1, label: 'HDFC CC Bill',  done: false },
-      { id: 2, label: 'IDFC CC Bill',  done: false },
-      { id: 3, label: 'SC CC Bill',    done: false },
-      { id: 4, label: 'Amex CC Bill',  done: false },
-    ],
+    checklist: [],
     notes: [],
   };
+}
+
+// Builds the repeating checklist items to carry into a brand-new month,
+// from the previous month's storage-shaped data (v1 field names).
+function _carryForwardChecklist(prevData) {
+  let nid = 1;
+  return (prevData?.checklist || [])
+    .filter(c => c.repeat)
+    .map(c => ({ id: nid++, label: c.label, done: false, repeat: true }));
 }
 
 // ── Firebase init ─────────────────────────────────────────────────────────────
@@ -276,10 +280,14 @@ async function _loadMonth(year, month) {
           _applyMonthData(d, year, month);
         }
       } else if (!localRaw) {
-        // Brand new month — seed initial balance from prev month
-        const prev = await _getPrevMonthBalance(year, month);
+        // Brand new month — seed initial balance and repeating checklist items from prev month
+        const prevData = await _getPrevMonthData(year, month);
         const empty = _emptyMonthly(year, month);
-        if (prev) empty.initialBalance = prev;
+        if (prevData) {
+          const prevBalance = _calcBalance(_storageToV2(prevData, year, month));
+          if (prevBalance) empty.initialBalance = prevBalance;
+          empty.checklist = _carryForwardChecklist(prevData);
+        }
         _applyMonthData(_v2ToStorage(empty), year, month);
       }
       setSyncBadge('synced');
@@ -288,7 +296,11 @@ async function _loadMonth(year, month) {
       setSyncBadge('offline');
     }
   } else if (!localRaw) {
-    _applyMonthData(_v2ToStorage(_emptyMonthly(year, month)), year, month);
+    // Brand new month, offline/unsynced — still carry forward repeating checklist items
+    const prevData = await _getPrevMonthData(year, month);
+    const empty = _emptyMonthly(year, month);
+    if (prevData) empty.checklist = _carryForwardChecklist(prevData);
+    _applyMonthData(_v2ToStorage(empty), year, month);
   }
 }
 
@@ -303,32 +315,28 @@ function _applyMonthData(d, year, month) {
   }
 }
 
-async function _getPrevMonthBalance(year, month) {
+// Returns the previous month's raw storage-shaped data object (or null).
+// `year`/`month` are the *new* month being loaded; this steps back one month.
+async function _getPrevMonthData(year, month) {
   // month is 1-indexed; step back one month (still 1-indexed)
   let y = year, m = month - 1;
   if (m < 1) { m = 12; y--; }
   // convert to 0-indexed for storage keys (to match classic v1)
   const sm = m - 1;
   const raw = localStorage.getItem(`fr_data_${_currentUID}_${y}_${sm}`);
-  if (!raw && _syncReady && _db) {
+  if (raw) return (await decryptFromStorage(raw, _currentEmail)) || null;
+
+  if (_syncReady && _db) {
     try {
       const snap = await _db.collection('users').doc(_currentUID)
         .collection('months').doc(`${y}_${sm}`).get();
       if (snap.exists) {
-        const d = await decryptFromStorage(
+        return await decryptFromStorage(
           snap.data()._enc || JSON.stringify(snap.data()), _currentEmail);
-        if (d) {
-          const v2 = _storageToV2(d, y, m);
-          return _calcBalance(v2);
-        }
       }
     } catch {}
-    return 0;
   }
-  if (!raw) return 0;
-  const d = await decryptFromStorage(raw, _currentEmail);
-  if (!d) return 0;
-  return _calcBalance(_storageToV2(d, y, m));
+  return null;
 }
 
 function _calcBalance(v2) {
@@ -711,10 +719,7 @@ async function logout() {
   APP.user = { name: 'Guest', email: '', initials: 'G' };
   APP.monthly = { year: new Date().getFullYear(), month: new Date().getMonth() + 1,
     initialBalance: 0, expenses: [], income: [], investments: [], loans: [],
-    checklist: [
-      { id:1, label:'HDFC CC Bill', done:false }, { id:2, label:'IDFC CC Bill', done:false },
-      { id:3, label:'SC CC Bill',   done:false }, { id:4, label:'Amex CC Bill', done:false },
-    ], notes: [] };
+    checklist: [], notes: [] };
   APP.loans             = [];
   APP.investments       = [];
   APP.goals             = [];

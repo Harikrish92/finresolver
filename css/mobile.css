@@ -91,6 +91,8 @@
   .check-item { padding: .65rem .75rem; }
   .check-label { font-size: .74rem; }
   .check-del { opacity: 1; } /* always visible on touch */
+  .check-repeat { opacity: .6; filter: none; } /* always visible on touch */
+  .check-repeat.active { opacity: 1; }
 }
 @media (max-width: 380px) {
   .checklist-grid { grid-template-columns: 1fr; }

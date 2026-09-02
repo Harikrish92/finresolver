@@ -325,6 +325,14 @@ function toggleCheck(id) {
   }
 }
 
+function toggleCheckRepeat(id) {
+  const item = APP.monthly.checklist.find(c => c.id === id);
+  if (item) {
+    item.repeat = !item.repeat;
+    navigate('monthly');
+  }
+}
+
 function deleteEntry(type, id) {
   if (type === 'loans') {
     const entry = APP.monthly.loans.find(e => e.id === id);

@@ -583,6 +583,12 @@ body {
   height: 13px
 }
 
+.btn-icon.active {
+  color: var(--purple);
+  border-color: var(--purple);
+  background: var(--p10)
+}
+
 /* ── SUMMARY STRIP ───────────────────────────────── */
 .strip {
   display: grid;

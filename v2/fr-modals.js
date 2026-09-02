@@ -1247,6 +1247,9 @@ function openAddCheck() {
         <div class="inp-label">Item Label</div>
         <input class="inp" id="ac-label" placeholder="e.g. Axis CC Bill" autofocus>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer;margin-top:12px">
+        <input type="checkbox" id="ac-repeat"> Repeat this item every month
+      </label>
     </div>
     <div class="modal-ft">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1254,7 +1257,7 @@ function openAddCheck() {
         const v=document.getElementById('ac-label').value.trim();
         if(v){
           const nid=Math.max(0,...APP.monthly.checklist.map(c=>c.id))+1;
-          APP.monthly.checklist.push({id:nid,label:v,done:false});
+          APP.monthly.checklist.push({id:nid,label:v,done:false,repeat:document.getElementById('ac-repeat').checked});
           closeModal();navigate('monthly');
         }">Add Item</button>
     </div>

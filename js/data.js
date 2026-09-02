@@ -31,12 +31,7 @@ function emptyData() {
     investment: [],
     loan:       [],
     notes: [],          // { id, text, pinned, createdAt }
-    checklist: [
-      { label: 'HDFC CC Payment',  done: false },
-      { label: 'IDFC CC Payment',  done: false },
-      { label: 'SC CC Payment',    done: false },
-      { label: 'Amex CC Payment',  done: false },
-    ],
+    checklist: [],      // { label, done, repeat } — starts empty; repeat items carry over from the previous month
   };
 }
 
@@ -56,13 +51,13 @@ function getMonthKey(year, month) {
   return `${year}_${month}`;
 }
 
-/* ── Previous month closing balance ──────────────────────── */
+/* ── Previous month data ──────────────────────────────────── */
 /**
- * Returns the closing balance of the month immediately before
- * the currently selected year/month, for this user.
- * Used to auto-populate the initial balance of a new month.
+ * Returns the full data object for the month immediately before
+ * the currently selected year/month, for this user (or null if none).
+ * Used to seed a new month's initial balance and repeating checklist items.
  */
-async function getPrevMonthBalance() {
+async function getPrevMonthData() {
   const uid   = currentUser?.uid || 'guest';
   let year  = Number(document.getElementById('yearSelect').value);
   let month = Number(document.getElementById('monthSelect').value);
@@ -72,16 +67,26 @@ async function getPrevMonthBalance() {
   if (month < 0) { month = 11; year -= 1; }
 
   const cacheKey = `${uid}_${year}_${month}`;
-  if (_monthCache.has(cacheKey)) return calcBalance(_monthCache.get(cacheKey));
+  if (_monthCache.has(cacheKey)) return _monthCache.get(cacheKey);
 
   const raw = localStorage.getItem(`fr_data_${uid}_${year}_${month}`);
-  if (!raw) return 0;
+  if (!raw) return null;
 
   // If encrypted, decrypt asynchronously
   const email = currentUser?.email || null;
   const d = await decryptFromStorage(raw, email);
-  if (d) { _monthCache.set(cacheKey, d); return calcBalance(d); }
-  return 0;
+  if (d) { _monthCache.set(cacheKey, d); return d; }
+  return null;
+}
+
+/**
+ * Returns the closing balance of the month immediately before
+ * the currently selected year/month, for this user.
+ * Used to auto-populate the initial balance of a new month.
+ */
+async function getPrevMonthBalance() {
+  const d = await getPrevMonthData();
+  return d ? calcBalance(d) : 0;
 }
 
 /* ── Load ─────────────────────────────────────────────────── */
@@ -100,11 +105,18 @@ async function loadData() {
     if (!Array.isArray(data.notes)) data.notes = [];
     _monthCache.set(`${uid}_${year}_${month}`, data);
   } else {
-    // New month — seed initial balance from previous month's closing balance
-    const prev = await getPrevMonthBalance();
+    // New month — seed initial balance from previous month's closing balance,
+    // and carry forward any checklist items flagged to repeat monthly.
+    const prevData = await getPrevMonthData();
     data = emptyData();
-    if (prev !== 0) {
-      data.initialAmount = prev;
+    if (prevData) {
+      const prevBalance = calcBalance(prevData);
+      if (prevBalance !== 0) data.initialAmount = prevBalance;
+      data.checklist = (prevData.checklist || [])
+        .filter(c => c.repeat)
+        .map(c => ({ label: c.label, done: false, repeat: true }));
+    }
+    if (data.initialAmount || data.checklist.length) {
       // Save immediately so the pre-fill persists
       localStorage.setItem(key, await encryptForStorage(data, email));
     }

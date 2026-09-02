@@ -13,12 +13,7 @@ const APP = {
     month: _now.getMonth() + 1,  // 1-indexed (1=Jan … 12=Dec)
     initialBalance: 0,
     expenses: [], income: [], investments: [], loans: [],
-    checklist: [
-      { id: 1, label: 'HDFC CC Bill',  done: false },
-      { id: 2, label: 'IDFC CC Bill',  done: false },
-      { id: 3, label: 'SC CC Bill',    done: false },
-      { id: 4, label: 'Amex CC Bill',  done: false },
-    ],
+    checklist: [],  // { id, label, done, repeat } — starts empty; repeat items carry over from the previous month
     notes: [],
   },
 

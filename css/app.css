@@ -715,9 +715,21 @@ tbody tr.editing { background: var(--surface2) !important; }
 }
 .check-item.done .check-box { background: var(--accent); border-color: var(--accent); color: #000; }
 .check-label { font-size: var(--text-sm); flex: 1; font-family: var(--font-body); }
+.check-repeat {
+  background: none; border: none; cursor: pointer; flex-shrink: 0;
+  font-size: .8rem; opacity: .35; filter: grayscale(1); line-height: 1;
+  transition: opacity .15s, filter .15s;
+}
+.check-item:hover .check-repeat { opacity: .7; filter: grayscale(.4); }
+.check-repeat.active { opacity: 1; filter: none; }
 .check-del { opacity: 0; transition: opacity .15s; }
 .check-item:hover .check-del { opacity: 1; }
-.add-checklist-row { display: flex; gap: .5rem; margin-top: .75rem; }
+.add-checklist-row { display: flex; gap: .5rem; margin-top: .75rem; align-items: center; }
+.check-repeat-toggle {
+  display: flex; align-items: center; gap: .35rem;
+  font-size: var(--text-sm); color: var(--muted);
+  font-family: var(--font-body); cursor: pointer; user-select: none;
+}
 .check-input {
   max-width: 300px; flex: 1; padding: .42rem .65rem;
   border-radius: 6px; background: var(--surface);

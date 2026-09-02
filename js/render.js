@@ -102,6 +102,9 @@ function renderChecklist() {
     <div class="check-item ${c.done ? 'done' : ''}" onclick="toggleCheck(${i})">
       <div class="check-box">${c.done ? '✓' : ''}</div>
       <span class="check-label">${escHtml(c.label)}</span>
+      <button class="check-repeat ${c.repeat ? 'active' : ''}"
+        onclick="event.stopPropagation(); toggleCheckRepeat(${i})"
+        title="${c.repeat ? 'Repeats every month — click to stop' : 'Repeat this item every month'}">🔁</button>
       <button class="btn-del check-del"
         onclick="event.stopPropagation(); delCheck(${i})"
         title="Remove item">✕</button>
