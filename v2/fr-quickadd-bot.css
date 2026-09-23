@@ -73,10 +73,10 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  background: var(--s1);
+  background: var(--panel);
   border: 1px solid var(--b2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow);
+  border-radius: var(--rl);
+  box-shadow: var(--glow);
   z-index: 9991;
   font-family: var(--font);
   color: var(--t1);

@@ -103,6 +103,12 @@
   <!-- ── LOGIN SCREEN ──────────────────────────────────────────────────────── -->
   <div id="login-screen" style="display:none">
     <div class="login-wrap">
+      <div class="login-grid">
+      <div class="login-hero">
+        <canvas data-orb="1" width="520" height="520" class="login-orb"></canvas>
+        <div class="login-wordmark">FINOVA</div>
+        <div class="login-tagline">Financial Intelligence</div>
+      </div>
       <div class="login-card">
         <div class="">
           <img src="../finresolver.png" alt="FR" style="height:32px;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -139,6 +145,7 @@
           </a>
         </div>
       </div>
+      </div>
     </div>
   </div>
 
@@ -172,12 +179,6 @@
           </span>
           <span>Toggle Theme</span>
         </div>
-        <!-- Switch to Classic -->
-        <a href="../" class="ui-switch is-on" style="margin-top:6px;display:flex" title="Switch to Classic UI">
-          <span class="ui-switch-label">Classic</span>
-          <span class="ui-switch-track"><span class="ui-switch-thumb"></span></span>
-          <span class="ui-switch-label active">Modern</span>
-        </a>
         <!-- Sign out -->
         <div id="sb-logout-row" onclick="logout()" style="margin-top:4px;padding:7px 10px;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:500;color:var(--t3);display:flex;align-items:center;gap:8px;transition:.15s"
           onmouseover="this.style.background='var(--s3)';this.style.color='var(--red)'"
@@ -268,6 +269,7 @@
 <!-- ── SCRIPTS ──────────────────────────────────────────────────────────────── -->
 <script src="../js/config.js"></script>
 <script src="../js/crypto.js"></script>
+<script src="fr-orb.js?v=1"></script>
 <script src="fr-data.js?v=3"></script>
 <script src="fr-app.js?v=3"></script>
 <script src="fr-screens.js?v=3"></script>

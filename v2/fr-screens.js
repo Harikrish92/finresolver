@@ -103,7 +103,7 @@ function renderDashboard(el) {
           <span class="text-muted">YTD savings ${fmt(income-expenses-loans,true)}</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px 28px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:18px 28px;flex:1;min-width:260px">
         ${miniStat('Total Assets',    fmt(currentValue+cashBalance,true), 'text-pos')}
         ${miniStat('Total Debt',      fmt(totalDebt,true),                'text-neg')}
         ${miniStat('Cash Balance',    fmt(cashBalance,true),              '')}
@@ -163,7 +163,7 @@ function renderDashboard(el) {
 function miniStat(label, val, cls) {
   return `<div>
     <div style="font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:3px">${label}</div>
-    <div style="font-family:var(--font-d);font-weight:700;font-size:16px;line-height:1" class="${cls}">${val}</div>
+    <div style="font-family:var(--font-d);font-weight:700;font-size:19px;line-height:1" class="${cls}">${val}</div>
   </div>`;
 }
 

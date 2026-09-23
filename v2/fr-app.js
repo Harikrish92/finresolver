@@ -82,6 +82,9 @@ function navigate(screen, opts = {}) {
   Object.values(_chartInstances).forEach(c => { try { c.destroy(); } catch(e){} });
   _chartInstances = {};
 
+  const screenEl = document.getElementById('screen-content');
+  if (typeof stopFinovaOrbsIn === 'function') stopFinovaOrbsIn(screenEl);
+
   renderScreen(screen, document.getElementById('screen-content'));
   // scroll to top
   const sc = document.getElementById('screen-content');
@@ -127,6 +130,7 @@ function loginGuest() {
 
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
+  if (typeof stopFinovaOrbsIn === 'function') stopFinovaOrbsIn(document.getElementById('login-screen'));
   const layout = document.getElementById('app-layout');
   layout.style.display = 'flex';
   layout.style.width   = '100%';
@@ -672,7 +676,10 @@ document.addEventListener('DOMContentLoaded', () => {
       autoLoggedIn = true;
     } catch {}
   }
-  if (!autoLoggedIn) document.getElementById('login-screen').style.display = '';
+  if (!autoLoggedIn) {
+    document.getElementById('login-screen').style.display = '';
+    if (typeof initFinovaOrbsIn === 'function') initFinovaOrbsIn(document.getElementById('login-screen'));
+  }
   document.getElementById('boot-loader').style.display = 'none';
 
   // Quick Add widget adapter — bridges the app-agnostic QuickAddBot core

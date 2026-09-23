@@ -681,11 +681,18 @@ function _adv2ParseInsights(answer) {
   return items;
 }
 
+function _adv2UpdateInsightsCount() {
+  const el = document.getElementById('adv2-insights-body');
+  const badge = document.getElementById('adv2-insights-count');
+  if (!el || !badge) return;
+  badge.textContent = el.querySelectorAll('.adv2-ic').length;
+}
+
 async function _adv2LoadInsights() {
   const el = document.getElementById('adv2-insights-body');
   if (!el) return;
 
-  if (_adv2Insights) { el.innerHTML = _adv2Insights; return; }
+  if (_adv2Insights) { el.innerHTML = _adv2Insights; _adv2UpdateInsightsCount(); return; }
 
   if (!_adv2ApiKey) {
     _adv2Insights =
@@ -694,6 +701,7 @@ async function _adv2LoadInsights() {
       '<div class="adv2-ic-text" style="color:var(--t3)">FINOVA isn\'t configured yet — please check back later.</div>' +
       '</div>';
     el.innerHTML = _adv2Insights;
+    _adv2UpdateInsightsCount();
     return;
   }
 
@@ -744,6 +752,7 @@ async function _adv2LoadInsights() {
       '<div class="adv2-ic adv2-ic-neutral"><span class="adv2-ic-icon">⚠️</span>' +
       '<div class="adv2-ic-text" style="color:var(--t3)">' + msg + '</div></div>';
   }
+  _adv2UpdateInsightsCount();
 }
 
 // ── CHAT ──────────────────────────────────────────────────────────────────────
@@ -878,6 +887,23 @@ function _adv2ShowErr(msg) {
   setTimeout(function(){ el.style.display = 'none'; }, 8000);
 }
 
+function _adv2SourceRows() {
+  const historyMonths = (APP.history || []).length;
+  const rows = [
+    { icon: 'trending', label: 'Investments',     value: APP.investments.length + ' holdings' },
+    { icon: 'card',     label: 'Loans',            value: APP.loans.length + ' active' },
+    { icon: 'calendar', label: 'Monthly Tracker',  value: monthName(APP.monthly.month) + ' ' + APP.monthly.year },
+    { icon: 'bar',      label: 'Spending history', value: historyMonths + ' month' + (historyMonths === 1 ? '' : 's') },
+  ];
+  return rows.map(function(r) {
+    return '<div class="adv2-source-row">' +
+      '<span class="adv2-source-icon">' + ic(r.icon, 13) + '</span>' +
+      '<span class="adv2-source-label">' + r.label + '</span>' +
+      '<span class="adv2-source-value">' + r.value + '</span>' +
+      '</div>';
+  }).join('');
+}
+
 function _adv2WelcomeHtml() {
   return '<div class="adv2-welcome">' +
     '<div class="adv2-welcome-avatar">🤖</div>' +
@@ -943,6 +969,12 @@ async function renderAdvisor(el) {
         <div class="sh-title">FINOVA</div>
         <div class="sh-sub">Personalized insights powered by AI</div>
       </div>
+      <div class="sh-r">
+        <div class="adv2-safe-chip">
+          ${ic('shield',14)}
+          <span>FINOVA answers only finance questions and never leaves your data. As with any AI, double-check important financial decisions before acting on them.</span>
+        </div>
+      </div>
     </div>
 
     <div class="strip">
@@ -952,57 +984,72 @@ async function renderAdvisor(el) {
       ${statCard('Loans',        fmt(stats.totalDebt,true),  'neg','outstanding')}
     </div>
 
-    <div class="card" style="margin-bottom:1.25rem">
-      <div class="acc-head" onclick="toggleAcc('adv2insights')">
-        <div class="acc-head-l" style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px">Key Insights</div>
-        <div class="acc-head-r">
-          <button class="btn-icon" title="Refresh insights"
-            onclick="event.stopPropagation();_adv2Insights=null;_adv2LoadInsights()">${ic('refresh',12)}</button>
-          <svg class="chevron open" id="chev-adv2insights" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+    <div class="adv2-layout">
+      <div class="adv2-rail">
+        <div class="adv2-orbcard">
+          <canvas data-orb="1" width="440" height="440" class="adv2-orb-canvas"></canvas>
+          <div class="adv2-orb-wordmark">FINOVA</div>
+          <div class="adv2-orb-tagline">Financial Intelligence</div>
+          <div class="adv2-orb-status"><span class="adv2-orb-dot"></span>Online</div>
+        </div>
+        <div class="card adv2-rail-card">
+          <div class="adv2-rail-title">Reading your data</div>
+          ${_adv2SourceRows()}
         </div>
       </div>
-      <div class="acc-body open" id="acc-adv2insights">
-        <div id="adv2-insights-body" class="adv2-insights-grid" style="padding:0 18px 18px">
-          <div class="adv2-loading"><div class="adv2-pulse"></div> Analyzing your finances…</div>
+
+      <div class="card adv2-chat-card">
+
+        <div class="adv2-insights-head" onclick="toggleAcc('adv2insights')">
+          <div class="adv2-insights-head-l">⚡ Smart insights · <span id="adv2-insights-count">0</span></div>
+          <div class="acc-head-r">
+            <button class="btn-icon" title="Refresh insights"
+              onclick="event.stopPropagation();_adv2Insights=null;_adv2LoadInsights()">${ic('refresh',12)}</button>
+            <svg class="chevron adv2-insights-caret open" id="chev-adv2insights" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <div class="card adv2-chat-card">
-
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
-        <div class="adv2-chips">
-          <button class="adv2-chip" onclick="adv2Send('Am I saving enough?')">Am I saving enough?</button>
-          <button class="adv2-chip" onclick="adv2Send('Which loan should I pay off first?')">Which loan to pay first?</button>
-          <button class="adv2-chip" onclick="adv2Send('How is my portfolio performing?')">How is my portfolio doing?</button>
-          <button class="adv2-chip" onclick="adv2Send('Where am I overspending?')">Where am I overspending?</button>
+        <div class="acc-body open" id="acc-adv2insights">
+          <div id="adv2-insights-body" class="adv2-insights-grid">
+            <div class="adv2-loading"><div class="adv2-pulse"></div> Analyzing your finances…</div>
+          </div>
         </div>
-        <button class="btn-icon" style="flex-shrink:0" title="Start a new chat" onclick="adv2NewChat()">${ic('plus',12)}</button>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+          <div class="adv2-chips">
+            <button class="adv2-chip" onclick="adv2Send('Am I saving enough?')">Am I saving enough?</button>
+            <button class="adv2-chip" onclick="adv2Send('Which loan should I pay off first?')">Which loan to pay first?</button>
+            <button class="adv2-chip" onclick="adv2Send('How is my portfolio performing?')">How is my portfolio doing?</button>
+            <button class="adv2-chip" onclick="adv2Send('Where am I overspending?')">Where am I overspending?</button>
+          </div>
+          <button class="btn-icon" style="flex-shrink:0" title="Start a new chat" onclick="adv2NewChat()">${ic('plus',12)}</button>
+        </div>
+
+        <div class="adv2-chat" id="adv2-chat">${_adv2WelcomeHtml()}</div>
+
+        <div class="adv2-typing" id="adv2-typing" style="display:none">
+          <div class="adv2-dots"><span></span><span></span><span></span></div>
+          <span style="font-size:12px;color:var(--t3)">FINOVA is thinking…</span>
+        </div>
+
+        <div id="adv2-error" class="adv2-err-banner" style="display:none"></div>
+
+        <div class="adv2-input-bar">
+          <textarea id="adv2-input" class="adv2-textarea"
+            placeholder="Ask about your finances…"
+            rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adv2SendInput();}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+          ></textarea>
+          <button class="btn btn-primary btn-sm adv2-send" onclick="adv2SendInput()">Send</button>
+        </div>
+
       </div>
-
-      <div class="adv2-chat" id="adv2-chat">${_adv2WelcomeHtml()}</div>
-
-      <div class="adv2-typing" id="adv2-typing" style="display:none">
-        <div class="adv2-dots"><span></span><span></span><span></span></div>
-        <span style="font-size:12px;color:var(--t3)">FINOVA is thinking…</span>
-      </div>
-
-      <div id="adv2-error" class="adv2-err-banner" style="display:none"></div>
-
-      <div class="adv2-input-bar">
-        <textarea id="adv2-input" class="adv2-textarea"
-          placeholder="Ask about your finances… (Enter to send, Shift+Enter for newline)"
-          rows="1"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adv2SendInput();}"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
-        ></textarea>
-        <button class="btn btn-primary btn-sm adv2-send" onclick="adv2SendInput()">Send</button>
-      </div>
-
     </div>`;
+
+  if (typeof initFinovaOrbsIn === 'function') initFinovaOrbsIn(el);
 
   // Restore previous session chat
   if (_adv2Messages.length > 0) {
