@@ -155,7 +155,7 @@ function _adv2LifestyleSummary() {
    action but not for something that runs invisibly every time Advisor loads. */
 async function _adv2WarmLivePrices() {
   const goldInvs  = APP.investments.filter(function(i) { return _invCat(i) === 'Gold'; });
-  const otherInvs = APP.investments.filter(function(i) { return _invCat(i) !== 'Gold' && i.ticker && _invCat(i) !== 'EPF'; });
+  const otherInvs = APP.investments.filter(_invHasLiveSource);
   if (!goldInvs.length && !otherInvs.length) return;
 
   if (goldInvs.length) {
@@ -172,7 +172,7 @@ async function _adv2WarmLivePrices() {
 
   await Promise.all(otherInvs.map(async function(inv) {
     try {
-      const { price, currency } = await _fetchYahooPrice(inv.ticker);
+      const { price, currency } = await _fetchInvPrice(inv);
       if (price && isFinite(price)) {
         inv.livePrice = (currency === 'USD' && usdInrRate) ? Math.round(price * usdInrRate) : price;
       }
@@ -1076,7 +1076,7 @@ async function renderAdvisor(el) {
   // _adv2WarmLivePrices comment above), then (re)build the snapshot and kick
   // off insights — none of this blocks the render above.
   //
-  // _fetchYahooPrice() tries up to 4 CORS proxies per ticker sequentially
+  // _fetchInvPrice() may fall through several proxies per ticker sequentially
   // (7-8s timeout each), so for a portfolio with many tickers a slow/rate-
   // limited proxy chain could otherwise hold up insights for a long time.
   // Cap the wait so insights always fire — invQuoteCache/inv.livePrice keep

@@ -462,6 +462,8 @@ function _aiSetCat(cat) {
   if (tickerLabel) tickerLabel.innerHTML = isESOPOpt
     ? 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span>'
     : 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(for live prices)</span>';
+  const tickerInp = document.getElementById('ai-ticker');
+  if (tickerInp) tickerInp.placeholder = cat === 'MF' ? 'AMFI scheme code, e.g. 122639' : 'e.g. RELIANCE.NS';
 
   if (isLots) {
     if (!_aiLots.length) {
@@ -540,21 +542,32 @@ async function _aiFetchModalQuote(ticker) {
   preview.style.display = '';
   preview.innerHTML = `<div class="row" style="gap:8px;align-items:center">${ic('refresh',12)} <span style="color:var(--t3);font-size:12px">Fetching ${_lsEsc(ticker)}…</span></div>`;
   try {
-    const data  = await _proxyFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&fields=regularMarketPrice,regularMarketPreviousClose,shortName,currency`);
-    const r     = data?.quoteResponse?.result?.[0];
-    if (!r || !isFinite(r.regularMarketPrice)) throw new Error('no result');
-    const price  = r.regularMarketPrice;
-    const chgPct = r.regularMarketPreviousClose
-      ? (price - r.regularMarketPreviousClose) / r.regularMarketPreviousClose * 100 : 0;
-    const pos = chgPct >= 0;
+    let price, prevClose, label;
+    const mfCode = _mfSchemeCode({ ticker });
+    if (mfCode) {
+      // AMFI scheme code → official NAV via mfapi.in
+      const { nav, meta } = await _mfapiLatest(mfCode);
+      price = nav; label = meta.scheme_name || ticker;
+    } else {
+      // v8/chart (v7/quote now needs a Yahoo crumb and is usually rejected)
+      const data = await _proxyFetch(_yahooUrl(ticker));
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (!meta || !isFinite(meta.regularMarketPrice)) throw new Error('no result');
+      price = meta.regularMarketPrice;
+      prevClose = meta.chartPreviousClose ?? meta.previousClose;
+      label = meta.shortName || meta.longName || ticker;
+    }
+    const chgPct = prevClose ? (price - prevClose) / prevClose * 100 : null;
+    const pos = (chgPct ?? 0) >= 0;
     preview.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
       <div>
-        <div style="font-weight:600;font-size:13px">${_lsEsc(r.shortName||ticker)}</div>
+        <div style="font-weight:600;font-size:13px">${_lsEsc(label)}</div>
         <div style="font-size:11px;color:var(--t3)">${_lsEsc(ticker)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-weight:700;font-size:14px">₹${price.toFixed(2)}</div>
-        <div style="font-size:11px;color:${pos?'var(--accent)':'var(--red)'}">${pos?'+':''}${chgPct.toFixed(2)}% today</div>
+        ${chgPct === null ? '<div style="font-size:11px;color:var(--t3)">latest NAV</div>'
+          : `<div style="font-size:11px;color:${pos?'var(--accent)':'var(--red)'}">${pos?'+':''}${chgPct.toFixed(2)}% today</div>`}
       </div>
     </div>`;
     // Auto-fill first lot price if blank
@@ -564,7 +577,7 @@ async function _aiFetchModalQuote(ticker) {
       if (inputs[2] && !inputs[2].value) { inputs[2].value = price.toFixed(2); _aiUpdateSummary(); }
     }
   } catch(e) {
-    preview.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>`;
+    preview.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS, or an AMFI scheme code for mutual funds)</span>`;
   }
 }
 
