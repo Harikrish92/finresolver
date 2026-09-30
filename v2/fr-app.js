@@ -532,7 +532,7 @@ async function refreshLivePrices() {
   if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
 
   const goldInvs  = APP.investments.filter(i => _invCat(i) === 'Gold');
-  const otherInvs = APP.investments.filter(i => _invCat(i) !== 'Gold' && i.ticker && _invCat(i) !== 'EPF');
+  const otherInvs = APP.investments.filter(_invHasLiveSource);
 
   if (!goldInvs.length && !otherInvs.length) {
     if (btn) { btn.disabled = false; btn.innerHTML = ic('refresh',12) + ' Refresh'; }
@@ -542,7 +542,7 @@ async function refreshLivePrices() {
 
   let updated = 0, failed = 0;
 
-  // Gold: fetch once via GC=F + USDINR=X
+  // Gold: fetch once (CoinGecko PAX Gold, Yahoo GC=F fallback)
   if (goldInvs.length) {
     try {
       const pricePerGram = await _fetchGoldINR();
@@ -556,10 +556,10 @@ async function refreshLivePrices() {
     try { usdInrRate = await _fetchUsdInr(); } catch(e) {}
   }
 
-  // Stocks / MF / FD / Bond / ESOP: Yahoo Finance
+  // Mutual funds: AMFI NAV via mfapi.in (Yahoo fallback). Everything else: Yahoo Finance
   await Promise.all(otherInvs.map(async inv => {
     try {
-      const { price, currency } = await _fetchYahooPrice(inv.ticker);
+      const { price, currency } = await _fetchInvPrice(inv);
       if (price && isFinite(price)) {
         inv.livePrice = (currency === 'USD' && usdInrRate) ? Math.round(price * usdInrRate) : price;
         updated++;
@@ -571,7 +571,7 @@ async function refreshLivePrices() {
 
   if (btn) { btn.disabled = false; btn.innerHTML = ic('refresh',12) + ' Refresh'; }
   const msg = `Updated ${updated} price${updated !== 1 ? 's' : ''}` +
-    (failed ? `. ${failed} failed — check ticker symbols (use Yahoo Finance format, e.g. RELIANCE.NS).` : '.');
+    (failed ? `. ${failed} failed — check ticker symbols (stocks: RELIANCE.NS; mutual funds: AMFI scheme code, e.g. 122639).` : '.');
   _showToast(msg);
 
   renderScreen(_screen, document.getElementById('screen-content'));
@@ -583,10 +583,15 @@ function _timedFetch(url, ms = 8000) {
   return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
 }
 
+// Own Cloudflare Worker (server-side fetch + edge cache) — tried first. The free
+// public CORS proxies below are shared, rate-limited and often blocked by Yahoo,
+// so they are only a last resort if the Worker is down.
+const _PRICE_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev';
+
 const _YAHOO_PROXIES = [
+  url => _timedFetch(_PRICE_WORKER_URL + '?url='                          + encodeURIComponent(url), 8000).then(r => { if (!r.ok) throw new Error('cf-worker '  + r.status); return r.json(); }),
   url => _timedFetch('https://corsproxy.io/?url='                         + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('corsproxy '  + r.status); return r.json(); }),
   url => _timedFetch('https://api.codetabs.com/v1/proxy?quest='           + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
-  url => _timedFetch('https://thingproxy.freeboard.io/fetch/'             + url,                     8000).then(r => { if (!r.ok) throw new Error('thingproxy ' + r.status); return r.json(); }),
   url => _timedFetch('https://api.allorigins.win/raw?url='                + encodeURIComponent(url), 8000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
 ];
 
@@ -607,23 +612,125 @@ function _yahooUrl(ticker) {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
 }
 
+// Short-lived in-memory cache so Advisor warm-up + Refresh (or repeated clicks)
+// don't re-hit the network for the same symbol.
+const _PRICE_CACHE_MS = 5 * 60 * 1000;
+const _priceCache = new Map();
+function _cachedPrice(key, fetcher) {
+  const hit = _priceCache.get(key);
+  if (hit && Date.now() - hit.t < _PRICE_CACHE_MS) return hit.p;
+  const p = fetcher().catch(e => { _priceCache.delete(key); throw e; });
+  _priceCache.set(key, { t: Date.now(), p });
+  return p;
+}
+
 async function _fetchYahooPrice(ticker) {
-  const d = await _proxyFetch(_yahooUrl(ticker));
-  const meta = d?.chart?.result?.[0]?.meta;
-  if (!meta?.regularMarketPrice) throw new Error('No price for ' + ticker);
-  return { price: meta.regularMarketPrice, currency: meta.currency ?? 'INR' };
+  return _cachedPrice('yf:' + ticker, async () => {
+    const d = await _proxyFetch(_yahooUrl(ticker));
+    const meta = d?.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) throw new Error('No price for ' + ticker);
+    return { price: meta.regularMarketPrice, currency: meta.currency ?? 'INR' };
+  });
+}
+
+// ── MUTUAL FUNDS: AMFI NAV via mfapi.in (free, CORS-enabled, no key) ──────────
+const _MFAPI = 'https://api.mfapi.in/mf';
+
+// AMFI scheme code from inv.schemeCode, or a ticker entered as "122639" / "AMFI:122639"
+function _mfSchemeCode(inv) {
+  if (inv.schemeCode) return String(inv.schemeCode);
+  const m = String(inv.ticker || '').trim().match(/^(?:AMFI:|MF:)?(\d{5,6})$/i);
+  return m ? m[1] : null;
+}
+
+async function _mfapiLatest(code) {
+  return _cachedPrice('mf:' + code, async () => {
+    const r = await _timedFetch(`${_MFAPI}/${encodeURIComponent(code)}/latest`, 8000);
+    if (!r.ok) throw new Error('mfapi ' + r.status);
+    const d = await r.json();
+    const nav = parseFloat(d?.data?.[0]?.nav);
+    if (!(nav > 0)) throw new Error('mfapi: no NAV for ' + code);
+    return { nav, meta: d.meta || {} };
+  });
+}
+
+async function _mfapiSearch(q) {
+  const r = await _timedFetch(`${_MFAPI}/search?q=${encodeURIComponent(q)}`, 8000);
+  if (!r.ok) throw new Error('mfapi search ' + r.status);
+  const list = await r.json();
+  return Array.isArray(list) ? list : [];
+}
+
+// Find the AMFI scheme code for a holding by ISIN. Name search alone can't reliably
+// tell Direct/Regular or Growth/IDCW variants apart, so a candidate is only accepted
+// when its ISIN matches.
+async function _mfResolveSchemeCode(inv) {
+  const isin = String(inv.isin || '').trim().toUpperCase();
+  if (isin.length < 12 || !inv.name) return null;
+  const words = inv.name.replace(/[^A-Za-z0-9& ]+/g, ' ').split(/\s+/).filter(Boolean);
+  const core  = words.filter(w => !/^(direct|regular|plan|growth|option|idcw|dividend|payout|reinvestment|fund)$/i.test(w));
+  const queries = [...new Set([words.join(' '), core.join(' '), core.slice(0, 3).join(' '), core.slice(0, 2).join(' ')])].filter(q => q.length >= 3);
+  const seen = new Set();
+  for (const q of queries) {
+    let list;
+    try { list = await _mfapiSearch(q); } catch(e) { continue; }
+    for (const s of list.slice(0, 15)) {
+      if (seen.has(s.schemeCode)) continue;
+      seen.add(s.schemeCode);
+      try {
+        const { meta } = await _mfapiLatest(s.schemeCode);
+        if ([meta.isin_growth, meta.isin_div_reinvestment].includes(isin)) return String(s.schemeCode);
+      } catch(e) { /* try next candidate */ }
+    }
+  }
+  return null;
+}
+
+function _invHasLiveSource(inv) {
+  const cat = _invCat(inv);
+  if (cat === 'Gold' || cat === 'EPF') return false;
+  return !!(inv.ticker || inv.schemeCode || (cat === 'MF' && inv.isin));
+}
+
+// Live price for one holding. MFs use the official AMFI NAV first (resolving and
+// remembering inv.schemeCode from the ISIN when needed); Yahoo is the fallback.
+async function _fetchInvPrice(inv) {
+  if (_invCat(inv) === 'MF' || _mfSchemeCode(inv)) {
+    try {
+      let code = _mfSchemeCode(inv);
+      if (!code && inv.isin) {
+        code = await _mfResolveSchemeCode(inv);
+        if (code) inv.schemeCode = code;
+      }
+      if (code) {
+        const { nav } = await _mfapiLatest(code);
+        return { price: nav, currency: 'INR' };
+      }
+    } catch(e) {
+      console.warn('[V2 mfapi] failed for', inv.name, '-', e.message);
+    }
+  }
+  if (!inv.ticker || /^(?:AMFI:|MF:)?\d{5,6}$/i.test(inv.ticker)) throw new Error('No price source for ' + inv.name);
+  return _fetchYahooPrice(inv.ticker);
 }
 
 async function _fetchUsdInr() {
-  const d = await _proxyFetch(_yahooUrl('USDINR=X'));
-  const rate = d?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  if (!rate) throw new Error('USDINR fetch failed');
-  return rate;
+  // Primary: Frankfurter (ECB reference rates) — free, CORS-enabled, no proxy needed
+  try {
+    const r = await _timedFetch('https://api.frankfurter.app/latest?from=USD&to=INR', 6000);
+    if (!r.ok) throw new Error('frankfurter ' + r.status);
+    const rate = (await r.json())?.rates?.INR;
+    if (!(rate > 0)) throw new Error('frankfurter: no rate');
+    return rate;
+  } catch(e) {
+    const { price } = await _fetchYahooPrice('USDINR=X');
+    return price;
+  }
 }
 
 async function _fetchGoldINR() {
   // Primary: CoinGecko — PAX Gold is backed 1:1 by 1 troy oz, returns INR directly
-  // (no CORS proxy needed; avoids relying solely on the flaky public Yahoo proxies below)
+  // (no CORS proxy needed)
   try {
     const r = await _timedFetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=inr', 7000);
     if (!r.ok) throw new Error('CG HTTP ' + r.status);
@@ -633,12 +740,7 @@ async function _fetchGoldINR() {
     return oz / 31.1035; // INR/oz → INR/gram
   } catch(e) {
     // Fallback: Yahoo Finance GC=F (COMEX gold, USD/troy oz) + USDINR=X
-    const [gD, fxD] = await Promise.all([
-      _proxyFetch(_yahooUrl('GC=F')),
-      _proxyFetch(_yahooUrl('USDINR=X')),
-    ]);
-    const usd  = gD?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    const rate = fxD?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    const [{ price: usd }, rate] = await Promise.all([_fetchYahooPrice('GC=F'), _fetchUsdInr()]);
     if (!usd || !rate) throw new Error('Gold/FX fetch failed');
     return (usd * rate) / 31.1035; // USD/oz → INR/gram
   }
