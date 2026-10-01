@@ -37,6 +37,35 @@
 .qab-fab.qab-side-left  { left: 24px; right: auto; }
 .qab-panel.qab-side-left { left: 24px; right: auto; }
 
+/* ✕ badge on FinBolt's top-right corner — hides it until the next page
+   load (see dismiss() in quickadd-bot.js). Sits as a sibling of .qab-fab
+   (a button can't nest a button), so it tracks the FAB's corner via the
+   same offsets: FAB inset + 68px size − 14px overlap. */
+.qab-dismiss {
+  position: fixed;
+  bottom: 78px;
+  right: 18px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9992;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+  transition: color .15s ease, left .18s ease, right .18s ease;
+}
+.qab-dismiss:hover { color: var(--text); }
+.qab-dismiss.qab-side-left { left: 78px; right: auto; }
+.qab-root.qab-dragging .qab-dismiss { display: none; }
+
 /* Fallback "+" glyph (image failed to load) carries its own circular
    background so it still reads as a button even though .qab-fab itself
    is transparent. */
@@ -257,4 +286,6 @@
   .qab-fab { right: 16px; bottom: 16px; }
   .qab-fab.qab-side-left  { left: 16px; right: auto; }
   .qab-panel.qab-side-left { left: 16px; right: auto; }
+  .qab-dismiss { right: 10px; bottom: 70px; }
+  .qab-dismiss.qab-side-left { left: 70px; right: auto; }
 }

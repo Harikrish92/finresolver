@@ -51,10 +51,11 @@ function onGISReady() {
 
   // Layer 1: One Tap — fires handleCredentialResponse() on success
   google.accounts.id.initialize({
-    client_id:            GOOGLE_CLIENT_ID,
-    callback:             handleCredentialResponse,
-    auto_select:          false,
+    client_id:             GOOGLE_CLIENT_ID,
+    callback:              handleCredentialResponse,
+    auto_select:           false,
     cancel_on_tap_outside: true,
+    use_fedcm_for_prompt:  true, // required — legacy shim mis-resolves sessions (Error 400: invalid_user)
   });
 
   // Layer 2: Token client popup — fires resolveAccessToken() on success.
@@ -101,19 +102,22 @@ function loginWithGoogle() {
   if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Signing in…`; }
   hideLoginError();
 
-  // Layer 1 — try One Tap first (instant if a Google session exists)
+  // Layer 1 — try One Tap first (instant if a Google session exists).
+  // Under mandatory FedCM, isNotDisplayed()/isSkippedMoment() no longer report
+  // reliable reasons — use getMomentType() instead (per Google's migration guide).
   google.accounts.id.prompt(notification => {
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+    const momentType = notification.getMomentType();
+    if (momentType === 'skipped') {
       // No active Google session in browser → use token client popup (layer 2)
       if (tokenClient) {
         tokenClient.requestAccessToken();
       } else {
         showLoginError('Sign-in unavailable. Please refresh and try again.');
       }
-    } else if (notification.isDismissedMoment()) {
+    } else if (momentType === 'dismissed') {
       setButtonReady();
     }
-    // If neither branch fires, handleCredentialResponse() will be called by GIS
+    // momentType === 'display': handleCredentialResponse() will be called by GIS
   });
 }
 
@@ -227,6 +231,9 @@ function applyUser(user, skipSave = false) {
   if (menuSignOut) menuSignOut.style.display = isGuest ? 'none'  : 'block';
 
   document.getElementById('loginScreen').style.display = 'none';
+  // Apply the locally-mirrored "Show FinBolt" preference before revealing
+  // it; syncLoadData() re-checks against Firestore once sync is ready.
+  if (typeof prefApplyFinBolt === 'function') prefApplyFinBolt({ localOnly: true });
   if (typeof QuickAddBot !== 'undefined') QuickAddBot.show();
 
   // Now show home — renderHomeDashboard() will see the correct user

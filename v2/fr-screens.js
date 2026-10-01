@@ -351,7 +351,18 @@ function accPanel(type, label, dotColor, total, collapsed=false) {
     ? '<th>Linked To</th>'
     : type==='loans' ? '<th>Loan</th>' : '';
 
-  const rowsHtml = items.map(it => {
+  // Date sort (shared across panels); undated entries always last
+  const sortDir = _monthlySortDir();
+  const dir     = sortDir === 'asc' ? 1 : -1;
+  const sorted  = items.map((it, i) => ({ it, i })).sort((a, b) => {
+    const da = a.it.date || '', db = b.it.date || '';
+    if (!da || !db) return (!da) - (!db) || a.i - b.i;
+    return da < db ? -dir : da > db ? dir : a.i - b.i;
+  }).map(x => x.it);
+  const dateTh = `<th style="cursor:pointer;user-select:none" onclick="toggleMonthlySort()"
+      title="${sortDir==='asc'?'Oldest first — click for newest first':'Newest first — click for oldest first'}">Date ${sortDir==='asc'?'↑':'↓'}</th>`;
+
+  const rowsHtml = sorted.map(it => {
     const extraTd = type==='investments'
       ? `<td>${it.linked?`<span class="pill p-stock" style="font-size:10px">${it.linked}</span>`:'<span class="muted">—</span>'}</td>`
       : type==='loans'
@@ -372,7 +383,7 @@ function accPanel(type, label, dotColor, total, collapsed=false) {
   const body = count > 0
     ? `<div class="tbl-wrap"><table class="tbl">
         <thead><tr>
-          <th>Description</th><th>Amount</th><th>Date</th>${colsExtra}<th style="width:60px"></th>
+          <th>Description</th><th>Amount</th>${dateTh}${colsExtra}<th style="width:60px"></th>
         </tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>`
@@ -402,6 +413,29 @@ function accPanel(type, label, dotColor, total, collapsed=false) {
       </div>
     </div>
   </div>`;
+}
+
+function _monthlySortDir() {
+  try { return localStorage.getItem('fr_tracker_sort') === 'desc' ? 'desc' : 'asc'; } catch (e) { return 'asc'; }
+}
+
+function toggleMonthlySort() {
+  const next = _monthlySortDir() === 'asc' ? 'desc' : 'asc';
+  try { localStorage.setItem('fr_tracker_sort', next); } catch (e) {}
+  // Re-render in place, keeping scroll position and each panel's open/closed state
+  const open = ['expenses','income','investments','loans']
+    .filter(t => document.getElementById('acc-' + t)?.classList.contains('open'));
+  const sc  = document.getElementById('screen-content');
+  const top = sc ? sc.scrollTop : 0;
+  Object.values(_chartInstances).forEach(c => { try { c.destroy(); } catch(e){} });
+  _chartInstances = {};
+  renderScreen('monthly', sc);
+  if (sc) sc.scrollTop = top;
+  ['expenses','income','investments','loans'].forEach(t => {
+    const isOpen = open.includes(t);
+    document.getElementById('acc-' + t)?.classList.toggle('open', isOpen);
+    document.getElementById('chev-' + t)?.classList.toggle('open', isOpen);
+  });
 }
 
 // Toggle accordion open/close

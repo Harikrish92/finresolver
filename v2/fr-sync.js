@@ -157,6 +157,7 @@ function _initGIS() {
       client_id: _GOOGLE_CID,
       callback: _handleOneTap,
       auto_select: false,
+      use_fedcm_for_prompt: true, // required — legacy shim mis-resolves sessions (Error 400: invalid_user)
     });
   };
   document.head.appendChild(s);
@@ -218,7 +219,7 @@ function loginGoogle() {
     return;
   }
   google.accounts.id.prompt(n => {
-    if (n.isNotDisplayed() || n.isSkippedMoment()) {
+    if (n.getMomentType() === 'skipped') {
       _gisTokenClient.requestAccessToken();
     }
   });
@@ -228,6 +229,13 @@ function loginGoogle() {
 
 async function loadAllData() {
   if (!_currentUID) return;
+
+  // Apply a saved "Classic" UI-mode preference by redirecting there —
+  // see fr-preferences.js. Bails out of the rest of this load since the
+  // page is navigating away.
+  if (await prefCheckUiModeRedirect()) return;
+  prefApplyFinBolt();
+
   const year  = APP.monthly.year;
   const month = APP.monthly.month;
 

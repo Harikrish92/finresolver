@@ -166,6 +166,12 @@ async function firebaseSignInWithAccessToken(accessToken, profile) {
 async function syncLoadData() {
   if (!currentUser || !syncReady || !db) return;
 
+  // Apply a saved "Modern" UI-mode preference by redirecting there —
+  // see js/preferences.js. Bails out of the rest of this load since
+  // the page is navigating away.
+  if (typeof prefCheckUiModeRedirect === 'function' && await prefCheckUiModeRedirect()) return;
+  if (typeof prefApplyFinBolt === 'function') prefApplyFinBolt();
+
   const uid   = fbAuth?.currentUser?.uid || currentUser.uid;
   const year  = document.getElementById('yearSelect').value;
   const month = document.getElementById('monthSelect').value;

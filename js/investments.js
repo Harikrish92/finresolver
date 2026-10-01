@@ -1775,14 +1775,26 @@ function renderJourneyTable() {
     byYear[y].push(e);
   });
 
+  var desc     = invJourneySortDir === 'desc';
+  var sortLbl  = desc ? 'Date ↓' : 'Date ↑';
+  var sortTip  = desc ? 'Newest first — click for oldest first' : 'Oldest first — click for newest first';
+
   var html = '<div class="inv-journey-table-wrap">'
     + '<table class="inv-journey-table">'
     + '<thead><tr>'
-    + '<th>Date</th><th>Flow</th><th>Notes</th><th></th>'
+    + '<th><button type="button" class="th-sort-btn" style="margin-left:0" title="' + sortTip + '" onclick="toggleJourneySort()">' + sortLbl + '</button></th>'
+    + '<th>Flow</th><th>Notes</th><th></th>'
     + '</tr></thead><tbody>';
 
-  Object.keys(byYear).sort().forEach(function(year) {
-    var entries     = byYear[year].slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  var years = Object.keys(byYear).filter(function(y){ return y !== '—'; }).sort();
+  if (desc) years.reverse();
+  if (byYear['—']) years.push('—');   /* undated entries always last */
+  years.forEach(function(year) {
+    var entries     = byYear[year].slice().sort(function(a,b){
+      var da = a.date || '', db = b.date || '';
+      if (da === db) return 0;
+      return (da < db ? -1 : 1) * (desc ? -1 : 1);
+    });
     var yIn = 0, yOut = 0;
     entries.forEach(function(e){ if (e.type === 'in') yIn += e.amount; else yOut += e.amount; });
     var isCollapsed = !!invJourneyYearCollapsed[year];
@@ -1822,6 +1834,16 @@ function renderJourneyTable() {
 
   html += '</tbody></table></div>';
   wrap.innerHTML = html;
+}
+
+var invJourneySortDir = (function() {
+  try { return localStorage.getItem('fr_journey_sort') === 'desc' ? 'desc' : 'asc'; } catch (e) { return 'asc'; }
+})();
+
+function toggleJourneySort() {
+  invJourneySortDir = invJourneySortDir === 'asc' ? 'desc' : 'asc';
+  try { localStorage.setItem('fr_journey_sort', invJourneySortDir); } catch (e) {}
+  renderJourneyTable();
 }
 
 function toggleJourneyYear(year) {
@@ -1915,6 +1937,42 @@ async function deleteJourneyEntry(id) {
   await saveJourney();
   renderInvJourney();
   showInvToast('Entry deleted.', 'success');
+}
+
+/* ── Clear all ───────────────────────────────────────────────
+   Wipes every Journey entry (local + Firestore) so a user with
+   corrupted data can start fresh and re-import their sheet.
+   Only touches the Journey — holdings are left untouched. */
+async function clearJourneyData() {
+  if (!confirm('Clear ALL Investment Journey cash flows?\n\nThis removes every entry from this device and the cloud. Your holdings are not affected.\n\nThis cannot be undone — you can re-import your sheet afterwards.')) return;
+
+  invJourneyData          = [];
+  invJourneyEditId        = null;
+  invJourneyYearCollapsed = {};
+  var pv = document.getElementById('invJourneyPortfolioVal');
+  if (pv) pv.value = '';
+
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  localStorage.setItem(getJourneyKey(), await encryptForStorage([], email));
+
+  /* Write the cloud copy directly (not via journeySyncSave, which waits
+     for syncReady) — otherwise the corrupted Firestore doc would be
+     pulled back down on the next load. */
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) ? fbAuth.currentUser.uid : null;
+  if (uid && typeof db !== 'undefined' && db) {
+    try {
+      var encStr = await encryptForStorage({ journey: [] }, email);
+      await db.collection('users').doc(uid).collection('config').doc('invJourney').set({ _enc: encStr });
+    } catch (e) {
+      console.warn('[Journey] Firestore clear failed:', e.message);
+      showInvToast('Cleared on this device, but cloud clear failed — try again when online.', 'error');
+      renderInvJourney();
+      return;
+    }
+  }
+
+  renderInvJourney();
+  showInvToast('Investment Journey cleared. You can re-import your sheet now.', 'success');
 }
 
 /* ══════════════════════════════════════════════════════════

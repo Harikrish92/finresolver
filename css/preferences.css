@@ -1,0 +1,66 @@
+/* ============================================================
+   preferences.css — App Preferences modal
+   FinResolver · finresolver.in
+   ============================================================ */
+
+.pref-section { margin-bottom: 1.35rem; }
+.pref-section:last-child { margin-bottom: 0; }
+
+.pref-label {
+  display: block;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: .5rem;
+  font-weight: 600;
+}
+
+.pref-hint {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: .5rem;
+}
+
+.pref-segmented {
+  display: flex;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.pref-seg-btn {
+  flex: 1;
+  padding: .55rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.pref-seg-btn.active { background: var(--surface); color: var(--text); }
+
+.pref-textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: .7rem .9rem;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.pref-textarea:focus { border-color: var(--accent); }

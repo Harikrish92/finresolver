@@ -134,6 +134,9 @@ function showApp() {
   const layout = document.getElementById('app-layout');
   layout.style.display = 'flex';
   layout.style.width   = '100%';
+  // Apply the locally-mirrored "Show FinBolt" preference before revealing
+  // it; loadAllData() re-checks against Firestore once sync is ready.
+  if (typeof prefApplyFinBolt === 'function') prefApplyFinBolt({ localOnly: true });
   if (typeof QuickAddBot !== 'undefined') QuickAddBot.show();
 
   document.getElementById('sb-user-name').textContent    = APP.user.name;

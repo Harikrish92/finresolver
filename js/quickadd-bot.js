@@ -7,6 +7,12 @@
    app needs to supply comes through QuickAddBot.init({ getLoans,
    onSubmit, fabIcon }). Styling is done entirely via the qab-*
    class names below; each host provides its own stylesheet for them.
+
+   Visibility is the AND of three independent flags:
+     visible   — host has a signed-in user (show()/hide())
+     enabled   — the user's "Show FinBolt" preference (setEnabled())
+     dismissed — the ✕ on the FAB was clicked; in-memory only, so a
+                 fresh page load always brings FinBolt back
    ============================================================ */
 
 window.QuickAddBot = (function () {
@@ -15,7 +21,9 @@ window.QuickAddBot = (function () {
   var opts    = null;
   var els     = {};
   var state   = { screen: 'select', type: null, undo: null, justDragged: false };
-  var visible = false; // show()/hide() may be called before build() runs
+  var visible   = false; // show()/hide() may be called before build() runs
+  var enabled   = true;  // per-user preference, see setEnabled()
+  var dismissed = false; // ✕ clicked — lasts until the page is reloaded
 
   var SIDE_KEY = 'fr_qab_side';
   var DRAG_THRESHOLD = 6; // px of horizontal movement before a press counts as a drag, not a tap
@@ -75,6 +83,8 @@ window.QuickAddBot = (function () {
       '<button type="button" class="qab-fab" aria-label="Open FinBolt" aria-expanded="false">' +
         fabInner +
       '</button>' +
+      '<button type="button" class="qab-dismiss" aria-label="Hide FinBolt" ' +
+        'title="Hide FinBolt until the page is reloaded">×</button>' +
       '<div class="qab-panel qab-hidden" role="dialog" aria-label="FinBolt">' +
         '<div class="qab-panel-header">' +
           '<button type="button" class="qab-back qab-hidden" aria-label="Back">←</button>' +
@@ -89,7 +99,8 @@ window.QuickAddBot = (function () {
     els.root.classList.add('qab-hidden');
     document.body.appendChild(els.root);
 
-    els.fab   = els.root.querySelector('.qab-fab');
+    els.fab     = els.root.querySelector('.qab-fab');
+    els.dismiss = els.root.querySelector('.qab-dismiss');
     els.panel = els.root.querySelector('.qab-panel');
     els.back  = els.root.querySelector('.qab-back');
     els.close = els.root.querySelector('.qab-close');
@@ -103,6 +114,10 @@ window.QuickAddBot = (function () {
       togglePanel();
     });
     els.close.addEventListener('click', closePanel);
+    els.dismiss.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dismiss();
+    });
     els.back.addEventListener('click', goToSelect);
 
     applySide(loadSide());
@@ -165,6 +180,7 @@ window.QuickAddBot = (function () {
   function applySide(side) {
     els.fab.classList.toggle('qab-side-left', side === 'left');
     els.panel.classList.toggle('qab-side-left', side === 'left');
+    els.dismiss.classList.toggle('qab-side-left', side === 'left');
   }
 
   function initDrag() {
@@ -185,6 +201,7 @@ window.QuickAddBot = (function () {
         drag.dragging = true;
         try { els.fab.setPointerCapture(drag.pointerId); } catch (err) {}
         els.fab.classList.add('qab-dragging');
+        els.root.classList.add('qab-dragging');
         closePanel();
       }
       var maxLeft = window.innerWidth - drag.width - 4;
@@ -199,6 +216,7 @@ window.QuickAddBot = (function () {
         var center = els.fab.getBoundingClientRect().left + drag.width / 2;
         var side   = center < window.innerWidth / 2 ? 'left' : 'right';
         els.fab.classList.remove('qab-dragging');
+        els.root.classList.remove('qab-dragging');
         els.fab.style.left  = '';
         els.fab.style.right = '';
         applySide(side);
@@ -378,16 +396,40 @@ window.QuickAddBot = (function () {
      The FAB starts hidden (built but not shown) so hosts can keep it
      off the login screen and only reveal it once a user is signed in. */
 
+  function applyVisibility() {
+    if (!els.root) return;
+    var on = visible && enabled && !dismissed;
+    if (!on) closePanel();
+    els.root.classList.toggle('qab-hidden', !on);
+  }
+
   function show() {
     visible = true;
-    if (els.root) els.root.classList.remove('qab-hidden');
+    applyVisibility();
   }
 
   function hide() {
-    visible = false;
-    if (!els.root) return;
-    closePanel();
-    els.root.classList.add('qab-hidden');
+    visible   = false;
+    dismissed = false; // sign-out — next user starts with FinBolt back
+    applyVisibility();
+  }
+
+  /* Per-user "Show FinBolt" preference — persisted by the host. */
+  function setEnabled(on) {
+    enabled = !!on;
+    applyVisibility();
+  }
+
+  /* ✕ on the FAB — hides FinBolt for the rest of this page load only. */
+  function dismiss() {
+    dismissed = true;
+    applyVisibility();
+  }
+
+  /* Undo a dismiss without a reload (e.g. user re-enables it in Preferences). */
+  function restore() {
+    dismissed = false;
+    applyVisibility();
   }
 
   /* ── public API ──────────────────────────────────────────────── */
@@ -395,8 +437,11 @@ window.QuickAddBot = (function () {
   function init(options) {
     opts = options || {};
     if (!els.root) build();
-    if (visible) show();
+    applyVisibility();
   }
 
-  return { init: init, show: show, hide: hide };
+  return {
+    init: init, show: show, hide: hide,
+    setEnabled: setEnabled, dismiss: dismiss, restore: restore,
+  };
 })();

@@ -58,17 +58,44 @@ function renderSummary() {
   keys.forEach((k, i) => document.getElementById(badges[i]).textContent = data[k].length);
 }
 
+// ── Date sort (shared by all four tracker tables) ────────────
+let trackerSortDir = (() => {
+  try { return localStorage.getItem('fr_tracker_sort') === 'desc' ? 'desc' : 'asc'; } catch (e) { return 'asc'; }
+})();
+
+function toggleTrackerSort() {
+  trackerSortDir = trackerSortDir === 'asc' ? 'desc' : 'asc';
+  try { localStorage.setItem('fr_tracker_sort', trackerSortDir); } catch (e) {}
+  render();
+}
+
+function updateTrackerSortButtons() {
+  const label = trackerSortDir === 'asc' ? 'Date ↑' : 'Date ↓';
+  const title = trackerSortDir === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first';
+  document.querySelectorAll('.th-sort-btn').forEach(b => { b.textContent = label; b.title = title; });
+}
+
 // ── Data tables ──────────────────────────────────────────────
 function renderTable(type, bodyId, amtClass) {
   const tbody = document.getElementById(bodyId);
   const rows  = data[type];
+  updateTrackerSortButtons();
 
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="4" class="empty">No entries yet</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = rows.map((r, i) => {
+  // Sort a view of the rows by date; keep original indices for edit/delete.
+  // Undated entries always go last, in the order they were added.
+  const dir    = trackerSortDir === 'asc' ? 1 : -1;
+  const sorted = rows.map((r, i) => ({ r, i })).sort((a, b) => {
+    const da = a.r.date || '', db = b.r.date || '';
+    if (!da || !db) return (!da) - (!db) || a.i - b.i;
+    return da < db ? -dir : da > db ? dir : a.i - b.i;
+  });
+
+  tbody.innerHTML = sorted.map(({ r, i }) => {
     const loanTag = (type === 'loan' && r.loanId && r.loanName)
       ? `<br><span class="loan-link-tag" onclick="navigateToLoan('${r.loanId}')" title="View in Loan Tracker">🏷 ${escHtml(r.loanName)}</span>`
       : '';
