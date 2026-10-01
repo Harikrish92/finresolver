@@ -427,7 +427,7 @@ function _invClearModalHtml() {
       </div>
       <div style="margin-top:14px;padding:12px 14px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);font-size:12.5px;line-height:1.7">
         ${targets.length
-          ? `⚠️ Permanently delete <strong style="color:var(--red)">${targets.length} holding${targets.length!==1?'s':''}</strong>${_invClearCat!=='ALL'?' in <strong>'+_invClearCat+'</strong>':' across all categories'}.<br>Total cost basis: <strong>₹${Math.round(cost).toLocaleString('en-IN')}</strong><br><span style="font-size:11px;color:var(--t3)">This cannot be undone.</span>`
+          ? `⚠️ Permanently delete <strong style="color:var(--red)">${targets.length} holding${targets.length!==1?'s':''}</strong>${_invClearCat!=='ALL'?' in <strong>'+_invClearCat+'</strong>':' across all categories'}.<br>Total cost basis: <strong>₹${cost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong><br><span style="font-size:11px;color:var(--t3)">This cannot be undone.</span>`
           : `<span style="color:var(--t3)">No holdings in this category.</span>`}
       </div>
     </div>
@@ -530,54 +530,74 @@ function sortInv(col) {
 }
 
 // ── LIVE PRICE FETCH ──────────────────────────────────────────────────────────
+// Fetches every holding's price without touching the UI or persisting —
+// shared by the Portfolio "Refresh" button and AI Advisor's silent warm-up.
+async function _fetchAllLivePrices() {
+  const goldInvs  = APP.investments.filter(i => _invCat(i) === 'Gold');
+  const otherInvs = APP.investments.filter(i => _invCat(i) !== 'Gold' && _invCat(i) !== 'EPF' && _normTicker(i.ticker));
+  let updated = 0, failed = 0;
+  const failedTickers = [];
+
+  // Gold: fetch once (CoinGecko → Yahoo GC=F fallback)
+  if (goldInvs.length) {
+    try {
+      const pricePerGram = _round2(await _fetchGoldINR());
+      goldInvs.forEach(i => { i.livePrice = pricePerGram; updated++; });
+    } catch(e) { failed += goldInvs.length; }
+  }
+
+  // Stocks / MF / FD / Bond / ESOP: Yahoo Finance, a few at a time so the
+  // proxy isn't hammered into 429s by large portfolios.
+  await _mapLimit(otherInvs, 4, async inv => {
+    const ticker = _normTicker(inv.ticker);
+    try {
+      const q  = await _fetchYahooQuote(ticker);
+      const fx = await _fxToINR(q.currency);
+      inv.livePrice = _round2(q.price * fx);
+      updated++;
+    } catch(e) {
+      console.warn('[V2 price]', ticker, e.message);
+      failed++; failedTickers.push(ticker);
+    }
+  });
+
+  return { updated, failed, failedTickers, total: goldInvs.length + otherInvs.length };
+}
+
 async function refreshLivePrices() {
   const btn = document.getElementById('refresh-prices-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
 
-  const goldInvs  = APP.investments.filter(i => _invCat(i) === 'Gold');
-  const otherInvs = APP.investments.filter(i => _invCat(i) !== 'Gold' && i.ticker && _invCat(i) !== 'EPF');
-
-  if (!goldInvs.length && !otherInvs.length) {
-    if (btn) { btn.disabled = false; btn.innerHTML = ic('refresh',12) + ' Refresh'; }
-    _showToast('No holdings have tickers. Add tickers via Edit to enable live prices.');
-    return;
+  try {
+    const { updated, failed, failedTickers, total } = await _fetchAllLivePrices();
+    if (!total) {
+      _showToast('No holdings have tickers. Add tickers via Edit to enable live prices.');
+      return;
+    }
+    if (updated && typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
+    const shown = failedTickers.slice(0, 4).join(', ') + (failedTickers.length > 4 ? '…' : '');
+    _showToast(`Updated ${updated} price${updated !== 1 ? 's' : ''}` +
+      (failed ? `. ${failed} failed${shown ? ' (' + shown + ')' : ''} — check ticker symbols (Yahoo Finance format, e.g. RELIANCE.NS) or try again shortly.` : '.'));
+    renderScreen(_screen, document.getElementById('screen-content'));
+  } catch(e) {
+    console.error('[V2 price] refresh failed', e);
+    _showToast('Could not fetch live prices right now. Please try again shortly.');
+  } finally {
+    const b = document.getElementById('refresh-prices-btn');
+    if (b) { b.disabled = false; b.innerHTML = ic('refresh',12) + ' Refresh'; }
   }
+}
 
-  let updated = 0, failed = 0;
+function _round2(n) { return Math.round(Number(n) * 100) / 100; }
+function _normTicker(t) { return String(t || '').trim().toUpperCase(); }
 
-  // Gold: fetch once via GC=F + USDINR=X
-  if (goldInvs.length) {
-    try {
-      const pricePerGram = await _fetchGoldINR();
-      goldInvs.forEach(i => { i.livePrice = Math.round(pricePerGram); updated++; });
-    } catch(e) { failed += goldInvs.length; }
-  }
-
-  // Pre-fetch USD/INR so USD-denominated tickers (e.g. US stocks) convert to INR
-  let usdInrRate = null;
-  if (otherInvs.length) {
-    try { usdInrRate = await _fetchUsdInr(); } catch(e) {}
-  }
-
-  // Stocks / MF / FD / Bond / ESOP: Yahoo Finance
-  await Promise.all(otherInvs.map(async inv => {
-    try {
-      const { price, currency } = await _fetchYahooPrice(inv.ticker);
-      if (price && isFinite(price)) {
-        inv.livePrice = (currency === 'USD' && usdInrRate) ? Math.round(price * usdInrRate) : price;
-        updated++;
-      } else failed++;
-    } catch(e) { failed++; }
-  }));
-
-  if (typeof saveInvestmentsConfig === 'function') saveInvestmentsConfig();
-
-  if (btn) { btn.disabled = false; btn.innerHTML = ic('refresh',12) + ' Refresh'; }
-  const msg = `Updated ${updated} price${updated !== 1 ? 's' : ''}` +
-    (failed ? `. ${failed} failed — check ticker symbols (use Yahoo Finance format, e.g. RELIANCE.NS).` : '.');
-  _showToast(msg);
-
-  renderScreen(_screen, document.getElementById('screen-content'));
+// Run `fn` over `items` with at most `limit` calls in flight at once.
+async function _mapLimit(items, limit, fn) {
+  let i = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) await fn(items[i++]);
+  });
+  await Promise.all(workers);
 }
 
 function _timedFetch(url, ms = 8000) {
@@ -586,47 +606,95 @@ function _timedFetch(url, ms = 8000) {
   return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
 }
 
+// Own Cloudflare Worker (same one classic uses — INV_CF_WORKER_URL in
+// js/investments.js). It's the only reliable path: corsproxy.io now requires
+// an API key (401), thingproxy is gone, and codetabs/allorigins mostly time
+// out (522) — those two are kept only as a last-ditch fallback.
+const _YF_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev';
 const _YAHOO_PROXIES = [
-  url => _timedFetch('https://corsproxy.io/?url='                         + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('corsproxy '  + r.status); return r.json(); }),
-  url => _timedFetch('https://api.codetabs.com/v1/proxy?quest='           + encodeURIComponent(url), 7000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
-  url => _timedFetch('https://thingproxy.freeboard.io/fetch/'             + url,                     8000).then(r => { if (!r.ok) throw new Error('thingproxy ' + r.status); return r.json(); }),
-  url => _timedFetch('https://api.allorigins.win/raw?url='                + encodeURIComponent(url), 8000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
+  // A 404 carrying Yahoo's chart.error ("symbol not found") is a definitive
+  // answer — return it so the caller reports a bad ticker instead of waiting
+  // on the slow fallbacks.
+  url => _timedFetch(_YF_WORKER_URL + '?url='                    + encodeURIComponent(url), 8000).then(async r => {
+    if (r.status === 404) { const j = await r.json().catch(() => null); if (j?.chart?.error) return j; }
+    if (!r.ok) throw new Error('cf-worker ' + r.status);
+    return r.json();
+  }),
+  url => _timedFetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
+  url => _timedFetch('https://api.allorigins.win/raw?url='      + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
 ];
 
 async function _proxyFetch(url) {
+  let lastErr;
   for (const proxy of _YAHOO_PROXIES) {
     try {
       const data = await proxy(url);
       if (!data || (typeof data === 'object' && data.error)) throw new Error('bad response');
       return data;
     } catch(e) {
+      lastErr = e;
       console.warn('[V2 proxy] failed, trying next:', e.message);
     }
   }
-  throw new Error('All proxies failed');
+  throw new Error('All proxies failed' + (lastErr ? ': ' + lastErr.message : ''));
 }
 
 function _yahooUrl(ticker) {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
 }
 
-async function _fetchYahooPrice(ticker) {
+// Yahoo v8/chart quote. (v7/quote now returns 401 Unauthorized without a
+// crumb, so everything goes through v8.) Cached for 5 min so Portfolio, the
+// Add-holding preview and AI Advisor don't re-hit the proxy for the same ticker.
+const _quoteCache = {};
+const _QUOTE_TTL  = 5 * 60 * 1000;
+async function _fetchYahooQuote(ticker) {
+  ticker = _normTicker(ticker);
+  if (!ticker) throw new Error('empty ticker');
+  const hit = _quoteCache[ticker];
+  if (hit && Date.now() - hit.ts < _QUOTE_TTL) return hit;
   const d = await _proxyFetch(_yahooUrl(ticker));
   const meta = d?.chart?.result?.[0]?.meta;
-  if (!meta?.regularMarketPrice) throw new Error('No price for ' + ticker);
-  return { price: meta.regularMarketPrice, currency: meta.currency ?? 'INR' };
+  if (!meta) throw new Error(d?.chart?.error?.description || 'No data for ' + ticker);
+  const price = Number(meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose);
+  if (!isFinite(price) || price <= 0) throw new Error('No price for ' + ticker);
+  const q = {
+    price,
+    prevClose: Number(meta.chartPreviousClose || meta.previousClose || price),
+    name:      meta.shortName || meta.longName || meta.symbol || ticker,
+    currency:  meta.currency || 'INR',
+    ts:        Date.now(),
+  };
+  _quoteCache[ticker] = q;
+  return q;
+}
+
+// Back-compat wrapper (fr-advisor.js and older callers)
+async function _fetchYahooPrice(ticker) {
+  const { price, currency } = await _fetchYahooQuote(ticker);
+  return { price, currency };
+}
+
+// Multiplier converting `currency` → INR. Handles the minor units Yahoo
+// reports for some exchanges (GBp = pence, ZAc = cents, ILA = agorot).
+async function _fxToINR(currency) {
+  let cur = String(currency || 'INR'), div = 1;
+  if (cur === 'GBp' || cur === 'GBX') { cur = 'GBP'; div = 100; }
+  else if (cur === 'ZAc')             { cur = 'ZAR'; div = 100; }
+  else if (cur === 'ILA')             { cur = 'ILS'; div = 100; }
+  cur = cur.toUpperCase();
+  if (cur === 'INR') return 1 / div;
+  const q = await _fetchYahooQuote(cur + 'INR=X');
+  return q.price / div;
 }
 
 async function _fetchUsdInr() {
-  const d = await _proxyFetch(_yahooUrl('USDINR=X'));
-  const rate = d?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  if (!rate) throw new Error('USDINR fetch failed');
-  return rate;
+  return _fxToINR('USD');
 }
 
 async function _fetchGoldINR() {
   // Primary: CoinGecko — PAX Gold is backed 1:1 by 1 troy oz, returns INR directly
-  // (no CORS proxy needed; avoids relying solely on the flaky public Yahoo proxies below)
+  // (no CORS proxy needed)
   try {
     const r = await _timedFetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=inr', 7000);
     if (!r.ok) throw new Error('CG HTTP ' + r.status);
@@ -636,14 +704,8 @@ async function _fetchGoldINR() {
     return oz / 31.1035; // INR/oz → INR/gram
   } catch(e) {
     // Fallback: Yahoo Finance GC=F (COMEX gold, USD/troy oz) + USDINR=X
-    const [gD, fxD] = await Promise.all([
-      _proxyFetch(_yahooUrl('GC=F')),
-      _proxyFetch(_yahooUrl('USDINR=X')),
-    ]);
-    const usd  = gD?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    const rate = fxD?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    if (!usd || !rate) throw new Error('Gold/FX fetch failed');
-    return (usd * rate) / 31.1035; // USD/oz → INR/gram
+    const [g, rate] = await Promise.all([_fetchYahooQuote('GC=F'), _fxToINR('USD')]);
+    return (g.price * rate) / 31.1035; // USD/oz → INR/gram
   }
 }
 

@@ -660,7 +660,8 @@ html::before {
   font-weight: 700;
   font-size: 20px;
   color: var(--t1);
-  line-height: 1.1
+  line-height: 1.1;
+  overflow-wrap: anywhere
 }
 
 .stat-val.pos {
@@ -1505,7 +1506,8 @@ html::before {
   font-family: var(--font-d);
   font-weight: 700;
   font-size: 19px;
-  color: var(--t1)
+  color: var(--t1);
+  overflow-wrap: anywhere
 }
 
 .dash-lbl {

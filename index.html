@@ -691,7 +691,7 @@
       </div>
       <div class="payment-log-list" id="paymentLogList"></div>
       <div class="add-payment-row">
-        <input type="number" id="paymentAmt"  placeholder="Amount (₹)" style="max-width:130px" />
+        <input type="number" id="paymentAmt"  step="any" inputmode="decimal" placeholder="Amount (₹)" style="max-width:130px" />
         <input type="date"   id="paymentDate" />
         <input type="text"   id="paymentNote" placeholder="Note (optional)" style="flex:1;min-width:100px" />
         <button class="btn" onclick="logPayment()">Log</button>
@@ -1937,7 +1937,7 @@
       <select id="yearSelect"></select>
     </div>
     <span class="init-label">BALANCE (₹)</span>
-    <input class="init-input" type="number" id="initialAmount" placeholder="0" />
+    <input class="init-input" type="number" id="initialAmount" placeholder="0" step="any" inputmode="decimal" />
     <button class="btn-import" onclick="openImport()" style="flex-shrink:0">⬆ Import</button>
     <button class="btn-clear-month" onclick="clearMonthData()" title="Clear all data for this month">🗑 Clear</button>
   </div>
@@ -2000,7 +2000,7 @@
       </table>
       <div class="add-row">
         <input type="text"   id="expDesc" placeholder="Description" />
-        <input type="number" id="expAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="number" id="expAmt"  step="any" inputmode="decimal" placeholder="Amount" style="max-width:105px" />
         <input type="date"   id="expDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('expense')">+ Add</button>
       </div>
@@ -2017,7 +2017,7 @@
       </table>
       <div class="add-row">
         <input type="text"   id="incDesc" placeholder="Description" />
-        <input type="number" id="incAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="number" id="incAmt"  step="any" inputmode="decimal" placeholder="Amount" style="max-width:105px" />
         <input type="date"   id="incDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('income')">+ Add</button>
       </div>
@@ -2046,7 +2046,7 @@
       </table>
       <div class="add-row">
         <input type="text"   id="invDesc" placeholder="Description" />
-        <input type="number" id="invAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="number" id="invAmt"  step="any" inputmode="decimal" placeholder="Amount" style="max-width:105px" />
         <input type="date"   id="invDate" title="Date (optional)" style="max-width:130px" />
         <button class="btn" onclick="addRow('investment')">+ Add</button>
       </div>
@@ -2063,7 +2063,7 @@
       </table>
       <div class="add-row">
         <input type="text"   id="loanDesc" placeholder="Description" />
-        <input type="number" id="loanAmt"  placeholder="Amount" style="max-width:105px" />
+        <input type="number" id="loanAmt"  step="any" inputmode="decimal" placeholder="Amount" style="max-width:105px" />
         <input type="date"   id="loanDate" title="Date (optional)" style="max-width:130px" />
         <select id="loanTagSelect" class="loan-tag-select" title="Link to a loan in Loan Tracker">
           <option value="">🏷 Link to loan…</option>

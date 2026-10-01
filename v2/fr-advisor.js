@@ -167,30 +167,9 @@ function _adv2LifestyleSummary() {
    renderScreen() re-render, since those are appropriate for an explicit user
    action but not for something that runs invisibly every time Advisor loads. */
 async function _adv2WarmLivePrices() {
-  const goldInvs  = APP.investments.filter(function(i) { return _invCat(i) === 'Gold'; });
-  const otherInvs = APP.investments.filter(function(i) { return _invCat(i) !== 'Gold' && i.ticker && _invCat(i) !== 'EPF'; });
-  if (!goldInvs.length && !otherInvs.length) return;
-
-  if (goldInvs.length) {
-    try {
-      const pricePerGram = await _fetchGoldINR();
-      goldInvs.forEach(function(i) { i.livePrice = Math.round(pricePerGram); });
-    } catch (e) {}
-  }
-
-  let usdInrRate = null;
-  if (otherInvs.length) {
-    try { usdInrRate = await _fetchUsdInr(); } catch (e) {}
-  }
-
-  await Promise.all(otherInvs.map(async function(inv) {
-    try {
-      const { price, currency } = await _fetchYahooPrice(inv.ticker);
-      if (price && isFinite(price)) {
-        inv.livePrice = (currency === 'USD' && usdInrRate) ? Math.round(price * usdInrRate) : price;
-      }
-    } catch (e) {}
-  }));
+  // Same fetch path as the Portfolio Refresh button (fr-app.js) — no toast,
+  // no persistence, no re-render.
+  if (typeof _fetchAllLivePrices === 'function') await _fetchAllLivePrices();
 }
 
 function _adv2BuildSnapshot() {
@@ -1089,8 +1068,8 @@ async function renderAdvisor(el) {
   // _adv2WarmLivePrices comment above), then (re)build the snapshot and kick
   // off insights — none of this blocks the render above.
   //
-  // _fetchYahooPrice() tries up to 4 CORS proxies per ticker sequentially
-  // (7-8s timeout each), so for a portfolio with many tickers a slow/rate-
+  // _fetchYahooQuote() falls back through up to 3 proxies per ticker
+  // (6-8s timeout each), so for a portfolio with many tickers a slow/rate-
   // limited proxy chain could otherwise hold up insights for a long time.
   // Cap the wait so insights always fire — invQuoteCache/inv.livePrice keep
   // populating in the background past the cap for later chat turns.

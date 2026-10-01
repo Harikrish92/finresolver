@@ -219,11 +219,11 @@ function renderMonthly(el) {
 
     <!-- Summary Strip -->
     <div class="strip">
-      ${statCard('Current Balance',  fmt(balance,true), balance>=0?'pos':'neg',  `Initial: ${fmt(APP.monthly.initialBalance,true)}`)}
-      ${statCard('Total Income',     fmt(income,true),  'pos',  APP.monthly.income.length+' sources')}
-      ${statCard('Total Expenses',   fmt(expenses,true),'neg',  APP.monthly.expenses.length+' items')}
-      ${statCard('Investments',      fmt(investments,true),'blu', APP.monthly.investments.length+' entries')}
-      ${statCard('Loan Payments',    fmt(loans,true),   'gld',  APP.monthly.loans.length+' EMIs')}
+      ${statCard('Current Balance',  fmt(balance), balance>=0?'pos':'neg',  `Initial: ${fmt(APP.monthly.initialBalance)}`)}
+      ${statCard('Total Income',     fmt(income),  'pos',  APP.monthly.income.length+' sources')}
+      ${statCard('Total Expenses',   fmt(expenses),'neg',  APP.monthly.expenses.length+' items')}
+      ${statCard('Investments',      fmt(investments),'blu', APP.monthly.investments.length+' entries')}
+      ${statCard('Loan Payments',    fmt(loans),   'gld',  APP.monthly.loans.length+' EMIs')}
       ${statCard('Checklist',        done+'/'+total,    done===total?'pos':'', `${total-done} pending`)}
     </div>
 
@@ -500,9 +500,9 @@ function renderInvestments(el) {
     </div>
 
     <div class="strip">
-      ${statCard('Total Invested',  fmt(totalInvested,true), '',    APP.investments.length+' holdings')}
-      ${statCard('Current Value',   fmt(totalValue,true),    'pos', '')}
-      ${statCard('Total P&L',       (totalPnl>=0?'+':'')+fmt(Math.abs(totalPnl),true), totalPnl>=0?'pos':'neg', fmtPct(totalPnlPct))}
+      ${statCard('Total Invested',  fmt(totalInvested), '',    APP.investments.length+' holdings')}
+      ${statCard('Current Value',   fmt(totalValue),    'pos', '')}
+      ${statCard('Total P&L',       (totalPnl>=0?'+':'')+fmt(Math.abs(totalPnl)), totalPnl>=0?'pos':'neg', fmtPct(totalPnlPct))}
       ${statCard('Holdings',        APP.investments.length+'', '', APP.activeInvFilter!=='ALL'?APP.activeInvFilter+' filter':'all categories')}
       ${statCard('Live Tracking',   inv.filter(i=>i.ticker).length+'', 'blu', 'tickers with live price')}
     </div>
@@ -547,7 +547,7 @@ function renderInvestments(el) {
                 <div class="alloc-dot" style="background:${CHART_COLORS[i%CHART_COLORS.length]}"></div>
                 <div class="alloc-lbl">${cat}</div>
                 <div class="alloc-pct">${(val/allocTotal*100).toFixed(1)}%</div>
-                <div class="alloc-val">${fmt(val,true)}</div>
+                <div class="alloc-val">${fmt(val)}</div>
               </div>`).join('')}
           </div>
         </div>
@@ -596,9 +596,9 @@ function renderInvCards(inv) {
           <span class="pill ${pillClass(cat)}" style="flex-shrink:0">${cat}</span>
         </div>
         <div class="inv-card-body">
-          <div class="inv-card-val">${fmt(val,true)}</div>
+          <div class="inv-card-val">${fmt(val)}</div>
           <div class="inv-card-pnl ${pnl>=0?'text-pos':'text-neg'}">
-            ${pnl>=0?'+':''}${fmt(Math.abs(pnl),true)} &nbsp;·&nbsp; ${fmtPct(pct)}
+            ${pnl>=0?'+':''}${fmt(Math.abs(pnl))} &nbsp;·&nbsp; ${fmtPct(pct)}
           </div>
           <div style="margin:10px 0 4px;display:flex;align-items:center;gap:8px">
             <div class="prog" style="flex:1">
@@ -609,7 +609,7 @@ function renderInvCards(inv) {
           <div class="inv-card-stats">
             <div>
               <div class="ics-label">Cost Basis</div>
-              <div class="ics-val">${fmt(cost,true)}</div>
+              <div class="ics-val">${fmt(cost)}</div>
             </div>
             <div>
               <div class="ics-label">${cat==='Gold'?'Weight':'Quantity'}</div>
@@ -674,9 +674,9 @@ function renderInvTable(inv) {
             <td class="mono">${liveP}</td>
             <td class="mono">${qty}</td>
             <td class="mono">${avg}</td>
-            <td class="mono">${fmt(cost,true)}</td>
-            <td class="mono" style="font-weight:600">${fmt(val,true)}</td>
-            <td class="mono ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${fmt(Math.abs(pnl),true)}</td>
+            <td class="mono">${fmt(cost)}</td>
+            <td class="mono" style="font-weight:600">${fmt(val)}</td>
+            <td class="mono ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${fmt(Math.abs(pnl))}</td>
             <td class="mono ${pct>=0?'pos':'neg'}">${fmtPct(pct)}</td>
             <td><div class="actions">
               <button class="btn-icon" onclick="openEditInv('${i.id}')">${ic('edit',12)}</button>

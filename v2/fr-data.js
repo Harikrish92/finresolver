@@ -29,6 +29,10 @@ const APP = {
 document.body.classList.toggle('light', APP.theme === 'light');
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
+// compact=true abbreviates to K/L/Cr (dashboard, loans, portfolio, etc.).
+// Non-compact shows the full amount (Indian grouping), rounded only at 2
+// decimals — used by Monthly & Investment Tracker so e.g. ₹18,95,084 isn't
+// shown as ₹19.0L.
 function fmt(n, compact = false) {
   if (n === undefined || n === null) return '—';
   const abs = Math.abs(n);
@@ -36,7 +40,7 @@ function fmt(n, compact = false) {
   if (compact && abs >= 10000000) return sign + '₹' + (abs / 10000000).toFixed(2) + 'Cr';
   if (compact && abs >= 100000)   return sign + '₹' + (abs / 100000).toFixed(1) + 'L';
   if (compact && abs >= 1000)     return sign + '₹' + (abs / 1000).toFixed(1) + 'K';
-  return sign + '₹' + abs.toLocaleString('en-IN');
+  return sign + '₹' + abs.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 function fmtPct(n) {

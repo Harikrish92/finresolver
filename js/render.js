@@ -36,7 +36,11 @@ function renderSummary() {
   const bal   = init + tInc - tExp - tInv - tLoan;
   const done  = data.checklist.filter(c => c.done).length;
 
-  document.getElementById('initialAmount').value = init || '';
+  // Don't overwrite the field while the user is typing in it — writing the
+  // parsed number back on every keystroke strips a trailing "." and makes
+  // decimal balances (e.g. 1500.75) impossible to enter.
+  const initEl = document.getElementById('initialAmount');
+  if (document.activeElement !== initEl) initEl.value = init || '';
 
   const balEl = document.getElementById('sumBalance');
   balEl.textContent   = fmt(bal);

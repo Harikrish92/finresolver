@@ -523,7 +523,7 @@ function _aiUpdateSummary() {
   const tEl = document.getElementById('ai-sum-total');
   if (qEl) qEl.textContent = totalQty  ? totalQty.toLocaleString('en-IN', {maximumFractionDigits:4}) : '—';
   if (aEl) aEl.textContent = totalQty  ? '₹' + avgPrice.toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-  if (tEl) tEl.textContent = totalCost > 0 ? '₹' + Math.round(totalCost).toLocaleString('en-IN') : '—';
+  if (tEl) tEl.textContent = totalCost > 0 ? '₹' + totalCost.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
 }
 
 function _aiTickerInput() {
@@ -540,20 +540,23 @@ async function _aiFetchModalQuote(ticker) {
   preview.style.display = '';
   preview.innerHTML = `<div class="row" style="gap:8px;align-items:center">${ic('refresh',12)} <span style="color:var(--t3);font-size:12px">Fetching ${_lsEsc(ticker)}…</span></div>`;
   try {
-    const data  = await _proxyFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&fields=regularMarketPrice,regularMarketPreviousClose,shortName,currency`);
-    const r     = data?.quoteResponse?.result?.[0];
-    if (!r || !isFinite(r.regularMarketPrice)) throw new Error('no result');
-    const price  = r.regularMarketPrice;
-    const chgPct = r.regularMarketPreviousClose
-      ? (price - r.regularMarketPreviousClose) / r.regularMarketPreviousClose * 100 : 0;
+    // v8/chart via the shared fetcher (Yahoo's v7/quote now 401s)
+    const q      = await _fetchYahooQuote(ticker);
+    // User typed something else while we were fetching — drop stale result
+    if (_normTicker(document.getElementById('ai-ticker')?.value) !== ticker) return;
+    const fx     = await _fxToINR(q.currency);
+    const price  = _round2(q.price * fx); // lots are in INR
+    const chgPct = q.prevClose ? (q.price - q.prevClose) / q.prevClose * 100 : 0;
     const pos = chgPct >= 0;
+    const native = q.currency && q.currency !== 'INR'
+      ? `<div style="font-size:11px;color:var(--t3)">${_lsEsc(q.currency)} ${q.price.toFixed(2)}</div>` : '';
     preview.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
       <div>
-        <div style="font-weight:600;font-size:13px">${_lsEsc(r.shortName||ticker)}</div>
+        <div style="font-weight:600;font-size:13px">${_lsEsc(q.name||ticker)}</div>
         <div style="font-size:11px;color:var(--t3)">${_lsEsc(ticker)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-weight:700;font-size:14px">₹${price.toFixed(2)}</div>
+        <div style="font-weight:700;font-size:14px">₹${price.toFixed(2)}</div>${native}
         <div style="font-size:11px;color:${pos?'var(--accent)':'var(--red)'}">${pos?'+':''}${chgPct.toFixed(2)}% today</div>
       </div>
     </div>`;

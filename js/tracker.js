@@ -215,14 +215,17 @@ function addCheckItem() {
 
 /* ── Initial balance ──────────────────────────────────────── */
 function onInitialAmountChange(e) {
-  data.initialAmount = Number(e.target.value) || 0;
+  const v = parseFloat(e.target.value);
+  data.initialAmount = isFinite(v) ? Math.round(v * 100) / 100 : 0;
   saveData(); renderSummary(); renderCharts();
 }
 
 /* ── Event wiring ─────────────────────────────────────────── */
 function initTrackerEvents() {
-  document.getElementById('initialAmount')
-    .addEventListener('input', onInitialAmountChange);
+  const initEl = document.getElementById('initialAmount');
+  initEl.addEventListener('input', onInitialAmountChange);
+  // renderSummary skips the field while focused; normalise it once the user leaves
+  initEl.addEventListener('blur', () => { initEl.value = data.initialAmount || ''; });
 
   const enterMap = {
     expDesc: 'expense',  expAmt: 'expense',  expDate: 'expense',
