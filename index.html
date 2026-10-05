@@ -1521,6 +1521,21 @@
     </div>
   </div>
 
+  <!-- ── Portfolio Buckets ───────────────────────────────── -->
+  <div class="inv-journey-section" id="invBucketsSection">
+
+    <div class="inv-journey-header">
+      <div class="inv-page-title" style="font-size:1.1rem">🪣 Portfolio <span>Buckets</span></div>
+      <div class="inv-header-actions">
+        <button class="btn" onclick="openBucketModal(null)">+ New Bucket</button>
+      </div>
+    </div>
+
+    <div class="inv-summary-strip inv-journey-xirr-strip" id="invBucketsSummaryStrip" style="display:none"></div>
+    <div id="invBucketsList"></div>
+
+  </div>
+
   <!-- ── Investment Journey & XIRR ───────────────────────── -->
   <div class="inv-journey-section" id="invJourneySection">
 
@@ -1550,6 +1565,100 @@
       <div id="invJourneyTableWrap"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PORTFOLIO BUCKET MODALS
+════════════════════════════════════════════════════════════ -->
+<div class="inv-modal-overlay hidden" id="invBucketModal">
+  <div class="inv-modal" style="max-width:420px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title" id="invBucketModalTitle">🪣 New Bucket</span>
+      <button class="modal-close" onclick="closeBucketModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+      <div class="inv-form-grid">
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Bucket Name *</label>
+          <input type="text" class="inv-form-input" id="invBucketName" placeholder="e.g. Swing Trades, Long-term, IPO" />
+        </div>
+        <div class="inv-form-field">
+          <label class="inv-form-label">Invested (₹)</label>
+          <input type="number" class="inv-form-input" id="invBucketInvested" min="0" step="any" placeholder="Amount deployed now" />
+          <div class="inv-bucket-entry-note" style="margin-top:.25rem">Ignored once holdings are mapped — Invested then comes from their cost.</div>
+        </div>
+        <div class="inv-form-field">
+          <label class="inv-form-label">Charges (₹)</label>
+          <input type="number" class="inv-form-input" id="invBucketCharges" min="0" step="any" placeholder="Brokerage, STT, DP…" />
+        </div>
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Notes</label>
+          <input type="text" class="inv-form-input" id="invBucketNotes" placeholder="Optional (e.g. Groww — F&amp;O)" />
+        </div>
+      </div>
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-import" onclick="closeBucketModal()">Cancel</button>
+      <button class="btn" onclick="saveBucket()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="inv-modal-overlay hidden" id="invBucketMapModal">
+  <div class="inv-modal" style="max-width:820px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title" id="invBucketMapTitle">📦 Map Holdings</span>
+      <button class="modal-close" onclick="closeBucketMapModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+      <div class="inv-bucket-map-help">
+        Enter how much of each holding belongs to this bucket. Units already placed in other buckets are not available here.
+        Holdings without a quantity (EPF, Real Estate) are split by %.
+      </div>
+      <input type="text" class="inv-form-input" id="invBucketMapSearch" placeholder="🔍 Search holdings…" oninput="bucketMapFilter()" style="margin-bottom:.75rem" />
+      <div id="invBucketMapBody"></div>
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-import" onclick="closeBucketMapModal()">Cancel</button>
+      <button class="btn" onclick="saveBucketMap()">Save Mapping</button>
+    </div>
+  </div>
+</div>
+
+<div class="inv-modal-overlay hidden" id="invBucketEntryModal">
+  <div class="inv-modal" style="max-width:420px">
+    <div class="inv-modal-header">
+      <span class="inv-modal-title" id="invBucketEntryModalTitle">➕ Add entry</span>
+      <button class="modal-close" onclick="closeBucketEntryModal()">✕</button>
+    </div>
+    <div class="inv-modal-body">
+      <div class="inv-form-grid">
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Type *</label>
+          <div style="display:flex;gap:.5rem">
+            <button id="invBucketEntryTypeIn"     class="inv-cat-pill active-stock active" onclick="bucketEntrySetType('in')"     style="flex:1;text-align:center">💰 Received</button>
+            <button id="invBucketEntryTypeProfit" class="inv-cat-pill"                    onclick="bucketEntrySetType('profit')" style="flex:1;text-align:center">📈 Profit</button>
+          </div>
+        </div>
+        <div class="inv-form-field">
+          <label class="inv-form-label">Date *</label>
+          <input type="date" class="inv-form-input" id="invBucketEntryDate" />
+        </div>
+        <div class="inv-form-field">
+          <label class="inv-form-label" id="invBucketEntryAmountLabel">Received Amount (₹) *</label>
+          <input type="number" class="inv-form-input" id="invBucketEntryAmount" step="any" placeholder="e.g. 10000" />
+        </div>
+        <div class="inv-form-field full">
+          <label class="inv-form-label">Notes</label>
+          <input type="text" class="inv-form-input" id="invBucketEntryNotes" placeholder="Optional" />
+        </div>
+      </div>
+    </div>
+    <div class="inv-modal-footer">
+      <button class="btn-import" onclick="closeBucketEntryModal()">Cancel</button>
+      <button class="btn" onclick="saveBucketEntry()">Save</button>
+    </div>
   </div>
 </div>
 
@@ -2164,7 +2273,7 @@
 <script src="js/auth.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/loans.js"></script>
-<script src="js/investments.js?v=3"></script>
+<script src="js/investments.js?v=6"></script>
 <script src="js/lifestyle.js"></script>
 <script src="js/advisor.js"></script>
 <script src="js/dayplanner.js"></script>

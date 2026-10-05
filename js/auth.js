@@ -266,6 +266,7 @@ function logOut() {
     localStorage.removeItem(`fr_loans_${uid}`);
     localStorage.removeItem(`fr_investments_${uid}`);
     localStorage.removeItem(`fr_invjourney_${uid}`);
+    localStorage.removeItem(`fr_invbuckets_${uid}`);
     localStorage.removeItem(`fr_lifestyle_${uid}`);
     localStorage.removeItem(`fr_dayplanner_cfg_${uid}`);
     const dpPrefix = `finresolver_dayplanner_${uid}_`;

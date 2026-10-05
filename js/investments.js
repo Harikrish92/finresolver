@@ -24,6 +24,8 @@ function resetInvestmentsState() {
   investmentsData  = [];
   invJourneyData   = [];
   invJourneyEditId = null;
+  invBucketsData      = [];
+  invBucketLedgerOpen = {};
   invQuoteCache    = {};
   goldPriceCache   = null;
   usdInrRate       = null;
@@ -250,6 +252,7 @@ function goToInvestments() {
 
   loadInvestments();
   loadJourney().then(renderInvJourney);
+  loadBuckets().then(renderInvBuckets);
   invLoadLivePref();
   _updateLiveToggleUI();
   renderInvSummary();
@@ -643,6 +646,9 @@ function renderInvSummary() {
   setEl('invSumPnL',         (pos?'<span class="inv-change-pos">':' <span class="inv-change-neg">') + fmtI(Math.abs(t.pnl)) + '</span>');
   setEl('invSumPnLPct',      (pos?'<span class="inv-change-pos">':'<span class="inv-change-neg">') + fmtIPct(t.pnlPct) + '</span>');
   setEl('invSumHoldings',    holdings + ' holding' + (holdings !== 1 ? 's' : '') + (liveCount ? ' · <span style="color:var(--accent)">' + liveCount + ' live</span>' : ''));
+
+  /* Mapped holdings in buckets are valued from the same data */
+  if (invBucketsData.length) renderInvBuckets();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -3714,6 +3720,606 @@ function confirmInvClear() {
   invHideDetail();
 
   showInvToast('Deleted ' + deleted + ' holding' + (deleted !== 1 ? 's' : ''), 'success');
+}
+
+/* ══════════════════════════════════════════════════════════
+   PORTFOLIO BUCKETS
+   Separate pots of money tracked inside one broker account
+   (e.g. "Swing trades", "Long-term", "IPO") — each with its
+   own ledger of money received and profits booked.
+
+   Bucket shape:
+     { id, name, notes, invested, charges,
+       entries:  [{ id, type:'in'|'profit', date, amount, notes }],
+       holdings: [{ holdingId, qty }] }
+
+   Invested is the cost basis of mapped holdings when any are
+   mapped, otherwise the manually entered figure.
+
+   Derived metrics (see calcBucketMetrics):
+     Total Amount    = Σ received
+     Alpha Generated = Σ profits (negative = loss)
+     Remaining       = Total + Alpha − Invested − Charges   (idle cash)
+     Actual Amount   = Total + Alpha − Charges              (bucket worth)
+     Actual Returns  = Actual Amount − Total                (net of charges)
+══════════════════════════════════════════════════════════ */
+var invBucketsData      = [];
+var invBucketEditId     = null;   // bucket being edited in bucket modal
+var invBucketEntryCtx   = null;   // { bucketId, entryId|null } for entry modal
+var invBucketLedgerOpen = {};     // bucketId -> true when ledger expanded
+var invBucketHoldOpen   = {};     // bucketId -> true when mapped-holdings list expanded
+var invBucketMapId      = null;   // bucket open in the "Map Holdings" modal
+var invBucketCollapsed  = (function() {   // bucketId -> true when card collapsed (per-device)
+  try { return JSON.parse(localStorage.getItem('fr_bucket_collapsed') || '{}') || {}; } catch (e) { return {}; }
+})();
+
+/* ── Storage ─────────────────────────────────────────────── */
+function getBucketsKey() {
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid)
+    ? fbAuth.currentUser.uid
+    : (typeof currentUser !== 'undefined' && currentUser && currentUser.uid ? currentUser.uid : 'guest');
+  return 'fr_invbuckets_' + uid;
+}
+
+async function loadBuckets() {
+  var raw   = localStorage.getItem(getBucketsKey());
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  var dec   = raw ? (await decryptFromStorage(raw, email)) : null;
+  invBucketsData = Array.isArray(dec) ? dec : [];
+}
+
+async function saveBuckets() {
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  localStorage.setItem(getBucketsKey(), await encryptForStorage(invBucketsData, email));
+  bucketsSyncSave();
+}
+
+function bucketsSyncSave() {
+  if (typeof syncReady === 'undefined' || !syncReady || typeof db === 'undefined' || !db) return;
+  var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+    ? fbAuth.currentUser.uid : null;
+  if (!uid) return;
+  var email = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
+  encryptForStorage({ buckets: invBucketsData }, email).then(function(encStr) {
+    db.collection('users').doc(uid).collection('config').doc('invBuckets')
+      .set({ _enc: encStr })
+      .catch(function(e){ console.warn('[Buckets] Firestore save failed:', e.message); });
+  });
+}
+
+function _findBucket(id) {
+  return invBucketsData.find(function(b){ return b.id === id; }) || null;
+}
+
+/* ── Holding allocation ──────────────────────────────────────
+   Each bucket keeps holdings: [{ holdingId, qty }]. "qty" is in the
+   holding's own unit: units for lot-based holdings, grams for Gold,
+   and % for holdings without a quantity (EPF, Real Estate, or any
+   holding entered by amount only). A holding's units are shared
+   across buckets — one bucket can only take what the others left. */
+var BUCKET_EPS = 1e-6;
+
+function bucketHoldingUnits(h) {
+  if (h.category === 'Gold') {
+    var g = Number(h.grams || h.qty) || 0;
+    if (g > 0) return { total: g, unit: 'g' };
+  } else if (h.category !== 'EPF' && h.category !== 'RealEstate') {
+    var q = getTotalQtyFromLots(getHoldingLots(h)) || Number(h.qty) || 0;
+    if (q > 0) return { total: q, unit: 'qty' };
+  }
+  return { total: 100, unit: '%' };
+}
+
+function _fmtUnits(n, unit) {
+  var s = Number(n).toLocaleString('en-IN', { maximumFractionDigits: 4 });
+  return unit === '%' ? s + '%' : (unit === 'g' ? s + ' g' : s);
+}
+
+function _findHolding(id) {
+  return investmentsData.find(function(h){ return h.id === id; }) || null;
+}
+
+/* Units of a holding already placed in buckets other than excludeBucketId. */
+function bucketAllocatedElsewhere(holdingId, excludeBucketId) {
+  var sum = 0;
+  invBucketsData.forEach(function(b) {
+    if (b.id === excludeBucketId) return;
+    (b.holdings || []).forEach(function(a) { if (a.holdingId === holdingId) sum += Number(a.qty) || 0; });
+  });
+  return sum;
+}
+
+/* Mapped holdings of a bucket, resolved against current holdings.
+   Allocations to holdings that were deleted are skipped. */
+function bucketMappedRows(b) {
+  var rows = [];
+  (b.holdings || []).forEach(function(a) {
+    var h = _findHolding(a.holdingId);
+    var qty = Number(a.qty) || 0;
+    if (!h || qty <= 0) return;
+    var u     = bucketHoldingUnits(h);
+    var frac  = Math.min(qty / u.total, 1);
+    var over  = bucketAllocatedElsewhere(h.id, null) > u.total + BUCKET_EPS;
+    rows.push({ h: h, qty: qty, unit: u.unit, total: u.total,
+                cost: getCostBasis(h) * frac, value: getLiveValue(h) * frac, over: over });
+  });
+  return rows;
+}
+
+/* ── Metrics ─────────────────────────────────────────────── */
+function calcBucketMetrics(b) {
+  var total = 0, alpha = 0;
+  (b.entries || []).forEach(function(e) {
+    var amt = Number(e.amount) || 0;
+    if (e.type === 'profit') alpha += amt;
+    else                     total += amt;
+  });
+  var rows = bucketMappedRows(b);
+  var holdCost = 0, holdValue = 0;
+  rows.forEach(function(r) { holdCost += r.cost; holdValue += r.value; });
+
+  /* With holdings mapped, Invested = their cost basis; otherwise the manual figure. */
+  var invested = rows.length ? holdCost : (Number(b.invested) || 0);
+  var charges  = Number(b.charges)  || 0;
+  var actual   = total + alpha - charges;
+  return {
+    total:     total,
+    invested:  invested,
+    charges:   charges,
+    remaining: total + alpha - invested - charges,
+    actual:    actual,
+    alpha:     alpha,
+    returns:   actual - total,
+    returnPct: total > 0 ? (actual - total) / total * 100 : null,
+    rows:      rows,
+    holdValue: holdValue,
+    holdPnl:   holdValue - holdCost,
+    overAlloc: rows.some(function(r){ return r.over; })
+  };
+}
+
+function _signedFmt(n) { return (n < 0 ? '−' : '') + fmtI(Math.abs(n)); }
+function _pnlColor(n)  { return n > 0 ? 'var(--accent)' : (n < 0 ? 'var(--accent2)' : 'var(--text)'); }
+
+/* ── Render: section entry point ────────────────────────── */
+function renderInvBuckets() {
+  renderBucketsSummary();
+  renderBucketsList();
+}
+
+function renderBucketsSummary() {
+  var strip = document.getElementById('invBucketsSummaryStrip');
+  if (!strip) return;
+  if (!invBucketsData.length) { strip.style.display = 'none'; strip.innerHTML = ''; return; }
+
+  var t = { total: 0, invested: 0, alpha: 0, returns: 0 };
+  invBucketsData.forEach(function(b) {
+    var m = calcBucketMetrics(b);
+    t.total += m.total; t.invested += m.invested; t.alpha += m.alpha; t.returns += m.returns;
+  });
+  var pct = t.total > 0 ? fmtIPct(t.returns / t.total * 100) + ' on total' : 'Across all buckets';
+
+  strip.style.display = '';
+  strip.innerHTML =
+    _jCard('Total Amount',    fmtI(t.total),         invBucketsData.length + ' bucket' + (invBucketsData.length === 1 ? '' : 's'), 'var(--accent4)', 'var(--accent4)') +
+    _jCard('Invested',        fmtI(t.invested),      'Currently deployed',  'var(--accent3)', '') +
+    _jCard('Alpha Generated', _signedFmt(t.alpha),   'Profits booked',      _pnlColor(t.alpha),   _pnlColor(t.alpha)) +
+    _jCard('Actual Returns',  _signedFmt(t.returns), pct,                   _pnlColor(t.returns), _pnlColor(t.returns));
+}
+
+function renderBucketsList() {
+  var wrap = document.getElementById('invBucketsList');
+  if (!wrap) return;
+
+  if (!invBucketsData.length) {
+    wrap.innerHTML = '<div class="inv-journey-table-card"><div class="inv-empty-state">'
+      + '<div class="inv-empty-icon">🪣</div>'
+      + '<div class="inv-empty-title">No buckets yet</div>'
+      + '<div class="inv-empty-sub">Split your broker account into buckets (e.g. Swing, Long-term, IPO) and track the money received and profit booked in each one separately.</div>'
+      + '</div></div>';
+    return;
+  }
+
+  wrap.innerHTML = invBucketsData.map(_bucketCardHtml).join('');
+}
+
+function _bucketStat(label, value, sub, color) {
+  return '<div class="inv-bucket-stat">'
+    + '<div class="inv-bucket-stat-label">' + label + '</div>'
+    + '<div class="inv-bucket-stat-value"' + (color ? ' style="color:' + color + '"' : '') + '>' + value + '</div>'
+    + '<div class="inv-bucket-stat-sub">' + sub + '</div>'
+    + '</div>';
+}
+
+function _bucketCardHtml(b) {
+  var m         = calcBucketMetrics(b);
+  var id        = b.id;
+  var collapsed = !!invBucketCollapsed[id];
+  var open      = !!invBucketLedgerOpen[id];
+  var holdOpen  = !!invBucketHoldOpen[id];
+  var nIn       = (b.entries || []).filter(function(e){ return e.type !== 'profit'; }).length;
+  var nPr       = (b.entries || []).length - nIn;
+  var retSub    = m.returnPct === null ? 'Alpha − Charges' : fmtIPct(m.returnPct) + ' on total';
+  var nHold     = m.rows.length;
+  var stop      = 'event.stopPropagation();';
+
+  var html = '<div class="inv-bucket-card' + (collapsed ? ' collapsed' : '') + '">'
+    + '<div class="inv-bucket-head" onclick="toggleBucketCollapse(\'' + id + '\')" title="' + (collapsed ? 'Expand' : 'Collapse') + '">'
+      + '<div class="inv-bucket-title">'
+        + '<span class="inv-bucket-chevron">' + (collapsed ? '▸' : '▾') + '</span>'
+        + '<span class="inv-bucket-name">' + invEsc(b.name) + '</span>'
+        + (b.notes ? '<span class="inv-bucket-notes">' + invEsc(b.notes) + '</span>' : '')
+        + (m.overAlloc ? '<span class="inv-bucket-warn" title="A mapped holding now has fewer units than are allocated across buckets — re-map it">⚠ Over-allocated</span>' : '')
+        + (collapsed
+            ? '<span class="inv-bucket-mini">' + fmtI(m.total)
+              + ' · <span style="color:' + _pnlColor(m.returns) + '">' + _signedFmt(m.returns) + '</span>'
+              + (nHold ? ' · ' + nHold + ' holding' + (nHold === 1 ? '' : 's') : '') + '</span>'
+            : '')
+      + '</div>'
+      + '<div class="inv-bucket-actions" onclick="event.stopPropagation()">'
+        + '<button class="btn-import" onclick="' + stop + 'openBucketEntryModal(\'' + id + '\',null,\'in\')">+ Received</button>'
+        + '<button class="btn-import" onclick="' + stop + 'openBucketEntryModal(\'' + id + '\',null,\'profit\')">+ Profit</button>'
+        + '<button class="btn-import" onclick="' + stop + 'openBucketMapModal(\'' + id + '\')">📦 Map Holdings</button>'
+        + '<button class="inv-journey-edit-btn" title="Edit bucket" onclick="' + stop + 'openBucketModal(\'' + id + '\')">✏</button>'
+        + '<button class="inv-lot-del-btn" title="Delete bucket" onclick="' + stop + 'deleteBucket(\'' + id + '\')">✕</button>'
+      + '</div>'
+    + '</div>';
+
+  if (collapsed) return html + '</div>';
+
+  html += '<div class="inv-bucket-stats">'
+      + _bucketStat('Total Amount',    fmtI(m.total),         'Σ received',                    'var(--accent4)')
+      + _bucketStat('Invested',        fmtI(m.invested),      nHold ? 'Cost of mapped holdings' : 'Currently deployed', '')
+      + _bucketStat('Charges',         fmtI(m.charges),       'Brokerage, taxes, fees',        m.charges ? 'var(--accent2)' : '')
+      + _bucketStat('Remaining',       _signedFmt(m.remaining), 'Total + Alpha − Invested − Charges', m.remaining < 0 ? 'var(--accent2)' : '')
+      + _bucketStat('Actual Amount',   _signedFmt(m.actual),  'Total + Alpha − Charges',       '')
+      + _bucketStat('Alpha Generated', _signedFmt(m.alpha),   'Σ profit booked',               _pnlColor(m.alpha))
+      + _bucketStat('Actual Returns',  _signedFmt(m.returns), retSub,                          _pnlColor(m.returns))
+      + (nHold
+          ? _bucketStat('Holdings Value', fmtI(m.holdValue), 'Live value of mapped holdings', '')
+          + _bucketStat('Unrealised P&amp;L', _signedFmt(m.holdPnl),
+              m.invested > 0 ? fmtIPct(m.holdPnl / m.invested * 100) + ' on invested' : 'Value − Invested', _pnlColor(m.holdPnl))
+          : '')
+    + '</div>'
+    + '<div class="inv-bucket-toggles">'
+      + '<button type="button" class="inv-bucket-ledger-toggle" onclick="toggleBucketHoldings(\'' + id + '\')">'
+        + (holdOpen ? '▾' : '▸') + ' Mapped holdings · ' + nHold
+      + '</button>'
+      + '<button type="button" class="inv-bucket-ledger-toggle" onclick="toggleBucketLedger(\'' + id + '\')">'
+        + (open ? '▾' : '▸') + ' Investments / Profits ledger · ' + nIn + ' received · ' + nPr + ' profit'
+      + '</button>'
+    + '</div>'
+    + (holdOpen ? _bucketHoldingsHtml(b, m.rows) : '')
+    + (open ? _bucketLedgerHtml(b) : '');
+
+  return html + '</div>';
+}
+
+function _bucketHoldingsHtml(b, rows) {
+  if (!rows.length) {
+    return '<div class="inv-bucket-hold-empty">No holdings mapped yet — use '
+      + '<a href="javascript:void(0)" onclick="openBucketMapModal(\'' + b.id + '\')">📦 Map Holdings</a> to assign units from your portfolio.</div>';
+  }
+  var html = '<div class="inv-bucket-ledger-col inv-bucket-hold-wrap">';
+  rows.forEach(function(r) {
+    var meta = CAT_META[r.h.category] || CAT_META.Others;
+    var pnl  = r.value - r.cost;
+    html += '<div class="inv-bucket-hold-row">'
+      + '<div class="inv-bucket-map-info">'
+        + '<div class="inv-bucket-map-name"><span title="' + meta.label + '">' + meta.icon + '</span> ' + invEsc(r.h.name)
+          + (r.over ? ' <span class="inv-bucket-warn" title="Allocated across buckets exceeds what you hold">⚠</span>' : '') + '</div>'
+        + '<div class="inv-bucket-map-meta">'
+          + '<span>' + _fmtUnits(r.qty, r.unit) + ' of ' + _fmtUnits(r.total, r.unit) + '</span>'
+          + '<span>Invested ' + fmtI(r.cost) + '</span>'
+          + '<span>Value ' + fmtI(r.value) + '</span>'
+        + '</div>'
+      + '</div>'
+      + '<div class="inv-bucket-hold-pnl" style="color:' + _pnlColor(pnl) + '">' + _signedFmt(pnl)
+        + (r.cost > 0 ? '<div class="inv-bucket-entry-note">' + fmtIPct(pnl / r.cost * 100) + '</div>' : '') + '</div>'
+      + '<button class="inv-lot-del-btn" title="Remove from bucket" onclick="unmapBucketHolding(\'' + b.id + '\',\'' + r.h.id + '\')">✕</button>'
+      + '</div>';
+  });
+  return html + '</div>';
+}
+
+function toggleBucketCollapse(id) {
+  invBucketCollapsed[id] = !invBucketCollapsed[id];
+  if (!invBucketCollapsed[id]) delete invBucketCollapsed[id];
+  try { localStorage.setItem('fr_bucket_collapsed', JSON.stringify(invBucketCollapsed)); } catch (e) {}
+  renderBucketsList();
+}
+
+function toggleBucketHoldings(id) {
+  invBucketHoldOpen[id] = !invBucketHoldOpen[id];
+  renderBucketsList();
+}
+
+async function unmapBucketHolding(bucketId, holdingId) {
+  var b = _findBucket(bucketId);
+  if (!b) return;
+  b.holdings = (b.holdings || []).filter(function(a){ return a.holdingId !== holdingId; });
+  await saveBuckets();
+  renderInvBuckets();
+  showInvToast('Holding removed from bucket.', 'success');
+}
+
+/* ── Map Holdings modal ──────────────────────────────────── */
+function openBucketMapModal(bucketId) {
+  var b = _findBucket(bucketId);
+  if (!b) return;
+  invBucketMapId = bucketId;
+  document.getElementById('invBucketMapTitle').textContent = '📦 Map Holdings · ' + b.name;
+  document.getElementById('invBucketMapSearch').value = '';
+
+  var body = document.getElementById('invBucketMapBody');
+  if (!investmentsData.length) {
+    body.innerHTML = '<div class="inv-empty-state"><div class="inv-empty-icon">📭</div>'
+      + '<div class="inv-empty-title">No holdings yet</div>'
+      + '<div class="inv-empty-sub">Add holdings to your portfolio first, then map them into buckets.</div></div>';
+  } else {
+    var mine = {};
+    (b.holdings || []).forEach(function(a){ mine[a.holdingId] = Number(a.qty) || 0; });
+    var list = investmentsData.slice().sort(function(x, y) {
+      var c = (x.category || '').localeCompare(y.category || '');
+      return c || (x.name || '').localeCompare(y.name || '');
+    });
+    /* Stacked rows (not a table) so the list fits the popup at any width */
+    body.innerHTML = '<div class="inv-bucket-map-list">'
+      + list.map(function(h) {
+          var meta  = CAT_META[h.category] || CAT_META.Others;
+          var u     = bucketHoldingUnits(h);
+          var other = bucketAllocatedElsewhere(h.id, bucketId);
+          var avail = Math.max(0, u.total - other);
+          var cur   = mine[h.id] || 0;
+          var full  = avail <= BUCKET_EPS && !cur;
+          return '<div class="inv-bucket-map-row' + (full ? ' is-full' : '') + '"'
+            + ' data-search="' + invEsc(((h.name || '') + ' ' + (h.ticker || '') + ' ' + meta.label).toLowerCase()).replace(/"/g, '&quot;') + '">'
+            + '<div class="inv-bucket-map-info">'
+              + '<div class="inv-bucket-map-name"><span title="' + meta.label + '">' + meta.icon + '</span> ' + invEsc(h.name) + '</div>'
+              + '<div class="inv-bucket-map-meta">'
+                + '<span>' + meta.label + (u.unit === '%' ? ' · by %' : '') + '</span>'
+                + '<span>Total ' + _fmtUnits(u.total, u.unit) + '</span>'
+                + (other > 0 ? '<span>Other buckets ' + _fmtUnits(other, u.unit) + '</span>' : '')
+                + '<span class="inv-bucket-map-avail">Available ' + _fmtUnits(avail, u.unit) + '</span>'
+              + '</div>'
+            + '</div>'
+            + '<div class="inv-bucket-map-input">'
+              + '<input type="number" inputmode="decimal" class="inv-form-input" min="0" step="any" max="' + avail + '"'
+                + ' data-hid="' + h.id + '" data-max="' + avail + '" data-unit="' + u.unit + '"'
+                + ' value="' + (cur ? +cur.toFixed(6) : '') + '" placeholder="0' + (u.unit === '%' ? ' %' : (u.unit === 'g' ? ' g' : '')) + '"'
+                + (full ? ' disabled' : '') + ' oninput="bucketMapValidate(this)" aria-label="Amount of ' + invEsc(h.name).replace(/"/g, '&quot;') + ' in this bucket" />'
+              + '<button type="button" class="btn-import" onclick="bucketMapFill(\'' + h.id + '\')"' + (full ? ' disabled' : '') + '>Max</button>'
+            + '</div>'
+          + '</div>';
+        }).join('')
+      + '</div>';
+  }
+  document.getElementById('invBucketMapModal').classList.remove('hidden');
+}
+
+function closeBucketMapModal() {
+  document.getElementById('invBucketMapModal').classList.add('hidden');
+  invBucketMapId = null;
+}
+
+function _bucketMapInput(holdingId) {
+  return document.querySelector('#invBucketMapBody input[data-hid="' + holdingId + '"]');
+}
+
+function bucketMapFill(holdingId) {
+  var inp = _bucketMapInput(holdingId);
+  if (!inp) return;
+  inp.value = +Number(inp.dataset.max).toFixed(6);
+  bucketMapValidate(inp);
+}
+
+function bucketMapValidate(inp) {
+  var v = parseFloat(inp.value);
+  var bad = inp.value !== '' && (!isFinite(v) || v < 0 || v > Number(inp.dataset.max) + BUCKET_EPS);
+  inp.classList.toggle('inv-input-invalid', bad);
+  return !bad;
+}
+
+function bucketMapFilter() {
+  var q = document.getElementById('invBucketMapSearch').value.trim().toLowerCase();
+  document.querySelectorAll('#invBucketMapBody .inv-bucket-map-row').forEach(function(r) {
+    r.style.display = !q || r.dataset.search.indexOf(q) >= 0 ? '' : 'none';
+  });
+}
+
+async function saveBucketMap() {
+  var b = _findBucket(invBucketMapId);
+  if (!b) { closeBucketMapModal(); return; }
+
+  var inputs = document.querySelectorAll('#invBucketMapBody input[data-hid]');
+  var next = [], badName = null;
+  inputs.forEach(function(inp) {
+    if (!bucketMapValidate(inp)) {
+      if (!badName) { var h = _findHolding(inp.dataset.hid); badName = h ? h.name : 'a holding'; }
+      return;
+    }
+    var v = parseFloat(inp.value);
+    if (v > 0) next.push({ holdingId: inp.dataset.hid, qty: Math.min(v, Number(inp.dataset.max)) });
+  });
+  if (badName) {
+    showInvToast('Quantity for "' + badName + '" is more than what is available.', 'error');
+    return;
+  }
+
+  b.holdings = next;   /* also drops allocations to holdings that no longer exist */
+  if (next.length) invBucketHoldOpen[b.id] = true;
+  await saveBuckets();
+  closeBucketMapModal();
+  renderInvBuckets();
+  showInvToast(next.length ? 'Mapped ' + next.length + ' holding' + (next.length === 1 ? '' : 's') + ' to ' + b.name + '.'
+                           : 'All holdings removed from ' + b.name + '.', 'success');
+}
+
+function _bucketLedgerTable(b, type) {
+  var isProfit = type === 'profit';
+  var rows = (b.entries || [])
+    .filter(function(e){ return isProfit ? e.type === 'profit' : e.type !== 'profit'; })
+    .slice()
+    .sort(function(a, c){ return (a.date || '') < (c.date || '') ? -1 : ((a.date || '') > (c.date || '') ? 1 : 0); });
+
+  var html = '<div class="inv-bucket-ledger-col">'
+    + '<div class="inv-bucket-ledger-title">' + (isProfit ? '📈 Profits' : '💰 Investments') + '</div>'
+    + '<div class="inv-journey-table-wrap"><table class="inv-journey-table inv-bucket-table">'
+    + '<thead><tr><th>Date</th><th>' + (isProfit ? 'Profit' : 'Received Amount') + '</th><th></th></tr></thead><tbody>';
+
+  if (!rows.length) {
+    html += '<tr><td colspan="3" class="inv-bucket-ledger-empty">No entries yet</td></tr>';
+  }
+  rows.forEach(function(e) {
+    var amt   = Number(e.amount) || 0;
+    var color = isProfit ? _pnlColor(amt) : 'var(--accent4)';
+    html += '<tr class="inv-journey-row">'
+      + '<td class="inv-journey-date-cell">' + (e.date ? e.date.split('-').reverse().join('-') : '—') + '</td>'
+      + '<td class="inv-journey-flow-cell" style="color:' + color + '"'
+        + (e.notes ? ' title="' + invEsc(e.notes).replace(/"/g, '&quot;') + '"' : '') + '>'
+        + _signedFmt(amt) + (e.notes ? ' <span class="inv-bucket-entry-note">· ' + invEsc(e.notes) + '</span>' : '')
+      + '</td>'
+      + '<td class="inv-journey-action-cell">'
+        + '<button class="inv-journey-edit-btn" onclick="openBucketEntryModal(\'' + b.id + '\',\'' + e.id + '\')">✏</button>'
+        + '<button class="inv-lot-del-btn" onclick="deleteBucketEntry(\'' + b.id + '\',\'' + e.id + '\')">✕</button>'
+      + '</td></tr>';
+  });
+  return html + '</tbody></table></div></div>';
+}
+
+function _bucketLedgerHtml(b) {
+  return '<div class="inv-bucket-ledger">'
+    + _bucketLedgerTable(b, 'in')
+    + _bucketLedgerTable(b, 'profit')
+    + '</div>';
+}
+
+function toggleBucketLedger(id) {
+  invBucketLedgerOpen[id] = !invBucketLedgerOpen[id];
+  renderBucketsList();
+}
+
+/* ── Bucket modal (create / edit) ────────────────────────── */
+function openBucketModal(id) {
+  invBucketEditId = id || null;
+  var b = id ? _findBucket(id) : null;
+  document.getElementById('invBucketModalTitle').textContent = b ? '✏️ Edit Bucket' : '🪣 New Bucket';
+  document.getElementById('invBucketName').value     = b ? b.name : '';
+  document.getElementById('invBucketInvested').value = b && b.invested ? b.invested : '';
+  document.getElementById('invBucketCharges').value  = b && b.charges  ? b.charges  : '';
+  document.getElementById('invBucketNotes').value    = b ? (b.notes || '') : '';
+  document.getElementById('invBucketModal').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('invBucketName').focus(); }, 50);
+}
+
+function closeBucketModal() {
+  document.getElementById('invBucketModal').classList.add('hidden');
+}
+
+async function saveBucket() {
+  var name     = document.getElementById('invBucketName').value.trim();
+  var invested = parseFloat(document.getElementById('invBucketInvested').value) || 0;
+  var charges  = parseFloat(document.getElementById('invBucketCharges').value)  || 0;
+  var notes    = document.getElementById('invBucketNotes').value.trim();
+
+  if (!name) { showInvToast('Please give the bucket a name.', 'error'); return; }
+  if (invested < 0 || charges < 0) { showInvToast('Invested and Charges cannot be negative.', 'error'); return; }
+
+  var wasEdit = !!invBucketEditId;
+  var b = wasEdit ? _findBucket(invBucketEditId) : null;
+  if (b) {
+    b.name = name; b.invested = invested; b.charges = charges; b.notes = notes;
+  } else {
+    invBucketsData.push({
+      id: 'bkt_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      name: name, notes: notes, invested: invested, charges: charges, entries: []
+    });
+  }
+
+  await saveBuckets();
+  closeBucketModal();
+  renderInvBuckets();
+  showInvToast(wasEdit ? 'Bucket updated.' : 'Bucket created.', 'success');
+}
+
+async function deleteBucket(id) {
+  var b = _findBucket(id);
+  if (!b) return;
+  if (!confirm('Delete bucket "' + b.name + '" and all ' + (b.entries || []).length + ' of its ledger entries?\n\nThis cannot be undone. Your holdings are not affected.')) return;
+  invBucketsData = invBucketsData.filter(function(x){ return x.id !== id; });
+  delete invBucketLedgerOpen[id];
+  await saveBuckets();
+  renderInvBuckets();
+  showInvToast('Bucket deleted.', 'success');
+}
+
+/* ── Entry modal (received / profit) ─────────────────────── */
+function openBucketEntryModal(bucketId, entryId, type) {
+  var b = _findBucket(bucketId);
+  if (!b) return;
+  var e = entryId ? (b.entries || []).find(function(x){ return x.id === entryId; }) : null;
+  invBucketEntryCtx = { bucketId: bucketId, entryId: e ? e.id : null };
+
+  var t = e ? (e.type === 'profit' ? 'profit' : 'in') : (type || 'in');
+  document.getElementById('invBucketEntryModalTitle').textContent = (e ? '✏️ Edit entry · ' : '➕ Add entry · ') + b.name;
+  document.getElementById('invBucketEntryDate').value   = e ? (e.date || '') : new Date().toISOString().slice(0,10);
+  document.getElementById('invBucketEntryAmount').value = e ? e.amount : '';
+  document.getElementById('invBucketEntryNotes').value  = e ? (e.notes || '') : '';
+  bucketEntrySetType(t);
+
+  document.getElementById('invBucketEntryModal').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('invBucketEntryAmount').focus(); }, 50);
+}
+
+function closeBucketEntryModal() {
+  document.getElementById('invBucketEntryModal').classList.add('hidden');
+}
+
+function bucketEntrySetType(type) {
+  var inBtn = document.getElementById('invBucketEntryTypeIn');
+  var prBtn = document.getElementById('invBucketEntryTypeProfit');
+  inBtn.className = 'inv-cat-pill' + (type === 'in'     ? ' active-stock active' : '');
+  prBtn.className = 'inv-cat-pill' + (type === 'profit' ? ' active-mf active'    : '');
+  document.getElementById('invBucketEntryAmountLabel').textContent =
+    type === 'profit' ? 'Profit (₹) * — use a negative number for a loss' : 'Received Amount (₹) *';
+}
+
+async function saveBucketEntry() {
+  var ctx = invBucketEntryCtx;
+  var b   = ctx && _findBucket(ctx.bucketId);
+  if (!b) { closeBucketEntryModal(); return; }
+
+  var type   = document.getElementById('invBucketEntryTypeProfit').classList.contains('active') ? 'profit' : 'in';
+  var date   = document.getElementById('invBucketEntryDate').value;
+  var amount = parseFloat(document.getElementById('invBucketEntryAmount').value);
+  var notes  = document.getElementById('invBucketEntryNotes').value.trim();
+
+  if (!date || !isFinite(amount) || amount === 0 || (type === 'in' && amount < 0)) {
+    showInvToast(type === 'in' ? 'Please enter a valid date and a positive amount.'
+                               : 'Please enter a valid date and a non-zero profit.', 'error');
+    return;
+  }
+
+  if (!Array.isArray(b.entries)) b.entries = [];
+  var entry = { id: ctx.entryId || ('bke_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)),
+                type: type, date: date, amount: amount, notes: notes };
+  var idx = ctx.entryId ? b.entries.findIndex(function(x){ return x.id === ctx.entryId; }) : -1;
+  if (idx >= 0) b.entries[idx] = entry; else b.entries.push(entry);
+
+  invBucketLedgerOpen[b.id] = true;
+  await saveBuckets();
+  closeBucketEntryModal();
+  renderInvBuckets();
+  showInvToast(idx >= 0 ? 'Entry updated.' : 'Entry added.', 'success');
+}
+
+async function deleteBucketEntry(bucketId, entryId) {
+  var b = _findBucket(bucketId);
+  if (!b || !confirm('Delete this entry?')) return;
+  b.entries = (b.entries || []).filter(function(e){ return e.id !== entryId; });
+  await saveBuckets();
+  renderInvBuckets();
+  showInvToast('Entry deleted.', 'success');
 }
 
 function initInvestments() {}

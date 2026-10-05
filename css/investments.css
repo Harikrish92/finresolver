@@ -918,6 +918,113 @@
 }
 .inv-journey-edit-btn:hover { background: rgba(77,171,247,.22); }
 
+/* ══════════════════════════════════════════════════════════
+   Portfolio Buckets
+══════════════════════════════════════════════════════════ */
+#invBucketsList { display: flex; flex-direction: column; gap: 1rem; }
+
+.inv-bucket-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1rem 1.1rem;
+  animation: fadeUp .35s ease both;
+}
+.inv-bucket-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem; flex-wrap: wrap; margin-bottom: .9rem;
+  cursor: pointer; user-select: none;
+}
+.inv-bucket-card.collapsed .inv-bucket-head { margin-bottom: 0; }
+.inv-bucket-chevron { font-size: .7rem; color: var(--muted); min-width: .75rem; }
+.inv-bucket-head:hover .inv-bucket-chevron { color: var(--text); }
+.inv-bucket-mini { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.inv-bucket-warn {
+  font-size: .62rem; color: var(--accent3); font-weight: 600;
+  background: rgba(255,209,102,.1); border: 1px solid rgba(255,209,102,.3);
+  border-radius: 4px; padding: .05rem .35rem;
+}
+.inv-bucket-title { display: flex; align-items: baseline; gap: .6rem; min-width: 0; flex-wrap: wrap; }
+.inv-bucket-name  { font-family: var(--font-head); font-weight: 700; font-size: 1rem; }
+.inv-bucket-notes { font-size: .68rem; color: var(--muted); }
+.inv-bucket-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.inv-bucket-actions .inv-journey-edit-btn { margin-right: 0; }
+
+.inv-bucket-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem;
+}
+.inv-bucket-stat {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .55rem .65rem; min-width: 0;
+}
+.inv-bucket-stat-label {
+  font-size: .58rem; color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
+  margin-bottom: .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-bucket-stat-value {
+  font-family: var(--font-head); font-size: .95rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-bucket-stat-sub { font-size: .56rem; color: var(--muted); margin-top: .1rem; line-height: 1.3; }
+
+.inv-bucket-ledger-toggle {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: .7rem; padding: .75rem 0 0; font-family: inherit;
+}
+.inv-bucket-ledger-toggle:hover { color: var(--text); }
+
+.inv-bucket-ledger {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .6rem;
+}
+.inv-bucket-ledger-col {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden; min-width: 0;
+}
+.inv-bucket-ledger-title {
+  font-size: .72rem; font-weight: 600; padding: .5rem 1rem;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.inv-journey-table.inv-bucket-table { min-width: 0; }
+.inv-bucket-table thead th, .inv-bucket-table tbody td { padding: .5rem .75rem; }
+.inv-bucket-table .inv-journey-date-cell { min-width: 0; }
+.inv-bucket-table .inv-journey-flow-cell { min-width: 0; white-space: normal; }
+.inv-bucket-ledger-empty { color: var(--muted); font-size: .7rem; text-align: center; }
+.inv-bucket-entry-note { color: var(--muted); font-weight: 400; font-size: .66rem; }
+
+.inv-bucket-toggles { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.inv-bucket-hold-wrap { margin-top: .6rem; }
+.inv-bucket-hold-empty { font-size: .72rem; color: var(--muted); padding: .6rem 0 0; }
+.inv-bucket-hold-empty a { color: var(--accent4); }
+
+.inv-bucket-map-help { font-size: .7rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
+#invBucketMapSearch { width: 100%; max-width: none; box-sizing: border-box; }
+
+/* Map Holdings list + mapped-holding rows — flex rows, never wider than their container */
+.inv-bucket-map-list {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.inv-bucket-map-row,
+.inv-bucket-hold-row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem .8rem; border-bottom: 1px solid var(--border);
+}
+.inv-bucket-map-row:last-child,
+.inv-bucket-hold-row:last-child { border-bottom: none; }
+.inv-bucket-map-row.is-full { opacity: .5; }
+.inv-bucket-map-info { flex: 1; min-width: 0; }
+.inv-bucket-map-name {
+  font-size: .78rem; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.inv-bucket-map-meta {
+  display: flex; flex-wrap: wrap; gap: .15rem .7rem;
+  font-size: .64rem; color: var(--muted); margin-top: .15rem;
+}
+.inv-bucket-map-avail { color: var(--accent); font-weight: 600; }
+.inv-bucket-map-input { display: flex; gap: .35rem; align-items: center; flex-shrink: 0; }
+.inv-bucket-map-input .inv-form-input { width: 100px; padding: .35rem .5rem; }
+.inv-bucket-map-input .btn-import { padding: .35rem .6rem; font-size: .65rem; margin: 0; }
+.inv-bucket-hold-pnl { font-size: .76rem; font-weight: 600; text-align: right; flex-shrink: 0; white-space: nowrap; }
+.inv-bucket-hold-row .inv-lot-del-btn { flex-shrink: 0; }
+.inv-input-invalid { border-color: var(--accent2) !important; box-shadow: 0 0 0 2px rgba(255,107,107,.15); }
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 900px) {
   .inv-journey-xirr-strip { grid-template-columns: repeat(2, 1fr) !important; }
@@ -932,6 +1039,33 @@
   .inv-journey-notes-cell { display: none; }
   .inv-journey-table thead th:nth-child(3) { display: none; }
   .inv-journey-year-count { display: none; }
+  .inv-bucket-stats  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-bucket-ledger { grid-template-columns: 1fr; }
+  .inv-bucket-table .inv-bucket-entry-note { display: none; }
+
+  .inv-bucket-card   { padding: .85rem .9rem; }
+  .inv-bucket-head   { gap: .6rem; }
+  .inv-bucket-title  { width: 100%; }
+  .inv-bucket-actions { width: 100%; }
+  .inv-bucket-actions .btn-import { flex: 1 1 auto; margin: 0; padding: .4rem .5rem; font-size: .66rem; }
+  .inv-bucket-actions .inv-journey-edit-btn,
+  .inv-bucket-actions .inv-lot-del-btn { width: 30px; height: 30px; }
+  .inv-bucket-toggles { flex-direction: column; align-items: flex-start; gap: 0; }
+  .inv-bucket-toggles .inv-bucket-ledger-toggle { text-align: left; }
+  .inv-bucket-table thead th:nth-child(3) { display: table-cell; }
+  .inv-bucket-table thead th, .inv-bucket-table tbody td { padding: .45rem .6rem; }
+}
+
+@media (max-width: 480px) {
+  /* Map popup: put the input on its own full-width line under the holding */
+  .inv-bucket-map-row { flex-wrap: wrap; gap: .45rem; }
+  .inv-bucket-map-input { width: 100%; }
+  .inv-bucket-map-input .inv-form-input { flex: 1; width: auto; min-width: 0; }
+  /* 16px stops iOS Safari zooming into the field on focus */
+  .inv-bucket-map-input .inv-form-input,
+  #invBucketMapSearch { font-size: 16px; }
+  .inv-bucket-map-input .btn-import { padding: .5rem .9rem; }
+  .inv-bucket-hold-row { gap: .5rem; padding: .55rem .65rem; }
 }
 
 
