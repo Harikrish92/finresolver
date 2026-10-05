@@ -459,7 +459,7 @@ function autoLogLoanPayment(entry) {
   const loan = APP.loans.find(l => l.id === entry.loanId);
   if (!loan) return;
   if (!loan.payments) loan.payments = [];
-  const payId = 'pay_' + Date.now();
+  const payId = 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   const date  = entry.date || new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
   loan.payments.unshift({ id: payId, date, amount: entry.amount, note: entry.desc });
   entry.paymentId = payId;

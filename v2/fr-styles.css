@@ -3263,3 +3263,26 @@ html::before {
   cursor: pointer
 }
 .dpv2-today-btn:hover { opacity: .8 }
+/* ── FINOVA action confirmation card (../js/finova-actions.js) ── */
+.adv2-msg-action { width: min(100%, 460px); }
+.adv2-msg-action .fa-head { font-weight: 700; font-size: 13px; color: var(--t1); margin-bottom: .5rem; }
+.adv2-msg-action .fa-list { list-style: none; padding: 0; margin: 0 0 .6rem; display: flex; flex-direction: column; gap: .45rem; }
+.adv2-msg-action .fa-list li {
+  margin: 0; padding: .5rem .65rem; border-radius: 8px;
+  background: var(--s2); border: 1px solid var(--b2);
+}
+.adv2-msg-action .fa-title { font-size: 13px; font-weight: 600; color: var(--t1); overflow-wrap: anywhere; }
+.adv2-msg-action .fa-when  { font-size: 12px; color: var(--t2); margin-top: .15rem; }
+.adv2-msg-action .fa-errors { font-size: 12.5px; color: var(--red); margin-bottom: .5rem; line-height: 1.45; }
+.adv2-msg-action .fa-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+.adv2-msg-action .fa-btn {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: .4rem .95rem; border-radius: 8px;
+  background: transparent; color: var(--t1); border: 1px solid var(--b2);
+}
+.adv2-msg-action .fa-btn:hover:not(:disabled) { border-color: var(--accent); }
+.adv2-msg-action .fa-btn-primary { background: var(--accent); border-color: var(--accent); color: #06121f; }
+.adv2-msg-action .fa-btn:disabled { opacity: .55; cursor: default; }
+.adv2-msg-action .fa-status { font-size: 12.5px; color: var(--t2); margin-top: .45rem; }
+.adv2-msg-action .fa-status:empty { display: none; }
+.adv2-msg-action .fa-done .fa-list li { opacity: .8; }
