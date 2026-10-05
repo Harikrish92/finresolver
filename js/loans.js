@@ -243,7 +243,7 @@ function navigateToLoan(id) {
   history.pushState({ screen: 'loanDetail', id: id }, '');
   if (typeof _enterTracker === 'function') _enterTracker('loans');
   activeLoanId = id;
-  document.getElementById('homeScreen').style.display       = 'none';
+  document.getElementById('advisorScreen').style.display    = 'none';
   document.getElementById('appMain').style.display          = 'none';
   document.getElementById('loanScreen').style.display       = 'none';
   document.getElementById('loanDetailScreen').style.display = 'block';

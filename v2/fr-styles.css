@@ -3286,3 +3286,136 @@ html::before {
 .adv2-msg-action .fa-status { font-size: 12.5px; color: var(--t2); margin-top: .45rem; }
 .adv2-msg-action .fa-status:empty { display: none; }
 .adv2-msg-action .fa-done .fa-list li { opacity: .8; }
+
+/* ─── FINOVA as the home screen (search-page layout) ──────────────────────────
+   Idle: orb + wordmark + search bar + suggestions, centred like a search
+   engine's home page. Chatting: the thread uses the whole screen and the
+   search bar docks at the bottom of #screen-content (the scroll container).
+   Stats / insights / tiles live in the Snapshot panel. */
+.adv2-home {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 860px; margin: 0 auto;
+  min-height: 100%;
+}
+.adv2-topbar { display: flex; justify-content: flex-end; gap: .5rem; }
+.adv2-top-btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;
+  color: var(--t2); background: var(--s2);
+  border: 1px solid var(--b); border-radius: 999px; padding: .38rem .85rem;
+  transition: border-color var(--ease), color var(--ease), background var(--ease);
+}
+.adv2-top-btn:hover, .adv2-top-btn.active { border-color: var(--purple); color: var(--purple); background: var(--p10); }
+.adv2-idle .adv2-newchat-btn { display: none; }
+
+/* Hero */
+.adv2-hero { text-align: center; margin-top: auto; padding-bottom: 1.5rem; }
+.adv2-hero-orb { width: 96px; height: 96px; display: block; margin: 0 auto .5rem; }
+.adv2-wordmark {
+  font-family: var(--font-d); font-weight: 800; line-height: 1;
+  font-size: clamp(40px, 9vw, 64px); letter-spacing: .04em; color: var(--t1);
+}
+.adv2-wordmark span {
+  background: linear-gradient(90deg, var(--purple), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.adv2-greeting { font-family: var(--font-d); font-size: 18px; font-weight: 600; color: var(--t1); margin-top: .9rem; }
+.adv2-hint { font-size: 13.5px; color: var(--t3); max-width: 520px; margin: .35rem auto 0; line-height: 1.55; }
+.adv2-chatting .adv2-hero { display: none; }
+
+/* Search bar */
+.adv2-search { width: 100%; }
+.adv2-idle .adv2-search { margin-bottom: auto; padding-bottom: 10vh; }
+.adv2-chatting .adv2-search {
+  position: sticky; bottom: 0; margin-top: auto;
+  padding: .75rem 0 1.1rem;
+  background: linear-gradient(to bottom, transparent, var(--bg) 35%);
+}
+.adv2-searchbar {
+  align-items: center;
+  border-radius: 999px;
+  padding: .4rem .4rem .4rem 1.1rem;
+  box-shadow: var(--shadow-sm, 0 6px 24px rgba(0,0,0,.18));
+}
+.adv2-searchbar .adv2-textarea { font-size: 14.5px; }
+.adv2-searchbar .adv2-send { border-radius: 999px; min-width: 40px; }
+.adv2-search-icon { color: var(--purple); font-size: 15px; flex-shrink: 0; }
+.adv2-suggestions { justify-content: center; margin-top: .9rem; }
+.adv2-chatting .adv2-suggestions { display: none; }
+.adv2-chip.adv2-chip-action { border-color: rgba(167,139,250,.45); color: var(--purple); }
+.adv2-month-note { text-align: center; font-size: 11.5px; color: var(--t3); margin-top: .8rem; }
+.adv2-chatting .adv2-month-note { display: none; }
+
+/* Thread: full width, no box — answers read like a results page */
+.adv2-thread { display: flex; flex-direction: column; gap: 1.1rem; padding-top: .5rem; }
+.adv2-idle .adv2-thread { display: none; }
+.adv2-thread .adv2-msg { max-width: 100%; font-size: 14px; }
+.adv2-thread .adv2-msg-user { align-self: flex-end; max-width: 80%; }
+.adv2-thread .adv2-msg-assistant {
+  align-self: stretch;
+  background: transparent; border: none; border-radius: 0;
+  padding: .2rem 0 1.1rem; border-bottom: 1px solid var(--b);
+}
+.adv2-thread .adv2-msg-assistant::before {
+  content: '✦ FINOVA'; display: block; margin-bottom: .45rem;
+  font-family: var(--font-d); font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--purple);
+}
+.adv2-thread .adv2-msg-assistant[data-tone="warn"]::before { content: '✦ FINOVA · heads-up'; color: var(--gold); }
+.adv2-thread .adv2-msg-assistant[data-tone="good"]::before { content: '✦ FINOVA · looking good'; color: var(--accent); }
+.adv2-thread .adv2-msg-action {
+  align-self: flex-start; width: min(100%, 520px);
+  border: 1px solid var(--b); border-radius: var(--rl); padding: .9rem 1rem; background: var(--s2);
+}
+.adv2-thread .adv2-msg-action::before { content: none; }
+.adv2-msg.adv2-msg-note {
+  align-self: center; max-width: 90%;
+  font-size: 11.5px; color: var(--t3);
+  background: transparent; border: 1px dashed var(--b); border-radius: 999px; padding: .25rem .8rem;
+}
+.adv2-home .adv2-typing, .adv2-home .adv2-err-banner { margin-top: .75rem; }
+
+/* New users: data-only bits hidden until FINOVA has some numbers */
+.adv2-no-data .adv2-needs-data { display: none !important; }
+.adv2-panel-empty { display: none; font-size: 13px; color: var(--t3); }
+.adv2-no-data .adv2-panel-empty { display: block; }
+
+/* Snapshot panel */
+.adv2-panel {
+  position: absolute; z-index: 30; top: 2.6rem; right: 0;
+  width: min(760px, 100%);
+  max-height: 72vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--bg); border: 1px solid var(--b2);
+  border-radius: var(--rl); box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  padding: 14px 16px 16px;
+}
+.adv2-panel[hidden] { display: none; }
+.adv2-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-d); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--t3);
+}
+.adv2-panel .strip { margin: 0; }
+.adv2-panel-sources { display: flex; flex-direction: column; gap: 4px; }
+
+.adv2-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.adv2-tile {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  font: inherit; text-align: left; cursor: pointer; color: var(--t1);
+  background: var(--s2); border: 1px solid var(--b); border-radius: var(--r);
+  padding: 10px 12px; transition: border-color var(--ease), background var(--ease);
+}
+.adv2-tile:hover { border-color: var(--purple); background: var(--s3); }
+.adv2-tile-icon { color: var(--purple); flex-shrink: 0; display: flex; }
+.adv2-tile-text { display: flex; flex-direction: column; min-width: 0; }
+.adv2-tile-title { font-weight: 600; font-size: 13px; }
+.adv2-tile-sub { font-size: 11.5px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 760px) {
+  .adv2-panel { max-height: 70vh; }
+  .adv2-idle .adv2-search { padding-bottom: 6vh; }
+  .adv2-thread .adv2-msg-user { max-width: 90%; }
+}
+.light .adv2-panel { background: #fff; box-shadow: 0 18px 50px rgba(20,30,60,.18); }

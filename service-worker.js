@@ -3,7 +3,7 @@
    Uses relative paths so it works on GitHub Pages subdirectories.
    ============================================================ */
 
-const CACHE_NAME   = 'finresolver-v11';
+const CACHE_NAME   = 'finresolver-v13';
 const CACHE_ASSETS = [
   './',
   './index.html',

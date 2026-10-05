@@ -405,9 +405,12 @@ async function syncLoadConfig(uid) {
   // homeFetchLivePricesOnce() was a no-op on page load because investmentsData
   // was still empty when showHomeScreen() ran — retry it here.
   if (typeof homeFetchLivePricesOnce === 'function' &&
-      document.getElementById('homeScreen')?.style.display !== 'none') {
+      document.getElementById('advisorScreen')?.style.display !== 'none') {
     homeFetchLivePricesOnce();
   }
+  // Home is FINOVA: it may have rendered before the cloud data arrived (fresh
+  // device / first login) — re-check data, stat strip and insights now.
+  if (typeof finovaOnSyncLoaded === 'function') finovaOnSyncLoaded();
 }
 
 /* ══════════════════════════════════════════════════════════

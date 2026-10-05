@@ -219,7 +219,12 @@ window.FinovaActions = (function () {
       'The description is never a reason to ask: use the user\'s words, or if they gave none just use a ' +
       'plain label like "Expense" / "Income" and call the tool straight away. ' +
       'You can only ADD entries — you cannot edit or delete anything; if asked to, say so and point them to ' +
-      'the relevant tracker screen.';
+      'the relevant tracker screen. ' +
+      'NEW USERS: you are the app\'s home screen. If the financial data is empty or nearly empty, do not ' +
+      'lecture about missing data — help them set up conversationally, one step at a time: first their ' +
+      'monthly salary/income (offer a monthly repeat), then regular expenses like rent, then SIPs and loan ' +
+      'EMIs. Loans and investment holdings themselves are added in the Loans / Investments trackers, which ' +
+      'they can open from the tiles above the chat.';
   }
 
   /* ── Response parsing ────────────────────────────────────── */

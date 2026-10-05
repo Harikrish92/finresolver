@@ -177,7 +177,7 @@
   </div>
   <div class="nav-drawer-items">
     <button class="nav-drawer-item" data-screen="home" onclick="closeNavDrawer();goToHome()">
-      <span class="nav-drawer-icon">⌂</span> Home
+      <span class="nav-drawer-icon">🤖</span> FINOVA · Home
     </button>
     <div class="nav-drawer-sep"></div>
     <div class="nav-drawer-group-label">Tracker</div>
@@ -200,11 +200,6 @@
     </button>
     <button class="nav-drawer-item" data-screen="dayplanner" onclick="closeNavDrawer();goToDayPlanner()">
       <span class="nav-drawer-icon">📋</span> Day Planner
-    </button>
-    <div class="nav-drawer-sep"></div>
-    <div class="nav-drawer-group-label">Advisor</div>
-    <button class="nav-drawer-item" data-screen="advisor" onclick="closeNavDrawer();goToAdvisor()">
-      <span class="nav-drawer-icon">🤖</span> FINOVA
     </button>
   </div>
 </nav>
@@ -340,52 +335,6 @@
   </div>
 </div>
 
-
-<!-- ═══════════════════════════════════════════════════════════
-     HOME DASHBOARD  (shown after login, before any module)
-════════════════════════════════════════════════════════════ -->
-<div id="homeScreen" style="display:none">
-
-  <!-- Shown while Firebase data is being fetched on first load -->
-  <div id="homeLoader" class="home-loader hidden" role="status" aria-label="Loading data">
-    <div class="home-loader-spinner"></div>
-    <div class="home-loader-text">Syncing your data…</div>
-  </div>
-
-  <div class="home-welcome">
-    <h2>Hello, <span id="homeWelcomeName">there</span> 👋</h2>
-    <div class="home-welcome-sub">Here's your financial overview for <span id="homeMonthName"></span></div>
-  </div>
-
-  <!-- Top-level categories -->
-  <div class="home-section-label">Your Modules</div>
-  <div class="home-nav-grid home-hub-grid">
-
-    <div class="home-nav-card trackerhub" onclick="goToTrackerHub()">
-      <div class="home-nav-icon">📊</div>
-      <div class="home-nav-title">Tracker</div>
-      <div class="home-nav-desc">Monthly, Investments, Loans &amp; Lifestyle</div>
-      <div class="home-nav-badge">4 modules</div>
-    </div>
-
-    <div class="home-nav-card plannerhub" onclick="goToPlannerHub()">
-      <div class="home-nav-icon">🔥</div>
-      <div class="home-nav-title">Planner</div>
-      <div class="home-nav-desc">FIRE &amp; Insights and Day Planner</div>
-      <div class="home-nav-badge">2 tools</div>
-    </div>
-
-    <div class="home-nav-card advisorhub" onclick="goToAdvisor()">
-      <div class="home-nav-icon">🤖</div>
-      <div class="home-nav-title">Advisor</div>
-      <div class="home-nav-stat" style="color:var(--purple)">FINOVA</div>
-      <div class="home-nav-desc">Personalized financial insights &amp; AI-powered advice</div>
-      <div class="home-nav-badge">AI-powered</div>
-    </div>
-
-  </div>
-
-</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      TRACKER HUB SCREEN
@@ -850,35 +799,55 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     AI ADVISOR SCREEN
+     FINOVA — HOME SCREEN  (shown after login; every other screen is one tap away)
+     Search-engine style: idle = centered wordmark + search bar + suggestions;
+     once a conversation starts the thread uses the full page and the search
+     bar docks at the bottom. Stats / insights / area tiles live in the
+     Snapshot panel (toggled from the top-right).
 ════════════════════════════════════════════════════════════ -->
-<div id="advisorScreen" style="display:none">
+<div id="advisorScreen" class="fnv-idle" style="display:none">
 
-  <!-- Page header -->
-  <div class="adv-page-header">
-    <div>
-      <div class="adv-page-title">🤖 <span>FINOVA</span></div>
-      <div class="adv-page-sub">Personalized insights &amp; advice powered by AI</div>
-    </div>
+  <!-- Shown while Firebase data is being fetched on first load -->
+  <div id="homeLoader" class="home-loader hidden" role="status" aria-label="Loading data">
+    <div class="home-loader-spinner"></div>
+    <div class="home-loader-text">Syncing your data…</div>
   </div>
 
-  <!-- Empty state: shown when no financial data exists -->
-  <div id="advisorEmptyState" class="adv-empty-state" style="display:none">
-    <div class="adv-empty-icon">🤖</div>
-    <div class="adv-empty-title">No financial data yet</div>
-    <div class="adv-empty-desc">Add some expenses, loans, or investments first to get personalized advice tailored to your numbers.</div>
-    <div class="adv-empty-actions">
-      <button class="adv-empty-btn" onclick="goToTracker()">📊 Add Expenses</button>
-      <button class="adv-empty-btn" onclick="goToInvestments()">📈 Add Investments</button>
-      <button class="adv-empty-btn" onclick="goToLoans()">🏦 Add Loans</button>
-    </div>
+  <!-- Top bar: snapshot toggle + new chat -->
+  <div class="fnv-topbar">
+    <button class="fnv-top-btn fnv-newchat-btn" onclick="advisorNewChat()" title="Start a new chat">＋ New chat</button>
+    <button class="fnv-top-btn" id="fnvPanelBtn" onclick="toggleFinovaPanel()" title="Your numbers, insights and screens">📊 Snapshot</button>
   </div>
 
-  <!-- Main content: shown when data exists -->
-  <div id="advisorMainContent" style="display:none">
+  <!-- Snapshot panel: everything that used to crowd the home screen -->
+  <div class="fnv-panel" id="fnvPanel" hidden>
+    <div class="fnv-panel-head">
+      <span>Your snapshot</span>
+      <button class="fnv-panel-close" onclick="toggleFinovaPanel(false)" title="Close">✕</button>
+    </div>
 
-    <!-- Context strip: live financial snapshot -->
-    <div class="adv-context-strip">
+    <!-- One tap to each area -->
+    <div class="fnv-tiles" id="fnvTiles">
+      <button class="fnv-tile trackerhub" onclick="goToTrackerHub()">
+        <span class="fnv-tile-icon">📊</span>
+        <span class="fnv-tile-text"><span class="fnv-tile-title">Tracker</span><span class="fnv-tile-sub">Monthly, Investments, Loans, Lifestyle</span></span>
+      </button>
+      <button class="fnv-tile plannerhub" onclick="goToPlannerHub()">
+        <span class="fnv-tile-icon">🔥</span>
+        <span class="fnv-tile-text"><span class="fnv-tile-title">Planner</span><span class="fnv-tile-sub">FIRE &amp; Insights, Day Planner</span></span>
+      </button>
+      <button class="fnv-tile portfolio" onclick="goToPortfolio()">
+        <span class="fnv-tile-icon">💰</span>
+        <span class="fnv-tile-text"><span class="fnv-tile-title">Net Worth</span><span class="fnv-tile-sub">Portfolio overview &amp; FIRE</span></span>
+      </button>
+      <button class="fnv-tile monthly" onclick="goToTracker()">
+        <span class="fnv-tile-icon">🗓️</span>
+        <span class="fnv-tile-text"><span class="fnv-tile-title">This Month</span><span class="fnv-tile-sub">Open the Monthly Tracker</span></span>
+      </button>
+    </div>
+
+    <!-- Live financial snapshot -->
+    <div class="adv-context-strip adv-needs-data">
       <div class="adv-ctx-card">
         <div class="adv-ctx-label">Net Worth</div>
         <div class="adv-ctx-value" id="advCtxNetWorth">—</div>
@@ -897,13 +866,13 @@
       </div>
     </div>
 
-    <!-- Proactive insights: auto-generated on load, collapsible to leave room for chat -->
-    <div class="adv-insights-section">
+    <!-- Daily insights (cached per day; ↻ forces a refresh) -->
+    <div class="adv-insights-section adv-needs-data">
       <div class="adv-insights-head" onclick="toggleAdvInsights()">
         <div class="adv-insights-title">Key Insights</div>
         <div class="adv-insights-head-actions">
           <button class="adv-insights-refresh" title="Refresh insights"
-            onclick="event.stopPropagation(); _advisorLoadInsights(_advisorSnapshot)">↻</button>
+            onclick="event.stopPropagation(); _advisorLoadInsights(_advisorSnapshot, true)">↻</button>
           <span class="adv-insights-arrow" id="advInsightsArrow">▾</span>
         </div>
       </div>
@@ -917,50 +886,66 @@
       </div>
     </div>
 
-    <!-- Chat section -->
-    <div class="adv-chat-section">
+    <div class="fnv-panel-empty">Your net worth, savings rate and daily insights appear here once FINOVA has some of your numbers.</div>
+  </div>
 
-      <!-- Quick question chips -->
-      <div class="adv-chips">
-        <button class="adv-chip" onclick="advisorSend('Am I saving enough?')">Am I saving enough?</button>
-        <button class="adv-chip" onclick="advisorSend('Which loan should I pay off first?')">Which loan to pay first?</button>
-        <button class="adv-chip" onclick="advisorSend('How is my portfolio performing?')">How is my portfolio doing?</button>
-        <button class="adv-chip" onclick="advisorSend('Where am I overspending?')">Where am I overspending?</button>
-      </div>
+  <!-- Shown instead of the chat only when FINOVA itself is unavailable (Pro gate / disabled) -->
+  <div id="advisorEmptyState" class="adv-empty-state" style="display:none">
+    <div class="adv-empty-icon">🤖</div>
+    <div class="adv-empty-title" id="advisorLockedTitle">FINOVA is unavailable</div>
+    <div class="adv-empty-desc" id="advisorLockedDesc">Open 📊 Snapshot for your trackers and planners.</div>
+  </div>
 
-      <!-- Chat history -->
-      <div class="adv-chat-history" id="advisorChatHistory">
-        <div class="adv-chat-welcome">
-          <div class="adv-welcome-icon">🤖</div>
-          <div class="adv-welcome-text">
-            Hi! I'm FINOVA, your AI financial advisor. I've analyzed your real financial data and I'm ready to give you personalized, actionable advice. Ask me anything!
-          </div>
-        </div>
-      </div>
+  <!-- Main content: always shown (new users get an onboarding prompt instead of an empty state) -->
+  <div id="advisorMainContent" style="display:none">
 
-      <!-- Typing indicator -->
-      <div class="adv-typing" id="advisorTyping" style="display:none">
-        <div class="adv-typing-dots"><span></span><span></span><span></span></div>
-        <span>FINOVA is thinking…</span>
-      </div>
+    <!-- Idle hero (hidden once a conversation starts) -->
+    <div class="fnv-hero">
+      <div class="fnv-wordmark">FIN<span>OVA</span></div>
+      <div class="fnv-greeting">Hello, <span id="homeWelcomeName">there</span> 👋</div>
+      <div class="fnv-hint" id="advisorWelcomeText">Ask me about your money, or tell me what to record.</div>
+    </div>
 
-      <!-- Error banner -->
-      <div class="adv-error" id="advisorError" style="display:none"></div>
+    <!-- Conversation: uses the full page width/height -->
+    <div class="fnv-thread" id="advisorChatHistory"></div>
 
-      <!-- Input bar -->
-      <div class="adv-input-bar">
+    <!-- Typing indicator -->
+    <div class="adv-typing" id="advisorTyping" style="display:none">
+      <div class="adv-typing-dots"><span></span><span></span><span></span></div>
+      <span>FINOVA is thinking…</span>
+    </div>
+
+    <!-- Error banner -->
+    <div class="adv-error" id="advisorError" style="display:none"></div>
+
+    <!-- Search bar + suggestions -->
+    <div class="fnv-search">
+      <div class="adv-input-bar fnv-searchbar">
+        <span class="fnv-search-icon">✦</span>
         <textarea
           class="adv-input"
           id="advisorInput"
-          placeholder="Ask about your finances…"
+          placeholder="Ask FINOVA, or say “spent 500 on fuel today”…"
           rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();advisorSendInput();}"
           oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"
         ></textarea>
-        <button class="adv-send-btn" onclick="advisorSendInput()">Send →</button>
+        <button class="adv-send-btn" onclick="advisorSendInput()" title="Send">→</button>
       </div>
 
+      <!-- Suggestions: action chips prefill the bar (the user finishes the
+           sentence); question chips send straight away and need data -->
+      <div class="adv-chips fnv-suggestions">
+        <button class="adv-chip adv-chip-action" onclick="advisorPrefill('Add an expense of ₹')">＋ Add an expense</button>
+        <button class="adv-chip adv-chip-action" onclick="advisorPrefill('Log my salary of ₹')">＋ Log salary</button>
+        <button class="adv-chip adv-chip-action" onclick="advisorPrefill('Paid my EMI of ₹')">＋ Add EMI payment</button>
+        <button class="adv-chip adv-needs-data" onclick="advisorSend('How am I doing this month?')">How am I doing this month?</button>
+        <button class="adv-chip adv-needs-data" onclick="advisorSend('Where am I overspending?')">Where am I overspending?</button>
+        <button class="adv-chip adv-needs-data" onclick="advisorSend('Which loan should I pay off first?')">Which loan to pay first?</button>
+      </div>
+      <div class="fnv-month-note">Entries go to <span id="homeMonthName"></span> unless you say a date · nothing is saved until you confirm</div>
     </div>
+
   </div>
 </div>
 
@@ -1256,11 +1241,46 @@
         </div>
       </div>
 
+      <div class="pref-section">
+        <label class="pref-label" for="prefApiKey">Your own Anthropic API key (optional)</label>
+        <div class="pref-hint" id="prefApiKeyGuest" style="display:none">Sign in with Google to use your own API key.</div>
+        <div id="prefApiKeySection">
+        <div class="pref-key-saved" id="prefApiKeySaved" style="display:none">
+          <span class="pref-key-status">🔒 Your key is saved — FINOVA uses it</span>
+          <button type="button" class="pref-key-btn" onclick="prefKeyReplace()">Replace</button>
+          <button type="button" class="pref-key-btn pref-key-btn-danger" onclick="prefKeyRemove()">Remove</button>
+        </div>
+        <div class="pref-key-saved" id="prefApiKeyRemoved" style="display:none">
+          <span class="pref-key-status">Your key will be removed when you save</span>
+          <button type="button" class="pref-key-btn" onclick="prefKeyUndo()">Undo</button>
+        </div>
+        <div class="pref-key-entry" id="prefApiKeyEntry">
+          <input
+            type="password"
+            class="pref-input"
+            id="prefApiKey"
+            placeholder="sk-ant-…"
+            autocomplete="new-password"
+            autocapitalize="off"
+            spellcheck="false"
+            oninput="prefOnKeyInput()"
+          />
+          <button type="button" class="pref-key-btn" id="prefApiKeyCancel" style="display:none" onclick="prefKeyUndo()">Cancel</button>
+        </div>
+        <div class="pref-key-error" id="prefApiKeyError" style="display:none"></div>
+        <div class="pref-hint">
+          FINOVA will call Anthropic with your key, and usage is billed to your Anthropic account.
+          The key is stored encrypted with your preferences and is never shown again after you save.
+          Leave this empty to use FinResolver's built-in AI.
+        </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="modal-footer">
       <button class="btn-secondary" onclick="cancelPreferences()">Cancel</button>
-      <button class="btn-primary" onclick="savePreferences()">Save</button>
+      <button class="btn-primary" id="prefSaveBtn" onclick="savePreferences()">Save</button>
     </div>
 
   </div>

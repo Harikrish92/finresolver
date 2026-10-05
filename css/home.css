@@ -3,12 +3,7 @@
    FinResolver · finresolver.in
    ============================================================ */
 
-#homeScreen {
-  display: none;
-  position: relative; z-index: 1;
-  max-width: 1400px; margin: 0 auto;
-  padding: 1.75rem 1.5rem 5rem;
-}
+/* The home screen itself is FINOVA (#advisorScreen) — see css/advisor.css. */
 
 /* ── Welcome row ────────────────────────────────────────────── */
 .home-welcome {
@@ -65,7 +60,7 @@
 .home-nav-card.plannerhub { --card-accent: var(--accent3); --card-glow: radial-gradient(ellipse at top, rgba(255,209,102,.06), transparent 70%); }
 .home-nav-card.advisorhub { --card-accent: var(--purple);  --card-glow: radial-gradient(ellipse at top, rgba(167,139,250,.06), transparent 70%); }
 
-/* ── Hub screens (Tracker / Planner sub-nav): same page frame as #homeScreen/#portfolioScreen ── */
+/* ── Hub screens (Tracker / Planner sub-nav): same page frame as #portfolioScreen ── */
 #trackerHubScreen, #plannerHubScreen {
   display: none;
   position: relative; z-index: 1;

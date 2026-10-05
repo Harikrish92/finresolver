@@ -648,3 +648,175 @@
 .adv-msg-action .fa-status { font-size: 12.5px; color: var(--muted); margin-top: .45rem; }
 .adv-msg-action .fa-status:empty { display: none; }
 .adv-msg-action .fa-done .fa-list li { opacity: .8; }
+
+/* ─── FINOVA as the home screen (search-page layout) ──────── */
+/* Idle: wordmark + search bar + suggestions, vertically centred like a
+   search engine's home page. Chatting: the thread uses the full page and
+   the search bar docks at the bottom. The intro walkthrough lifts this
+   z-index while spotlighting (see _introHighlightCard in home.js). */
+#advisorScreen {
+  position: relative; z-index: 1;
+  min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
+}
+#advisorMainContent {
+  max-width: 860px; margin: 0 auto;
+  padding: 0 1.25rem;
+  min-height: calc(100vh - 60px - 3.25rem);
+  min-height: calc(100dvh - 60px - 3.25rem);
+  flex-direction: column;
+}
+
+/* Top bar */
+.fnv-topbar {
+  display: flex; justify-content: flex-end; gap: .5rem;
+  padding: .75rem 1.25rem 0;
+}
+.fnv-top-btn {
+  font: inherit; font-size: var(--text-sm); cursor: pointer;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: .4rem .9rem;
+  transition: border-color .2s, background .2s;
+}
+.fnv-top-btn:hover, .fnv-top-btn.active { border-color: var(--purple); background: rgba(167,139,250,.1); }
+.fnv-idle .fnv-newchat-btn { display: none; }
+
+/* Hero */
+.fnv-hero { text-align: center; margin-top: auto; padding-bottom: 1.75rem; }
+.fnv-wordmark {
+  font-family: var(--font-head); font-weight: 800;
+  font-size: clamp(2.6rem, 9vw, 4.25rem); letter-spacing: .04em; line-height: 1;
+  color: var(--text);
+}
+.fnv-wordmark span {
+  background: linear-gradient(90deg, var(--purple), var(--accent4));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.fnv-greeting { font-family: var(--font-head); font-size: var(--text-h3); font-weight: 600; margin-top: 1rem; }
+.fnv-hint { font-size: var(--text-sm); color: var(--muted); margin: .4rem auto 0; max-width: 520px; line-height: 1.55; }
+.fnv-chatting .fnv-hero { display: none; }
+
+/* Search bar */
+.fnv-search { width: 100%; }
+.fnv-idle .fnv-search { margin-bottom: auto; padding-bottom: 12vh; }
+.fnv-chatting .fnv-search {
+  position: sticky; bottom: 0; margin-top: auto;
+  padding: .75rem 0 1rem;
+  background: linear-gradient(to bottom, transparent, var(--bg) 35%);
+}
+#advisorScreen .fnv-searchbar {
+  position: static;
+  align-items: center;
+  border-radius: 999px;
+  padding: .45rem .45rem .45rem 1.15rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
+}
+#advisorScreen .fnv-searchbar .adv-input { font-size: var(--text-base); padding: .35rem 0; }
+#advisorScreen .fnv-searchbar .adv-send-btn { border-radius: 999px; min-width: 42px; height: 38px; padding: 0 .9rem; }
+.fnv-search-icon { color: var(--purple); font-size: 1.05rem; flex-shrink: 0; }
+
+/* Suggestions under the bar (idle only — answers carry their own follow-ups) */
+.fnv-suggestions { justify-content: center; margin-top: 1rem; }
+.fnv-chatting .fnv-suggestions { display: none; }
+.adv-chip.adv-chip-action { border-color: rgba(167,139,250,.45); color: var(--purple); }
+.fnv-month-note { text-align: center; font-size: var(--text-xs); color: var(--muted); margin-top: .85rem; }
+.fnv-chatting .fnv-month-note { display: none; }
+
+/* Thread: full width, no box — answers read like a results page */
+.fnv-thread { display: flex; flex-direction: column; gap: 1.1rem; padding-top: 1rem; }
+.fnv-idle .fnv-thread { display: none; }
+.fnv-thread .adv-msg { max-width: 100%; font-size: var(--text-base); }
+.fnv-thread .adv-msg-user {
+  align-self: flex-end; max-width: 80%;
+  border-radius: 18px 18px 4px 18px;
+}
+.fnv-thread .adv-msg-assistant {
+  align-self: stretch;
+  background: transparent; border: none; border-radius: 0;
+  padding: .25rem 0 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.fnv-thread .adv-msg-assistant::before {
+  content: '✦ FINOVA'; display: block; margin-bottom: .45rem;
+  font-family: var(--font-head); font-size: var(--text-xs); font-weight: 700;
+  letter-spacing: .08em; color: var(--purple);
+}
+.fnv-thread .adv-msg-assistant[data-tone="warn"]::before { content: '✦ FINOVA · heads-up'; color: var(--accent3); }
+.fnv-thread .adv-msg-assistant[data-tone="good"]::before { content: '✦ FINOVA · looking good'; color: var(--accent); }
+.fnv-thread .adv-msg-action {
+  align-self: flex-start; width: min(100%, 520px);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: .9rem 1rem; background: var(--surface2);
+}
+.fnv-thread .adv-msg-action::before { content: none; }
+#advisorScreen .adv-typing, #advisorScreen .adv-error { margin-top: .75rem; }
+
+/* Restored action outcome line in the saved transcript */
+.adv-msg.adv-msg-note {
+  align-self: center; max-width: 90%;
+  font-size: var(--text-xs); color: var(--muted);
+  background: transparent; border: 1px dashed var(--border);
+  border-radius: 999px; padding: .25rem .8rem;
+}
+
+/* New users: data-only bits hidden until FINOVA has some numbers */
+#advisorScreen.adv-no-data .adv-needs-data { display: none; }
+.fnv-panel-empty { display: none; font-size: var(--text-sm); color: var(--muted); padding: 0 1.25rem 1rem; }
+#advisorScreen.adv-no-data .fnv-panel-empty { display: block; }
+
+/* Snapshot panel: drops down under the top bar, over the page */
+.fnv-panel {
+  position: absolute; z-index: 30; top: 3.4rem; right: 1.25rem;
+  width: min(760px, calc(100% - 2.5rem));
+  max-height: calc(100vh - 60px - 5rem); overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  padding-bottom: .5rem;
+  animation: fadeUp .2s ease both;
+}
+.fnv-panel[hidden] { display: none; }
+.fnv-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .85rem 1.25rem .35rem;
+  font-family: var(--font-head); font-weight: 700; font-size: var(--text-sm);
+  text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+}
+.fnv-panel-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
+.fnv-panel .adv-context-strip { padding: .5rem 1.25rem; }
+.fnv-panel .adv-insights-section { padding: .25rem 1.25rem .75rem; }
+
+/* Tiles: every other area, one tap from FINOVA */
+.fnv-tiles {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .6rem; padding: .35rem 1.25rem .5rem;
+}
+.fnv-tile {
+  display: flex; align-items: center; gap: .65rem;
+  min-width: 0; text-align: left; cursor: pointer;
+  font: inherit; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: .7rem .85rem;
+  transition: border-color .2s, background .2s;
+}
+.fnv-tile:hover { border-color: var(--tile-accent, var(--accent)); background: var(--surface2); }
+.fnv-tile.trackerhub { --tile-accent: var(--accent); }
+.fnv-tile.plannerhub { --tile-accent: var(--accent3); }
+.fnv-tile.portfolio  { --tile-accent: var(--purple); }
+.fnv-tile.monthly    { --tile-accent: var(--accent4); }
+.fnv-tile-icon { font-size: 1.35rem; line-height: 1; flex-shrink: 0; }
+.fnv-tile-text { display: flex; flex-direction: column; min-width: 0; }
+.fnv-tile-title { font-family: var(--font-head); font-weight: 700; font-size: var(--text-sm); }
+.fnv-tile-sub { font-size: var(--text-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 760px) {
+  #advisorMainContent { padding: 0 1rem; }
+  .fnv-topbar { padding: .6rem 1rem 0; }
+  .fnv-panel { left: .75rem; right: .75rem; width: auto; }
+  .fnv-panel .adv-context-strip { padding: .5rem 1rem; }
+  .fnv-tiles { padding: .35rem 1rem .5rem; gap: .5rem; }
+  .fnv-idle .fnv-search { padding-bottom: 8vh; }
+  .fnv-thread .adv-msg-user { max-width: 90%; }
+}
+.theme-light .fnv-panel { background: #fff; box-shadow: 0 18px 50px rgba(20,30,60,.18); }
+.theme-light #advisorScreen .fnv-searchbar { background: #fff; box-shadow: 0 6px 24px rgba(20,30,60,.12); }

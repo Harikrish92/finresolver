@@ -24,3 +24,26 @@
 }
 
 .pref-seg-btn.active { background: var(--s1); color: var(--t1); }
+
+/* ── Own API key (password-style: never shown once saved) ─────────────────── */
+.pref-key-entry,
+.pref-key-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pref-key-entry .inp { flex: 1; min-width: 0; }
+
+.pref-key-saved {
+  background: var(--s2);
+  border: 1px solid var(--b);
+  border-radius: var(--rs);
+  padding: 5px 6px 5px 12px;
+}
+
+.pref-key-status { flex: 1; font-size: 12.5px; color: var(--t1); }
+
+.pref-key-danger { color: var(--red); }
+
+.pref-key-error { font-size: 11.5px; color: var(--red); margin-top: 8px; }

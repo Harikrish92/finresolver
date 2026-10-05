@@ -118,7 +118,7 @@ function buildTweaksPanel() {
       <div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Quick Navigate</div>
         <div style="display:flex;flex-direction:column;gap:3px">
-          ${[['dashboard','Dashboard'],['monthly','Monthly Tracker'],['investments','Investments'],['loans','Loans'],['portfolio','Portfolio & FIRE']].map(([s,l])=>`
+          ${[['advisor','FINOVA'],['dashboard','Overview'],['monthly','Monthly Tracker'],['investments','Investments'],['loans','Loans'],['portfolio','Portfolio & FIRE']].map(([s,l])=>`
             <button onclick="navigate('${s}');document.getElementById('tweaks-panel').classList.add('hide');window.parent.postMessage({type:'__edit_mode_dismissed'},'*')"
               style="background:transparent;border:none;text-align:left;padding:7px 8px;border-radius:var(--rs);cursor:pointer;font-size:12.5px;font-weight:500;color:var(--t2);font-family:var(--font);transition:.15s"
               onmouseover="this.style.background='var(--s3)';this.style.color='var(--t1)'"

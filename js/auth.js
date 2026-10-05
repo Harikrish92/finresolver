@@ -274,6 +274,7 @@ function logOut() {
       .filter(k => k.startsWith(dpPrefix))
       .forEach(k => localStorage.removeItem(k));
     localStorage.removeItem(`finresolver_dayplanner_recurring_${uid}`);
+    localStorage.removeItem(`fr_userprefs_${uid}`); // may hold the user's own API key
   }
 
   localStorage.removeItem(SESSION_KEY);
@@ -303,8 +304,8 @@ function logOut() {
   document.getElementById('appMain').style.display     = 'none';
   if (typeof QuickAddBot !== 'undefined') QuickAddBot.hide();
 
-  // Also hide home screen if present
-  const homeScreen = document.getElementById('homeScreen');
+  // Also hide the home screen (FINOVA)
+  const homeScreen = document.getElementById('advisorScreen');
   if (homeScreen) homeScreen.style.display = 'none';
 
   // Hide ALL module screens

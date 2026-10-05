@@ -1,13 +1,18 @@
 // ── APP SHELL & ROUTING ───────────────────────────────────────────────────────
-let _screen = 'dashboard';
-let _sidebarCollapsed = false;
-let _chartInstances = {};
-
 // Feature flag — AI Advisor is live.
 const ADVISOR_ENABLED = true;
 
+// FINOVA is the home screen; every other screen revolves around it.
+// Falls back to the Overview dashboard if FINOVA is switched off.
+const HOME_SCREEN = ADVISOR_ENABLED ? 'advisor' : 'dashboard';
+
+let _screen = HOME_SCREEN;
+let _sidebarCollapsed = false;
+let _chartInstances = {};
+
 const NAV = [
-  { screen:'dashboard',   icon:'home',      label:'Dashboard',       section:'OVERVIEW'  },
+  { screen:'advisor',     icon:'bot',       label:'FINOVA',          section:'FINOVA'    },
+  { screen:'dashboard',   icon:'home',      label:'Overview',        section:'OVERVIEW'  },
   { screen:'monthly',     icon:'calendar',  label:'Monthly Tracker', section:'TRACKER'   },
   { screen:'investments', icon:'trending',  label:'Investments',     section:null        },
   { screen:'loans',       icon:'card',      label:'Loan Tracker',    section:null        },
@@ -15,12 +20,11 @@ const NAV = [
   { screen:'portfolio',   icon:'target',    label:'Portfolio & FIRE',section:'PLANNER'   },
   { screen:'goals',       icon:'flag',      label:'Goals',           section:null        },
   { screen:'dayplanner',  icon:'clock',     label:'Day Planner',     section:null        },
-  { screen:'advisor',     icon:'bot',       label:'FINOVA',          section:'ADVISOR'   },
 ];
 
 // Bottom-nav (mobile) shows one tab per sidebar section; sections with
 // multiple screens open a picker sheet instead of navigating directly.
-const BNAV_LABELS = { OVERVIEW:'Home', TRACKER:'Tracker', PLANNER:'Planner', ADVISOR:'Advisor' };
+const BNAV_LABELS = { FINOVA:'FINOVA', OVERVIEW:'Overview', TRACKER:'Tracker', PLANNER:'Planner' };
 
 function _navGroups() {
   const groups = [];
@@ -65,7 +69,7 @@ function navigate(screen, opts = {}) {
 
   // breadcrumb
   const titles = {
-    dashboard:'Dashboard', monthly:'Monthly Tracker',
+    dashboard:'Overview', monthly:'Monthly Tracker',
     investments:'Investments', loans:'Loan Tracker',
     'loan-detail':'Loan Detail', portfolio:'Portfolio & FIRE',
     goals:'My Financial Goals', 'goal-detail':'Goal Detail',
@@ -143,7 +147,7 @@ function showApp() {
   document.getElementById('sb-user-email').textContent   = APP.user.email;
   document.getElementById('sb-user-initials').textContent = APP.user.initials;
 
-  navigate('dashboard');
+  navigate(HOME_SCREEN);
 
   // First-time walkthrough — runs once per browser regardless of which login
   // path got us here (Google sign-in, session restore or guest). The real
@@ -154,14 +158,15 @@ function showApp() {
 
 // ── WALKTHROUGH ───────────────────────────────────────────────────────────────
 const WT_STEPS = [
-  { icon:'wallet',   title:'Welcome to FinResolver',         desc:'Your all-in-one personal finance dashboard. Track spending, investments, loans and your path to financial independence — all in one place.' },
+  { icon:'wallet',   title:'Welcome to FinResolver',         desc:'Your all-in-one personal finance app. Track spending, investments, loans and your path to financial independence — all in one place.' },
+  { icon:'bot',      title:'Meet FINOVA, your home screen',  desc:'Talk to FINOVA like a person: "spent 2,400 on groceries today" or "where am I overspending?". It prepares entries for you to confirm, answers from your real numbers, and every other screen is one tap away.' },
   { icon:'calendar', title:'Monthly Tracker',                desc:'Log income, expenses, investments and EMIs each month. Get a live balance, checklist reminders and 3-month trend charts.' },
   { icon:'trending', title:'Investment Portfolio',           desc:'Track stocks, mutual funds, gold, real estate and more with live prices. Import from Zerodha, Groww, Upstox and 5 other brokers.' },
   { icon:'card',     title:'Loan Tracker',                   desc:'Monitor all your loans in one place. View full amortization schedules, payment history and outstanding balance curves.' },
   { icon:'target',   title:'Portfolio & FIRE Number',        desc:'See your net worth, asset allocation and your FIRE number — the corpus you need to retire early based on your spending.' },
   { icon:'flag',     title:'Goals',                          desc:'Set savings and investment goals, track progress towards each one and see exactly when you\'ll get there at your current pace.' },
   { icon:'lifestyle',title:'Lifestyle Tracker',              desc:'Catalogue your household goods, keep tabs on warranties and never miss an important date or renewal again.' },
-  { icon:'bot',      title:'FINOVA',                         desc:'Chat with a personal finance assistant powered by AI that reads your real data to give personalised, actionable advice.' },
+  { icon:'home',     title:'Overview',                       desc:'Prefer the numbers at a glance? The Overview dashboard sits right next to FINOVA in the menu.' },
 ];
 let _wtStep = 0;
 
@@ -228,12 +233,12 @@ function buildBottomNav() {
   nav.innerHTML = _navGroups().map(g => {
     const first = g.items[0];
     const isMulti = g.items.length > 1;
-    const isDisabled = g.section === 'ADVISOR' && !ADVISOR_ENABLED;
+    const isDisabled = g.section === 'FINOVA' && !ADVISOR_ENABLED;
     const action = isDisabled ? ''
       : isMulti ? `onclick="toggleBnavSheet('${g.section}')"`
       : `onclick="navigate('${first.screen}')"`;
     return `
-      <div class="bnav-item${isDisabled ? ' disabled' : ''}${g.section === 'OVERVIEW' ? ' active' : ''}" data-group="${g.section}" ${action}>
+      <div class="bnav-item${isDisabled ? ' disabled' : ''}${g.section === _navGroupFor(HOME_SCREEN) ? ' active' : ''}" data-group="${g.section}" ${action}>
         ${ic(first.icon, 20)}
         <span>${BNAV_LABELS[g.section] || g.section}</span>
       </div>`;

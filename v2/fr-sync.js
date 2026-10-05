@@ -256,7 +256,7 @@ async function loadAllData() {
 
   // Re-render current screen with real data
   const sc = document.getElementById('screen-content');
-  if (sc) renderScreen(_screen || 'dashboard', sc);
+  if (sc) renderScreen(_screen || HOME_SCREEN, sc);
 }
 
 // ── Monthly data ──────────────────────────────────────────────────────────────
@@ -711,6 +711,7 @@ async function logout() {
     localStorage.removeItem(`fr_goals_${signedOutUid}`);
     localStorage.removeItem(`fr_dayplanner_cfg_${signedOutUid}`);
     localStorage.removeItem(`finresolver_dayplanner_recurring_${signedOutUid}`);
+    localStorage.removeItem(`fr_userprefs_${signedOutUid}`); // may hold the user's own API key
   }
   if (typeof resetDayPlannerV2State === 'function') resetDayPlannerV2State();
 

@@ -23,8 +23,11 @@ function _setDrawerActive(screen) {
   });
 }
 
+/* Every top-level screen container — FINOVA (#advisorScreen) is the home screen. */
+var HOME_SCREEN_IDS = ['appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen','trackerHubScreen','plannerHubScreen'];
+
 function _hideAllScreens() {
-  ['homeScreen','appMain','loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen','trackerHubScreen','plannerHubScreen'].forEach(function(id) {
+  HOME_SCREEN_IDS.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -39,7 +42,8 @@ function _enterTracker(screen) {
 
 function _exitTracker() {
   _currentScreen = 'home';
-  document.getElementById('btnHamburger').style.display = 'none';
+  // Home is FINOVA now — keep the drawer reachable from it too
+  document.getElementById('btnHamburger').style.display = 'flex';
 }
 
 /** Navigate from home → tracker */
@@ -62,19 +66,19 @@ function goToTracker() {
   }
 }
 
-/** Navigate back to home */
+/** Navigate back to home — the FINOVA screen (advisor.js finovaShowHome) */
 function goToHome() {
   history.replaceState({ screen: 'home' }, '');
   closeNavDrawer();
   _hideAllScreens();
   _exitTracker();
-  document.getElementById('homeScreen').style.display  = 'block';
 
   // Hide tracker-only header controls on home screen
   const tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
 
   renderHomeDashboard();
+  if (typeof finovaShowHome === 'function') finovaShowHome();
 }
 
 /** Navigate home → portfolio overview */
@@ -648,23 +652,17 @@ function showHomeScreen() {
   closeNavDrawer();
   _exitTracker();
   document.getElementById('loginScreen').style.display  = 'none';
-  document.getElementById('appMain').style.display      = 'none';
-  document.getElementById('homeScreen').style.display   = 'block';
 
   // Hide ALL module screens so nothing bleeds through on login/logout
-  ['loanScreen','loanDetailScreen','investmentScreen','portfolioScreen','lifestyleScreen','advisorScreen','dayPlannerScreen','trackerHubScreen','plannerHubScreen'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-
-  // Stop investment auto-refresh if running
-  if (typeof invStopAutoRefresh === 'function') invStopAutoRefresh();
+  // (also stops investment auto-refresh if running)
+  _hideAllScreens();
 
   // Always hide tracker-only controls when on home screen
   const tc = document.getElementById('headerTrackerControls');
   if (tc) tc.style.display = 'none';
 
   renderHomeDashboard();
+  if (typeof finovaShowHome === 'function') finovaShowHome();
 
   // Show loader if Firebase is configured and the initial cloud sync hasn't
   // completed yet (syncReady is false until onAuthStateChanged fires in sync.js).
@@ -734,10 +732,9 @@ function homeFetchLivePricesOnce() {
   setInvLiveDot(true);
   Promise.allSettled(jobs).then(() => {
     setInvLiveDot(false);
-    // Only re-render if the home screen is still visible
-    if (document.getElementById('homeScreen').style.display !== 'none') {
-      renderHomeDashboard();
-    }
+    renderHomeDashboard();
+    // Home is FINOVA: refresh its stat strip with the live prices
+    if (typeof finovaRefreshCtx === 'function') finovaRefreshCtx();
   });
 }
 
@@ -753,50 +750,38 @@ const INTRO_SLIDES = [
   {
     type: 'welcome',
     icon: '✨',
-    title: '<span>Fin</span>Resolver',
-    sub: 'Your personal finance command center. Let\'s take a quick tour of everything you can do here.',
+    title: 'Meet <span>FINOVA</span>',
+    sub: 'Your AI money assistant is your home screen. Talk to it, and it tracks, explains and plans for you — every detailed screen is one tap away.',
     features: [
-      { icon: '📊', title: 'Monthly Tracker',    desc: 'Log expenses, income, investments & loan payments month by month.' },
-      { icon: '📈', title: 'Investment Tracker', desc: 'Live prices for stocks & mutual funds, portfolio P&L & allocation.' },
-      { icon: '🏦', title: 'Loan Tracker',       desc: 'EMI schedule, amortization table & full payoff timeline.' },
-      { icon: '🔥', title: 'FIRE & Insights',    desc: 'Net worth, savings rate, FIRE number & spending pattern insights.' },
+      { icon: '💬', title: 'Just Say It',      desc: '"Spent 2,400 on groceries today" — FINOVA prepares the entry, you tap Confirm.' },
+      { icon: '🧠', title: 'Knows Your Data',  desc: 'Answers about your spending, loans and investments using your real numbers.' },
+      { icon: '📊', title: 'Daily Insights',   desc: 'Three key insights about your finances, refreshed every day.' },
+      { icon: '🧭', title: 'One Tap Away',     desc: 'Trackers, planners and your net worth sit in the Snapshot panel.' },
     ]
   },
   {
     type: 'spotlight',
-    selector: '.home-nav-card.trackerhub',
-    icon: '📊',
-    title: '<span>Tracker</span>',
-    sub: 'Everything you record — expenses, investments, loans and household goods — grouped in one place.',
-    features: [
-      { icon: '💸', title: 'Monthly Tracker',    desc: 'Income, expenses, SIPs and EMIs with a Smart Fill shortcut.' },
-      { icon: '📈', title: 'Investment Tracker', desc: 'Live prices, P&L and asset allocation across every category.' },
-      { icon: '🏦', title: 'Loan Tracker',       desc: 'EMI schedule, amortization and full payoff timeline.' },
-      { icon: '🏠', title: 'Lifestyle Tracker',  desc: 'Household goods, warranties and important dates.' },
-    ]
-  },
-  {
-    type: 'spotlight',
-    selector: '.home-nav-card.plannerhub',
-    icon: '🔥',
-    title: '<span>Planner</span>',
-    sub: 'Your financial picture and your daily schedule, both in one hub.',
-    features: [
-      { icon: '💰', title: 'FIRE & Insights', desc: 'Net worth, savings rate, FIRE number and spending patterns.' },
-      { icon: '📋', title: 'Day Planner',     desc: 'A custom time-block schedule for your day, set up once.' },
-    ]
-  },
-  {
-    type: 'spotlight',
-    selector: '.home-nav-card.advisorhub',
+    selector: '#advisorScreen .fnv-searchbar',
     icon: '🤖',
-    title: '<span>FINOVA</span>',
-    sub: 'Chat with a personal finance assistant powered by AI that actually understands your data.',
+    title: '<span>Talk to FINOVA</span>',
+    sub: 'Ask a question or tell it what happened — the answer takes the whole screen. Nothing is saved until you confirm, and every entry can be undone.',
     features: [
-      { icon: '💬', title: 'Ask Anything',      desc: 'Get answers about your spending, investments and loans in plain English.' },
-      { icon: '🧠', title: 'Knows Your Data',   desc: 'Reads your real numbers to give personalised, actionable advice.' },
-      { icon: '🎯', title: 'Smart Suggestions', desc: 'Spot savings opportunities and ways to reach your FIRE goal faster.' },
-      { icon: '🔒', title: 'Private & Secure',  desc: 'Your API key is stored securely and your data never leaves your account.' },
+      { icon: '➕', title: 'Record',  desc: 'Expenses, income, SIPs and EMI payments — even monthly repeats.' },
+      { icon: '❓', title: 'Ask',     desc: '"Where am I overspending?" "Which loan should I pay first?"' },
+      { icon: '🔒', title: 'Private', desc: 'Your data stays in your account and chat history is encrypted on this device.' },
+    ]
+  },
+  {
+    type: 'spotlight',
+    selector: '#fnvPanelBtn',
+    icon: '📊',
+    title: '<span>Snapshot</span>',
+    sub: 'Your numbers and every detailed screen, one tap away from FINOVA. The ☰ menu has them too.',
+    features: [
+      { icon: '💰', title: 'At a glance',  desc: 'Net worth, savings rate, portfolio value and loans outstanding.' },
+      { icon: '💡', title: 'Daily insights', desc: 'Three key insights about your finances, refreshed every day.' },
+      { icon: '📊', title: 'Tracker',      desc: 'Monthly, Investments, Loans and Lifestyle trackers in full detail.' },
+      { icon: '🔥', title: 'Planner',      desc: 'FIRE & Insights and your Day Planner.' },
     ]
   },
 ];
@@ -913,10 +898,10 @@ function _introHighlightCard(selector) {
   const targetTop = Math.max(96, window.innerHeight * 0.22);
   window.scrollBy({ top: card.getBoundingClientRect().top - targetTop, behavior: 'auto' });
 
-  // #homeScreen has z-index:1 which traps children in its stacking context.
-  // Remove it so the card's z-index is evaluated against the root context and
-  // it can appear above the overlay (z-index 9999).
-  const homeScreen = document.getElementById('homeScreen');
+  // #advisorScreen (home) has z-index:1 which traps children in its stacking
+  // context. Remove it so the card's z-index is evaluated against the root
+  // context and it can appear above the overlay (z-index 9999).
+  const homeScreen = document.getElementById('advisorScreen');
   if (homeScreen) homeScreen.style.zIndex = 'auto';
 
   // Boost the card above the overlay in the root stacking context
@@ -946,8 +931,8 @@ function _introClearCardHighlight() {
     _introHighlightedCard.style.boxShadow     = '';
     _introHighlightedCard = null;
   }
-  // Restore #homeScreen's stacking context
-  const homeScreen = document.getElementById('homeScreen');
+  // Restore #advisorScreen's stacking context
+  const homeScreen = document.getElementById('advisorScreen');
   if (homeScreen) homeScreen.style.zIndex = '';
   const ring = document.getElementById('introHighlightRing');
   if (ring) ring.classList.add('hidden');
@@ -1225,8 +1210,6 @@ window.addEventListener('popstate', function(e) {
     if (typeof backToLoanList === 'function') backToLoanList();
   } else if (s === 'lifestyle') {
     goToLifestyle(true);
-  } else if (s === 'advisor') {
-    if (typeof goToAdvisor === 'function') goToAdvisor(true);
   } else if (s === 'dayplanner') {
     goToDayPlanner(true);
   } else if (s === 'tracker-hub') {

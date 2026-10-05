@@ -1,5 +1,6 @@
 // ── PREFERENCES ────────────────────────────────────────────────────────────────
-// Appearance / UI mode / FinBolt visibility / free-text notes shared with FINOVA. Config persists
+// Appearance / UI mode / FinBolt visibility / free-text notes shared with FINOVA /
+// the user's own Anthropic API key for FINOVA (optional). Config persists
 // per-user via Firestore, same path convention as fr-healthcheck.js
 // (users/{uid}/config/preferences), so it syncs between Classic and Modern.
 
@@ -12,13 +13,19 @@ let _prefData = _prefDefaultData();
 
 // Staged edits — only committed to storage (and, for theme, applied to the
 // page) when the user clicks Save. Cancel just discards this.
-let _prefDraft = { theme: 'light', uiMode: 'modern', showFinBolt: true, aiNotes: '' };
+let _prefDraft = { theme: 'light', uiMode: 'modern', showFinBolt: true, aiNotes: '', keyAction: null, newKey: '' };
 
 // In-memory cache of the free-text "notes for AI" field, read synchronously
 // (well — awaited once, then cached) by fr-advisor.js when building the
 // system prompt.
 let _prefsTextCache  = '';
-let _prefsTextLoaded = false;
+let _prefsTextUid    = null;   // uid the cache belongs to — reloaded on account switch
+
+// The user's own Anthropic API key (optional). Treated like a password:
+// stored only inside the encrypted preferences doc, never rendered back into
+// the page once saved. Cached per uid so a different account signing in on
+// the same page never picks up the previous user's key.
+let _prefKeyCache = { uid: null, key: '' };
 
 function _prefDefaultData() {
   return { aiNotes: '', uiMode: 'modern', showFinBolt: true };
@@ -62,11 +69,23 @@ async function _prefSaveConfig() {
 // ── Public getter used by fr-advisor.js to prime the system prompt.
 // Loads (and decrypts) on first call, then serves from cache.
 async function getUserPrefsText() {
-  if (_prefsTextLoaded) return _prefsTextCache;
+  const uid = _currentUID;
+  if (_prefsTextUid === uid) return _prefsTextCache;
   const loaded = await _prefLoadConfig();
   _prefsTextCache  = (loaded && loaded.aiNotes) ? String(loaded.aiNotes).trim() : '';
-  _prefsTextLoaded = true;
+  _prefsTextUid    = uid;
   return _prefsTextCache;
+}
+
+// ── Public getter used by fr-advisor.js — the user's own Anthropic key, or
+// '' when they haven't set one (FINOVA then uses the app's key).
+async function getUserAnthropicKey() {
+  if (!_currentUID) return '';
+  if (_prefKeyCache.uid === _currentUID) return _prefKeyCache.key;
+  const uid    = _currentUID;
+  const loaded = await _prefLoadConfig();
+  _prefKeyCache = { uid, key: (loaded && loaded.anthropicKey) ? String(loaded.anthropicKey) : '' };
+  return _prefKeyCache.key;
 }
 
 // ── Called once per browser session right after login (see fr-sync.js).
@@ -158,16 +177,111 @@ function prefOnNotesInput() {
   _prefDraft.aiNotes = ta.value;
 }
 
+// ── Own API key (staged) ──
+// keyAction: null = leave as is, 'replace' = showing the input, 'remove' =
+// delete the saved key on Save. The typed key lives only in _prefDraft.newKey
+// until Save; the input always starts empty.
+function prefKeyReplace() {
+  _prefDraft.keyAction = 'replace';
+  _prefRenderKeyState();
+  const inp = document.getElementById('prefApiKey');
+  if (inp) inp.focus();
+}
+
+function prefKeyRemove() {
+  _prefDraft.keyAction = 'remove';
+  _prefDraft.newKey = '';
+  _prefRenderKeyState();
+}
+
+function prefKeyUndo() {
+  _prefDraft.keyAction = null;
+  _prefDraft.newKey = '';
+  _prefRenderKeyState();
+}
+
+function prefOnKeyInput() {
+  const inp = document.getElementById('prefApiKey');
+  if (!inp) return;
+  _prefDraft.newKey = inp.value.trim();
+  _prefSetKeyError('');
+}
+
+function _prefSetKeyError(msg) {
+  const el = document.getElementById('prefApiKeyError');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+
+// Guests keep everything in this browser only (nothing is saved for them),
+// so the key field is replaced with a sign-in hint.
+function _prefRenderKeyState() {
+  const guest   = !_currentUID;
+  const section = document.getElementById('prefApiKeySection');
+  const gNote   = document.getElementById('prefApiKeyGuest');
+  if (section) section.style.display = guest ? 'none' : '';
+  if (gNote)   gNote.style.display   = guest ? '' : 'none';
+  const hasKey  = !!_prefData.anthropicKey;
+  const action  = _prefDraft.keyAction;
+  const saved   = document.getElementById('prefApiKeySaved');
+  const entry   = document.getElementById('prefApiKeyEntry');
+  const removed = document.getElementById('prefApiKeyRemoved');
+  const inp     = document.getElementById('prefApiKey');
+  const cancel  = document.getElementById('prefApiKeyCancel');
+  const showEntry = !hasKey || action === 'replace';
+  if (saved)   saved.style.display   = (hasKey && !action) ? '' : 'none';
+  if (removed) removed.style.display = (hasKey && action === 'remove') ? '' : 'none';
+  if (entry)   entry.style.display   = (showEntry && action !== 'remove') ? '' : 'none';
+  if (cancel)  cancel.style.display  = (hasKey && action === 'replace') ? '' : 'none';
+  if (inp && !showEntry) inp.value = '';
+}
+
+// Format check + a free GET /v1/models call so a mistyped key is caught here
+// rather than on the first FINOVA question. Returns an error string, or ''
+// when the key is usable (network failures don't block saving).
+async function _prefValidateKey(key) {
+  if (!/^sk-ant-[A-Za-z0-9_\-]{20,}$/.test(key)) {
+    return 'That doesn’t look like an Anthropic API key — it should start with "sk-ant-".';
+  }
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+      headers: {
+        'x-api-key':         key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }
+    });
+    if (resp.status === 401 || resp.status === 403) return 'Anthropic rejected this key. Please check it and try again.';
+  } catch (e) { /* offline / blocked — accept and let FINOVA report later */ }
+  return '';
+}
+
 function prefCancelModal() {
+  _prefDraft.newKey = '';
   closeModal();
 }
 
 async function prefSaveModal() {
+  if (_prefDraft.newKey && _currentUID) {
+    const saveBtn = document.getElementById('prefSaveBtn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Checking key…'; }
+    const keyErr = await _prefValidateKey(_prefDraft.newKey);
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+    if (keyErr) { _prefSetKeyError(keyErr); return; }
+    _prefData.anthropicKey = _prefDraft.newKey;
+  } else if (_prefDraft.keyAction === 'remove') {
+    delete _prefData.anthropicKey;
+  }
+  _prefKeyCache = { uid: _currentUID, key: _prefData.anthropicKey || '' };
+  _prefDraft.newKey = '';
+  _prefDraft.keyAction = null;
+
   _prefData.aiNotes = _prefDraft.aiNotes;
   _prefData.uiMode  = _prefDraft.uiMode;
   _prefData.showFinBolt = _prefDraft.showFinBolt;
   _prefsTextCache   = _prefDraft.aiNotes.trim();
-  _prefsTextLoaded  = true;
+  _prefsTextUid     = _currentUID;
 
   await _prefSaveConfig();
 
@@ -229,10 +343,38 @@ function _prefModalHtml() {
         </div>
       </div>
 
+      <div class="inp-grp">
+        <label class="inp-label" for="prefApiKey">Your own Anthropic API key (optional)</label>
+        <div id="prefApiKeyGuest" style="display:none;font-size:11.5px;color:var(--t3)">Sign in with Google to use your own API key.</div>
+        <div id="prefApiKeySection">
+        <div class="pref-key-saved" id="prefApiKeySaved" style="display:none">
+          <span class="pref-key-status">🔒 Your key is saved — FINOVA uses it</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="prefKeyReplace()">Replace</button>
+          <button type="button" class="btn btn-ghost btn-sm pref-key-danger" onclick="prefKeyRemove()">Remove</button>
+        </div>
+        <div class="pref-key-saved" id="prefApiKeyRemoved" style="display:none">
+          <span class="pref-key-status">Your key will be removed when you save</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="prefKeyUndo()">Undo</button>
+        </div>
+        <div class="pref-key-entry" id="prefApiKeyEntry">
+          <input type="password" class="inp" id="prefApiKey" placeholder="sk-ant-…"
+            autocomplete="new-password" autocapitalize="off" spellcheck="false"
+            oninput="prefOnKeyInput()">
+          <button type="button" class="btn btn-ghost btn-sm" id="prefApiKeyCancel" style="display:none" onclick="prefKeyUndo()">Cancel</button>
+        </div>
+        <div class="pref-key-error" id="prefApiKeyError" style="display:none"></div>
+        <div style="font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5">
+          FINOVA will call Anthropic with your key, and usage is billed to your Anthropic account.
+          The key is stored encrypted with your preferences and is never shown again after you save.
+          Leave this empty to use FinResolver's built-in AI.
+        </div>
+        </div>
+      </div>
+
     </div>
     <div class="modal-ft">
       <button class="btn btn-ghost" onclick="prefCancelModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="prefSaveModal()">Save</button>
+      <button class="btn btn-primary" id="prefSaveBtn" onclick="prefSaveModal()">Save</button>
     </div>`;
 }
 
@@ -244,13 +386,17 @@ async function openPreferencesV2() {
     theme:   APP.theme,
     uiMode:  _prefData.uiMode || 'modern',
     showFinBolt: _prefData.showFinBolt !== false,
-    aiNotes: _prefData.aiNotes || ''
+    aiNotes: _prefData.aiNotes || '',
+    keyAction: null,
+    newKey:  ''
   };
+  _prefKeyCache    = { uid: _currentUID, key: _prefData.anthropicKey || '' };
   _prefsTextCache  = _prefData.aiNotes || '';
-  _prefsTextLoaded = true;
+  _prefsTextUid    = _currentUID;
 
   openModal(_prefModalHtml());
   _prefUpdateThemeBtns();
   _prefUpdateModeBtns();
   _prefUpdateFinBoltBtns();
+  _prefRenderKeyState();
 }
