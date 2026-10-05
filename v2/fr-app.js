@@ -581,7 +581,7 @@ async function refreshLivePrices() {
     renderScreen(_screen, document.getElementById('screen-content'));
   } catch(e) {
     console.error('[V2 price] refresh failed', e);
-    _showToast('Could not fetch live prices right now. Please try again shortly.');
+    _showToast('Could not fetch live prices right now (' + e.message + '). Please try again shortly.');
   } finally {
     const b = document.getElementById('refresh-prices-btn');
     if (b) { b.disabled = false; b.innerHTML = ic('refresh',12) + ' Refresh'; }
@@ -611,15 +611,18 @@ function _timedFetch(url, ms = 8000) {
 // an API key (401), thingproxy is gone, and codetabs/allorigins mostly time
 // out (522) — those two are kept only as a last-ditch fallback.
 const _YF_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev';
+// A 404 carrying Yahoo's chart.error ("symbol not found") is a definitive
+// answer — return it so the caller reports a bad ticker instead of waiting
+// on the slow fallbacks.
+const _workerFetch = url => _timedFetch(_YF_WORKER_URL + '?url=' + encodeURIComponent(url), 8000).then(async r => {
+  if (r.status === 404) { const j = await r.json().catch(() => null); if (j?.chart?.error) return j; }
+  if (!r.ok) throw new Error('cf-worker ' + r.status);
+  return r.json();
+});
 const _YAHOO_PROXIES = [
-  // A 404 carrying Yahoo's chart.error ("symbol not found") is a definitive
-  // answer — return it so the caller reports a bad ticker instead of waiting
-  // on the slow fallbacks.
-  url => _timedFetch(_YF_WORKER_URL + '?url='                    + encodeURIComponent(url), 8000).then(async r => {
-    if (r.status === 404) { const j = await r.json().catch(() => null); if (j?.chart?.error) return j; }
-    if (!r.ok) throw new Error('cf-worker ' + r.status);
-    return r.json();
-  }),
+  _workerFetch,
+  // Yahoo rate-limits (429) per host, so retry the worker on the other one
+  url => _workerFetch(url.replace('://query1.', '://query2.')),
   url => _timedFetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
   url => _timedFetch('https://api.allorigins.win/raw?url='      + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
 ];

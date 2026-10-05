@@ -567,7 +567,13 @@ async function _aiFetchModalQuote(ticker) {
       if (inputs[2] && !inputs[2].value) { inputs[2].value = price.toFixed(2); _aiUpdateSummary(); }
     }
   } catch(e) {
-    preview.innerHTML = `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>`;
+    console.warn('[V2 quote]', ticker, e);
+    // Only Yahoo's own "no data" answer means a bad symbol; anything else
+    // (CORS block, timeout, proxy down) is a connectivity problem.
+    const notFound = /^No (data|price) for|not found|delisted/i.test(e.message || '');
+    preview.innerHTML = notFound
+      ? `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>`
+      : `<span style="color:var(--red);font-size:12px">⚠ Couldn't reach the price service — live price unavailable right now. You can still save the holding.</span>`;
   }
 }
 
