@@ -766,7 +766,8 @@ async function advisorSend(text) {
   if (!msg) return;
   if (!(await _advPrimaryKey())) { _advShowError("FINOVA isn't configured yet — please check back later."); return; }
 
-  if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+  if (window.FinovaVoice) FinovaVoice.cancel();
+  if (inp) { inp.value = ''; advisorAutosize(inp); }
 
   if (_advIsUnsafeInput(msg)) {
     _advAppendMsg('user', msg);
@@ -1181,8 +1182,7 @@ function _advBindFollowupClicks(chat) {
     var inp = document.getElementById('advisorInput');
     if (!inp) return;
     inp.value = q;
-    inp.style.height = 'auto';
-    inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+    advisorAutosize(inp);
     inp.focus();
   });
 }
@@ -1438,13 +1438,33 @@ function _advApplyDataState(hasData) {
       "<i>\"my salary is 85,000, credited on the 1st every month\"</i>.";
 }
 
+/* Grow the input with its text up to ADV_INPUT_MAX_H, and only show a
+   scrollbar once the text is taller than that — a wrapping placeholder on a
+   narrow phone must never produce one. */
+var ADV_INPUT_MAX_H = 120;
+function advisorAutosize(inp) {
+  if (!inp) return;
+  inp.style.height = 'auto';
+  if (!inp.value) { inp.style.overflowY = 'hidden'; return; }
+  var h = inp.scrollHeight;
+  inp.style.height = Math.min(h, ADV_INPUT_MAX_H) + 'px';
+  inp.style.overflowY = h > ADV_INPUT_MAX_H ? 'auto' : 'hidden';
+}
+
+/* Mic button: speech fills the bar for the user to check (js/finova-voice.js). */
+function advisorVoice() {
+  var inp = document.getElementById('advisorInput');
+  if (!inp || !window.FinovaVoice) return;
+  FinovaVoice.toggle({ input: inp, button: document.getElementById('advisorMic'),
+                       onMessage: _advShowError, autosize: advisorAutosize });
+}
+
 /* Quick-action chips: drop a sentence starter into the input for the user to finish. */
 function advisorPrefill(text) {
   var inp = document.getElementById('advisorInput');
   if (!inp) return;
   inp.value = text;
-  inp.style.height = 'auto';
-  inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+  advisorAutosize(inp);
   inp.focus();
   try { inp.setSelectionRange(text.length, text.length); } catch (e) {}
 }
@@ -1458,6 +1478,7 @@ function advisorPrefill(text) {
 var ADV_TRANSCRIPT_MAX = 20;
 var _advTranscript     = [];
 var _advTranscriptUid  = null;
+var _advTranscriptSeq  = 0;   // encrypts can resolve out of order; only the newest may write
 
 function _advEmail() {
   return (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : null;
@@ -1493,7 +1514,9 @@ function _advRecord(role, text) {
   if (_advTranscript.length > ADV_TRANSCRIPT_MAX) _advTranscript = _advTranscript.slice(-ADV_TRANSCRIPT_MAX);
   var uid = _advTranscriptUid || _advUid(), copy = _advTranscript.slice();
   if (typeof encryptForStorage !== 'function') return;
+  var seq = ++_advTranscriptSeq;
   encryptForStorage(copy, _advEmail()).then(function(enc) {
+    if (seq !== _advTranscriptSeq) return;
     try { localStorage.setItem('fr_finova_chat_' + uid, enc); } catch (e) {}
   }).catch(function() {});
 }

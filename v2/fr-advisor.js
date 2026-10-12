@@ -841,7 +841,8 @@ async function adv2Send(text) {
   if (!msg) return;
   if (!(await _adv2PrimaryKey())) { _adv2ShowErr("FINOVA isn't configured yet — please check back later."); return; }
 
-  if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+  if (window.FinovaVoice) FinovaVoice.cancel();
+  if (inp) { inp.value = ''; adv2Autosize(inp); }
 
   if (_adv2IsUnsafeInput(msg)) {
     _adv2Messages.push({ role: 'user', text: msg });
@@ -1024,8 +1025,7 @@ function _adv2BindFollowupClicks(chat) {
     const inp = document.getElementById('adv2-input');
     if (!inp) return;
     inp.value = q;
-    inp.style.height = 'auto';
-    inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
+    adv2Autosize(inp);
     inp.focus();
   });
 }
@@ -1088,13 +1088,32 @@ function adv2NewChat() {
   if (errEl) errEl.style.display = 'none';
 }
 
+// Grow the input with its text up to ADV2_INPUT_MAX_H; the scrollbar only
+// appears once the text is taller than that (never for a wrapping placeholder).
+const ADV2_INPUT_MAX_H = 100;
+function adv2Autosize(inp) {
+  if (!inp) return;
+  inp.style.height = 'auto';
+  if (!inp.value) { inp.style.overflowY = 'hidden'; return; }
+  const h = inp.scrollHeight;
+  inp.style.height = Math.min(h, ADV2_INPUT_MAX_H) + 'px';
+  inp.style.overflowY = h > ADV2_INPUT_MAX_H ? 'auto' : 'hidden';
+}
+
+// Mic button: speech fills the bar for the user to check (js/finova-voice.js).
+function adv2Voice() {
+  const inp = document.getElementById('adv2-input');
+  if (!inp || !window.FinovaVoice) return;
+  FinovaVoice.toggle({ input: inp, button: document.getElementById('adv2-mic'),
+                       onMessage: _adv2ShowErr, autosize: adv2Autosize });
+}
+
 // Quick-action chips: drop a sentence starter into the input for the user to finish.
 function adv2Prefill(text) {
   const inp = document.getElementById('adv2-input');
   if (!inp) return;
   inp.value = text;
-  inp.style.height = 'auto';
-  inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
+  adv2Autosize(inp);
   inp.focus();
   try { inp.setSelectionRange(text.length, text.length); } catch (e) {}
 }
@@ -1106,13 +1125,16 @@ function adv2Prefill(text) {
 // be confirmed twice), their outcome is kept as a 'note' line instead.
 const ADV2_TRANSCRIPT_MAX = 20;
 let _adv2MsgUid = null;   // uid whose saved transcript has been merged in
+let _adv2PersistSeq = 0;  // encrypts can resolve out of order; only the newest may write
 
 function _adv2Persist() {
   if (!_currentUID || typeof encryptForStorage !== 'function') return;
   _adv2Messages = _adv2Messages.slice(-ADV2_TRANSCRIPT_MAX);
   const uid  = _currentUID;
   const copy = _adv2Messages.map(function(m) { return { role: m.role, text: String(m.text || '').slice(0, 6000) }; });
+  const seq = ++_adv2PersistSeq;
   encryptForStorage(copy, _currentEmail).then(function(enc) {
+    if (seq !== _adv2PersistSeq) return;
     try { localStorage.setItem('fr_finova_chat_' + uid, enc); } catch (e) {}
   }).catch(function() {});
 }
@@ -1358,24 +1380,26 @@ async function renderAdvisor(el) {
           placeholder="Ask FINOVA, or say “spent 500 on fuel today”…"
           rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adv2SendInput();}"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+          oninput="adv2Autosize(this)"
         ></textarea>
+        <button class="fnv-mic" id="adv2-mic" data-finova-mic hidden onclick="adv2Voice()"
+          title="Speak (English)" aria-label="Speak your question or entry (English)" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg></button>
         <button class="btn btn-primary btn-sm adv2-send" onclick="adv2SendInput()" title="Send">→</button>
       </div>
       <div class="adv2-chips adv2-suggestions">
         <button class="adv2-chip adv2-chip-action" onclick="adv2Prefill('Add an expense of ₹')">＋ Add an expense</button>
-        <button class="adv2-chip adv2-chip-action" onclick="adv2Prefill('Log my salary of ₹')">＋ Log salary</button>
-        <button class="adv2-chip adv2-chip-action" onclick="adv2Prefill('Paid my EMI of ₹')">＋ Add EMI payment</button>
+        <button class="adv2-chip adv2-chip-action" onclick="adv2Prefill('Add an investment of ₹')">＋ Add an investment</button>
         <button class="adv2-chip adv2-needs-data" onclick="adv2Send('How am I doing this month?')">How am I doing this month?</button>
         <button class="adv2-chip adv2-needs-data" onclick="adv2Send('Where am I overspending?')">Where am I overspending?</button>
         <button class="adv2-chip adv2-needs-data" onclick="adv2Send('Which loan should I pay off first?')">Which loan to pay first?</button>
       </div>
-      <div class="adv2-month-note">Entries go to ${monthName(new Date().getMonth() + 1)} unless you say a date · nothing is saved until you confirm</div>
+      <div class="adv2-month-note">Entries go to ${monthName(new Date().getMonth() + 1)} unless you say a specific date · Nothing is saved until you confirm</div>
     </div>
 
     </div>`;
 
   if (typeof initFinovaOrbsIn === 'function') initFinovaOrbsIn(el);
+  if (window.FinovaVoice) FinovaVoice.setupAll(el);
 
   // Restore previous chat (this session, or the saved transcript)
   if (_adv2Messages.length > 0) {
