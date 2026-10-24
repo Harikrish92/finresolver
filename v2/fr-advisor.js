@@ -7,7 +7,7 @@ const _adv2Cfg = (typeof window !== 'undefined' && window.FINRESOLVER_CONFIG) ||
 
 // Chat and insights state — persists across in-session navigation
 let _adv2ApiKey       = _adv2Cfg.anthropicApiKey  || null;
-let _adv2BackupApiKey = _adv2Cfg.openRouterApiKey || null; // OpenRouter — optional backup when the primary is out of tokens
+let _adv2BackupApiKey = _adv2Cfg.openRouterApiKey || null; // OpenRouter — optional backup when the primary is unavailable
 let _adv2History  = [];   // Anthropic API messages [{role, content}]
 let _adv2Messages = [];   // display log [{role, text}]
 let _adv2Snap     = null; // cached financial snapshot
@@ -17,16 +17,29 @@ let _adv2Loading  = false;
 const ADV2_MODEL   = 'claude-sonnet-4-6';
 const ADV2_MAX_TOK = 1000;
 
-// Backup provider — OpenRouter (OpenAI-compatible), used only when the
-// primary call fails with a rate-limit/credit-exhausted error and a backup
-// key is configured. The backup model is a reasoning model that spends part
+// Backup provider — OpenRouter (OpenAI-compatible), used whenever the
+// primary call fails for any reason and a backup key is configured. The backup model is a reasoning model that spends part
 // of its token budget on internal chain-of-thought before writing the real
 // answer — sharing ADV2_MAX_TOK with it left too little room for both, so it
 // was getting cut off (finish_reason "length") mid-thought, and the raw
 // reasoning narration was leaking out as the "answer". Give it its own,
 // larger budget and bias it toward less internal reasoning.
 const ADV2_BACKUP_MAX_TOK = 3000;
-const ADV2_BACKUP_MODEL    = 'nvidia/nemotron-3-super-120b-a12b:free';
+// Free models come and go on OpenRouter without notice (a single hard-coded
+// one going dead took FINOVA down), so the backup is an ordered list. It is
+// sent in groups of 3 via OpenRouter's `models` fallback array (its max), and
+// the next group is tried if a whole group fails. Avoid `openrouter/free`
+// here — it can route to a safety classifier that replies "User Safety: safe".
+const ADV2_BACKUP_MODELS = [
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'nvidia/nemotron-3.5-super-vl:free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'poolside/laguna-s-2.1:free',
+  'google/gemma-4-26b-a4b-it:free'
+];
+// A hung primary request must not stall FINOVA — abort and fall back.
+const ADV2_PRIMARY_TIMEOUT_MS = 45000;
 const ADV2_BACKUP_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const ADV2_BASE_PROMPT =
   'You are a friendly, expert personal finance advisor for an Indian user. ' +
@@ -272,9 +285,6 @@ function _adv2BuildSnapshot() {
 }
 
 // ── AI API ────────────────────────────────────────────────────────────────────
-// True if the error looks like the primary model is out of tokens/credits/
-// rate-limited (as opposed to a bad key, bad request, etc.) — the case we
-// fall back on.
 // Resolves which Anthropic key the next call uses: the user's own key from
 // Preferences if they saved one, else the app-wide key.
 async function _adv2PrimaryKey() {
@@ -291,9 +301,39 @@ function _adv2CheckAuth(resp, key) {
 
 const ADV2_OWN_KEY_INVALID_MSG = 'Anthropic rejected your API key. Update or remove it in Preferences.';
 
-function _adv2IsTokenExhausted(err) {
-  const msg = (err && err.message) || '';
-  return msg === 'RATE_LIMIT' || /credit balance|insufficient_quota|quota exceeded|rate_limit|overloaded/i.test(msg);
+// Any primary failure falls back to the backup — revoked/invalid app key,
+// retired model, 5xx, network error, timeout, missing key — so FINOVA stays up
+// whenever the backup does. The one exception is a rejected *own* key: that's
+// for the user to fix in Preferences, so it is shown to them.
+function _adv2ShouldFallback(err) {
+  return !(err && err.message === 'OWN_KEY_INVALID') && !!_adv2BackupApiKey;
+}
+
+// fetch() with an abort timeout, for the primary call.
+async function _adv2PrimaryFetch(key, body) {
+  if (!key) throw new Error('NOT_CONFIGURED');
+  const ctrl  = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, ADV2_PRIMARY_TIMEOUT_MS) : null;
+  try {
+    return await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(body),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// True if either provider is configured (own key, app key or backup key).
+async function _adv2IsConfigured() {
+  return !!(_adv2BackupApiKey || (await _adv2PrimaryKey()));
 }
 
 // FINOVA actions (../js/finova-actions.js) — tool calls that propose adding
@@ -302,16 +342,31 @@ function _adv2ActionsOn() {
   return typeof FinovaActions !== 'undefined';
 }
 
-// Backup call — OpenRouter (OpenAI-compatible chat completions), only used
-// when the primary model fails with a token/quota error and a backup key is set.
+// Backup call — OpenRouter (OpenAI-compatible chat completions), used when
+// the primary model fails and a backup key is set.
 // Returns { text, calls }. With withTools, FINOVA's action tools are offered;
 // if the backup model/route doesn't support tool calling, the request is
 // retried once without them (plain advice still works).
 async function _adv2BackupCall(messages, withTools) {
+  const system = await _adv2SystemPrompt();
+  let lastErr;
+  for (let i = 0; i < ADV2_BACKUP_MODELS.length; i += 3) {
+    const models = ADV2_BACKUP_MODELS.slice(i, i + 3);
+    try {
+      return await _adv2BackupCallGroup(models, system, messages, withTools);
+    } catch (e) {
+      lastErr = e;
+      console.warn('[FINOVA] backup models failed:', models.join(', '), e.message);
+    }
+  }
+  throw lastErr || new Error('BACKUP_API_ERROR');
+}
+
+async function _adv2BackupCallGroup(models, system, messages, withTools) {
   const body = {
-    model: ADV2_BACKUP_MODEL, max_tokens: ADV2_BACKUP_MAX_TOK,
+    models: models, max_tokens: ADV2_BACKUP_MAX_TOK,
     reasoning: { effort: 'low', exclude: true },
-    messages: [{ role: 'system', content: await _adv2SystemPrompt() }].concat(messages)
+    messages: [{ role: 'system', content: system }].concat(messages)
   };
   if (withTools && _adv2ActionsOn()) body.tools = FinovaActions.openAITools();
 
@@ -328,7 +383,7 @@ async function _adv2BackupCall(messages, withTools) {
   if (!resp.ok) {
     const e = await resp.json().catch(function(){ return {}; });
     const errMsg = (e.error && e.error.message) || 'BACKUP_API_ERROR';
-    if (body.tools && /tool/i.test(errMsg)) return _adv2BackupCall(messages, false);
+    if (body.tools && /tool/i.test(errMsg)) return _adv2BackupCallGroup(models, system, messages, false);
     throw new Error(errMsg);
   }
   const data = await resp.json();
@@ -355,7 +410,8 @@ async function _adv2CallRaw(userContent) {
   try {
     return await _adv2CallPrimaryRaw(userContent);
   } catch (e) {
-    if (_adv2IsTokenExhausted(e) && _adv2BackupApiKey) {
+    if (_adv2ShouldFallback(e)) {
+      console.warn('[FINOVA] primary unavailable, using backup:', e.message);
       return (await _adv2BackupCall([{ role: 'user', content: userContent }], false)).text;
     }
     throw e;
@@ -364,18 +420,9 @@ async function _adv2CallRaw(userContent) {
 
 async function _adv2CallPrimaryRaw(userContent) {
   const key  = await _adv2PrimaryKey();
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type':      'application/json',
-      'x-api-key':         key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: ADV2_MODEL, max_tokens: ADV2_MAX_TOK, system: await _adv2SystemPrompt(),
-      messages: [{ role: 'user', content: userContent }]
-    })
+  const resp = await _adv2PrimaryFetch(key, {
+    model: ADV2_MODEL, max_tokens: ADV2_MAX_TOK, system: await _adv2SystemPrompt(),
+    messages: [{ role: 'user', content: userContent }]
   });
   _adv2CheckAuth(resp, key);
   if (resp.status === 429) throw new Error('RATE_LIMIT');
@@ -388,7 +435,7 @@ async function _adv2CallPrimaryRaw(userContent) {
 }
 
 /* Conversational call — maintains rolling 6-message history. Falls back to
-   the backup model (if configured) when the primary is out of tokens, reusing
+   the backup model (if configured) when the primary is unavailable, reusing
    the same history so context isn't lost. */
 async function _adv2CallChat(userContent) {
   _adv2History.push({ role: 'user', content: userContent });
@@ -398,7 +445,8 @@ async function _adv2CallChat(userContent) {
   try {
     answer = await _adv2CallPrimaryChat();
   } catch (e) {
-    if (_adv2IsTokenExhausted(e) && _adv2BackupApiKey) {
+    if (_adv2ShouldFallback(e)) {
+      console.warn('[FINOVA] primary unavailable, using backup:', e.message);
       try {
         answer = await _adv2BackupCall(_adv2History, true);
       } catch (e2) {
@@ -428,16 +476,7 @@ async function _adv2CallPrimaryChat() {
   if (_adv2ActionsOn()) body.tools = FinovaActions.anthropicTools();
 
   const key  = await _adv2PrimaryKey();
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type':      'application/json',
-      'x-api-key':         key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify(body)
-  });
+  const resp = await _adv2PrimaryFetch(key, body);
 
   _adv2CheckAuth(resp, key);
   if (resp.status === 429) throw new Error('RATE_LIMIT');
@@ -749,7 +788,7 @@ async function _adv2LoadInsights(force) {
 
   if (!force && _adv2Insights) { el.innerHTML = _adv2Insights; _adv2UpdateInsightsCount(); return; }
 
-  if (!(await _adv2PrimaryKey())) {
+  if (!(await _adv2IsConfigured())) {
     if (seq !== _adv2InsightsSeq) return;
     _adv2Insights =
       '<div class="adv2-ic adv2-ic-neutral">' +
@@ -839,7 +878,7 @@ async function adv2Send(text) {
   const inp = document.getElementById('adv2-input');
   const msg = (text || (inp && inp.value) || '').trim();
   if (!msg) return;
-  if (!(await _adv2PrimaryKey())) { _adv2ShowErr("FINOVA isn't configured yet — please check back later."); return; }
+  if (!(await _adv2IsConfigured())) { _adv2ShowErr("FINOVA isn't configured yet — please check back later."); return; }
 
   if (window.FinovaVoice) FinovaVoice.cancel();
   if (inp) { inp.value = ''; adv2Autosize(inp); }
@@ -1135,7 +1174,7 @@ function _adv2Persist() {
   const seq = ++_adv2PersistSeq;
   encryptForStorage(copy, _currentEmail).then(function(enc) {
     if (seq !== _adv2PersistSeq) return;
-    try { localStorage.setItem('fr_finova_chat_' + uid, enc); } catch (e) {}
+    try { sessionStorage.setItem('fr_finova_chat_' + uid, enc); } catch (e) {}
   }).catch(function() {});
 }
 
@@ -1144,9 +1183,12 @@ async function _adv2RestoreMessages() {
   if (!uid || _adv2MsgUid === uid) return;
   if (_adv2MsgUid !== null) { _adv2Messages = []; _adv2History = []; }  // different user signed in
   _adv2MsgUid = uid;
+  // Chat lives in sessionStorage so a fresh app launch starts a new chat;
+  // drop any copy left in localStorage by older builds.
+  try { localStorage.removeItem('fr_finova_chat_' + uid); } catch (e) {}
   let saved = null;
   try {
-    const raw = localStorage.getItem('fr_finova_chat_' + uid);
+    const raw = sessionStorage.getItem('fr_finova_chat_' + uid);
     if (raw && typeof decryptFromStorage === 'function') saved = await decryptFromStorage(raw, _currentEmail);
   } catch (e) {}
   if (!Array.isArray(saved)) return;
