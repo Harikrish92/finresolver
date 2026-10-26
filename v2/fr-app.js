@@ -612,9 +612,9 @@ function _timedFetch(url, ms = 8000) {
 }
 
 // Own Cloudflare Worker (same one classic uses — INV_CF_WORKER_URL in
-// js/investments.js). It's the only reliable path: corsproxy.io now requires
-// an API key (401), thingproxy is gone, and codetabs/allorigins mostly time
-// out (522) — those two are kept only as a last-ditch fallback.
+// js/investments.js). It's the only working path: corsproxy.io requires an
+// API key, thingproxy is gone and codetabs/allorigins time out, so falling
+// back to them only produced console errors and ~12s of extra waiting.
 const _YF_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev';
 // A 404 carrying Yahoo's chart.error ("symbol not found") is a definitive
 // answer — return it so the caller reports a bad ticker instead of waiting
@@ -628,8 +628,6 @@ const _YAHOO_PROXIES = [
   _workerFetch,
   // Yahoo rate-limits (429) per host, so retry the worker on the other one
   url => _workerFetch(url.replace('://query1.', '://query2.')),
-  url => _timedFetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('codetabs '   + r.status); return r.json(); }),
-  url => _timedFetch('https://api.allorigins.win/raw?url='      + encodeURIComponent(url), 6000).then(r => { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }),
 ];
 
 async function _proxyFetch(url) {

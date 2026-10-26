@@ -3,7 +3,7 @@
    Uses relative paths so it works on GitHub Pages subdirectories.
    ============================================================ */
 
-const CACHE_NAME   = 'finresolver-v16';
+const CACHE_NAME   = 'finresolver-v17';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -31,6 +31,7 @@ const CACHE_ASSETS = [
   './js/notes.js',
   './js/loans.js',
   './js/investments.js',
+  './js/security-search.js',
 ];
 
 /* ── Install: cache all core assets ── */
@@ -59,13 +60,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  /* Always go network for external APIs (Firebase, Yahoo, proxies) */
-  if (url.origin !== location.origin) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-    return;
-  }
+  /* External APIs (Firebase, Yahoo worker, AI providers): let the browser
+     handle them directly. Wrapping them in respondWith() turned every failed
+     or offline request into a second console error ("Failed to convert value
+     to 'Response'"), since caches.match() resolves undefined for them. */
+  if (url.origin !== location.origin) return;
 
   /* Cache-first for local assets, fallback to index.html for offline */
   event.respondWith(

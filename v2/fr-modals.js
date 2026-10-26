@@ -325,15 +325,14 @@ function _buildInvModalHTML(inv) {
         </div>
       </div>
 
-      <div class="g-2">
-        <div class="inp-grp">
-          <div class="inp-label">Investment Name *</div>
+      <div class="inp-grp">
+        <div class="inp-label">Investment Name *</div>
+        <div style="width:100%">
           <input class="inp" id="ai-name" value="${_lsEsc(name)}" placeholder="e.g. Reliance Industries" autofocus>
         </div>
-        <div class="inp-grp" id="ai-ticker-grp">
-          <div class="inp-label" id="ai-ticker-label">Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(for live prices)</span></div>
-          <input class="inp" id="ai-ticker" value="${_lsEsc(ticker)}" placeholder="e.g. RELIANCE.NS" oninput="_aiTickerInput()">
-        </div>
+        <!-- Ticker comes from the name search and stays hidden -->
+        <input type="hidden" id="ai-ticker" value="${_lsEsc(ticker)}">
+        <div class="frss-status" id="ai-ticker-status"></div>
       </div>
 
       <div id="ai-quote-preview" style="display:none;margin-bottom:2px;padding:10px 14px;background:var(--a05);border:1px solid var(--a20);border-radius:var(--rs);font-size:12.5px"></div>
@@ -436,7 +435,7 @@ function _aiSetCat(cat) {
   set('ai-gold-section', isGold);
   set('ai-re-section',   isRE || isEPF);
   set('ai-date-notes',   isSpecial);
-  set('ai-ticker-grp',   isLive);
+  set('ai-ticker-status', isLive);
 
   if (isEPF) {
     const bl = document.getElementById('ai-buy-label');
@@ -458,10 +457,14 @@ function _aiSetCat(cat) {
     ? 'Purchase Records <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(grant price optional)</span>'
     : 'Purchase Records *';
 
-  const tickerLabel = document.getElementById('ai-ticker-label');
-  if (tickerLabel) tickerLabel.innerHTML = isESOPOpt
-    ? 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(optional)</span>'
-    : 'Ticker Symbol <span style="font-size:11px;color:var(--t3);font-weight:400;text-transform:none">(for live prices)</span>';
+  // Name field doubles as the stock/fund search for live categories
+  const nameInp = document.getElementById('ai-name');
+  if (nameInp) nameInp.placeholder = cat === 'MF'
+    ? 'Search fund name, e.g. Parag Parikh Flexi Cap'
+    : isLive ? 'Search company name, e.g. Reliance, HDFC Bank, Apple'
+             : 'e.g. SBI FD, RBI Bond, Plot in Pune';
+  _aiAttachNameSearch();
+  _aiSetTickerStatus();
 
   if (isLots) {
     if (!_aiLots.length) {
@@ -526,6 +529,43 @@ function _aiUpdateSummary() {
   if (tEl) tEl.textContent = totalCost > 0 ? '₹' + totalCost.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
 }
 
+// Name search: typing a company/fund name lists matches; picking one stores
+// its Yahoo ticker in the hidden #ai-ticker and fetches the live price.
+const _aiIsLiveCat = () => ['Stock','MF','ESOP'].includes(_aiCat);
+
+function _aiAttachNameSearch() {
+  if (typeof FrSecuritySearch === 'undefined') return;
+  FrSecuritySearch.attach(document.getElementById('ai-name'), {
+    enabled: _aiIsLiveCat,
+    prefer:  () => _aiCat === 'MF' ? 'MUTUALFUND' : 'EQUITY',
+    onEdit:  () => {
+      // Name changed by hand → it no longer matches the linked ticker
+      const t = document.getElementById('ai-ticker');
+      if (t?.value) {
+        t.value = '';
+        const preview = document.getElementById('ai-quote-preview');
+        if (preview) preview.style.display = 'none';
+        _aiSetTickerStatus();
+      }
+    },
+    onPick:  it => {
+      document.getElementById('ai-ticker').value = it.symbol;
+      _aiSetTickerStatus();
+      _aiTickerInput();
+    },
+  });
+}
+
+function _aiSetTickerStatus() {
+  const el = document.getElementById('ai-ticker-status');
+  if (!el) return;
+  const linked = !!document.getElementById('ai-ticker')?.value;
+  el.className   = 'frss-status' + (linked ? ' linked' : '');
+  el.textContent = linked ? '✓ Live price linked'
+    : _aiCat === 'ESOP' ? 'Optional: pick the company from the search list to track its live price.'
+    : 'Pick a match from the search list to track its live price.';
+}
+
 function _aiTickerInput() {
   clearTimeout(_aiTickerDebounce);
   const ticker  = document.getElementById('ai-ticker')?.value.trim().toUpperCase();
@@ -538,7 +578,7 @@ async function _aiFetchModalQuote(ticker) {
   const preview = document.getElementById('ai-quote-preview');
   if (!preview) return;
   preview.style.display = '';
-  preview.innerHTML = `<div class="row" style="gap:8px;align-items:center">${ic('refresh',12)} <span style="color:var(--t3);font-size:12px">Fetching ${_lsEsc(ticker)}…</span></div>`;
+  preview.innerHTML = `<div class="row" style="gap:8px;align-items:center">${ic('refresh',12)} <span style="color:var(--t3);font-size:12px">Fetching live price…</span></div>`;
   try {
     // v8/chart via the shared fetcher (Yahoo's v7/quote now 401s)
     const q      = await _fetchYahooQuote(ticker);
@@ -552,8 +592,8 @@ async function _aiFetchModalQuote(ticker) {
       ? `<div style="font-size:11px;color:var(--t3)">${_lsEsc(q.currency)} ${q.price.toFixed(2)}</div>` : '';
     preview.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
       <div>
-        <div style="font-weight:600;font-size:13px">${_lsEsc(q.name||ticker)}</div>
-        <div style="font-size:11px;color:var(--t3)">${_lsEsc(ticker)}</div>
+        <div style="font-weight:600;font-size:13px">${_lsEsc(document.getElementById('ai-name')?.value || q.name)}</div>
+        <div style="font-size:11px;color:var(--t3)">Live price</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-weight:700;font-size:14px">₹${price.toFixed(2)}</div>${native}
@@ -572,7 +612,7 @@ async function _aiFetchModalQuote(ticker) {
     // (CORS block, timeout, proxy down) is a connectivity problem.
     const notFound = /^No (data|price) for|not found|delisted/i.test(e.message || '');
     preview.innerHTML = notFound
-      ? `<span style="color:var(--red);font-size:12px">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>`
+      ? `<span style="color:var(--red);font-size:12px">⚠ Live price isn't available for this pick — you can still save the holding.</span>`
       : `<span style="color:var(--red);font-size:12px">⚠ Couldn't reach the price service — live price unavailable right now. You can still save the holding.</span>`;
   }
 }

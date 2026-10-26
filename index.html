@@ -1812,19 +1812,16 @@
       <div class="inv-form-grid">
         <div class="inv-form-field full">
           <label class="inv-form-label">Investment Name *</label>
-          <input class="inv-form-input" id="invFormName" type="text" placeholder="e.g. Reliance Industries, HDFC Nifty 50 Fund" />
+          <div style="width:100%">
+            <input class="inv-form-input" id="invFormName" type="text" style="width:100%;box-sizing:border-box" placeholder="e.g. Reliance Industries, HDFC Nifty 50 Fund" />
+          </div>
         </div>
 
-        <!-- Ticker row (Stock / MF / ESOP) -->
+        <!-- Live price link (Stock / MF / ESOP). The ticker is set from the
+             name search and kept hidden — users never type or see it. -->
         <div class="inv-form-field full" id="invTickerRow">
-          <label class="inv-form-label" id="invTickerLabel">Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(for live prices)</span></label>
-          <input class="inv-form-input" id="invFormTicker" type="text"
-                 placeholder="e.g. RELIANCE.NS / INFY.NS / 0P0001FOP8.BO"
-                 oninput="invTickerInput()" style="text-transform:uppercase" />
-          <div class="inv-ticker-hint">
-            NSE stocks: <code>SYMBOL.NS</code> &nbsp;·&nbsp; BSE: <code>SYMBOL.BO</code> &nbsp;·&nbsp;
-            <a href="https://finance.yahoo.com" target="_blank" rel="noopener">Look up on Yahoo Finance →</a>
-          </div>
+          <input id="invFormTicker" type="hidden" />
+          <div class="frss-status" id="invTickerStatus"></div>
           <!-- Live quote preview -->
           <div class="inv-quote-preview" id="invQuotePreview"></div>
         </div>
@@ -2294,7 +2291,8 @@
 <script src="js/auth.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/loans.js"></script>
-<script src="js/investments.js?v=6"></script>
+<script src="js/security-search.js?v=1"></script>
+<script src="js/investments.js?v=7"></script>
 <script src="js/lifestyle.js"></script>
 <script src="js/finova-actions.js"></script>
 <script src="js/finova-voice.js"></script>

@@ -2,9 +2,9 @@
    investments.js — Investment Tracker
    FinResolver · finresolver.in
 
-   Uses Yahoo Finance via allorigins CORS proxy for live quotes.
-   News via RSS-to-JSON proxy (rss2json.com free tier).
-   Financials via Yahoo Finance query2 API.
+   Live quotes, financials and news all come from Yahoo Finance through
+   our own Cloudflare Worker (INV_CF_WORKER_URL). Stock/fund name search
+   lives in js/security-search.js.
    ============================================================ */
 
 /* ══════════════════════════════════════════════════════════
@@ -286,54 +286,34 @@ function invGoHome() {
 ─────────────────────────────────────────────────────────────────── */
 var INV_CF_WORKER_URL = 'https://yf-proxy.t-r-harikrish.workers.dev'; // e.g. 'https://yf-proxy.abc123.workers.dev'
 
+/* Our own Cloudflare Worker is the only working path. The public CORS
+   proxies this list used to fall back to are all dead (corsproxy.io 401/403,
+   thingproxy refuses connections, codetabs/allorigins time out) and only
+   added ~4 failed requests + ~30s of waiting per ticker. */
+function invWorkerFetch(url) {
+  if (!INV_CF_WORKER_URL) return Promise.reject(new Error('cf-worker not configured'));
+  return invTimedFetch(INV_CF_WORKER_URL + '?url=' + encodeURIComponent(url), 8000)
+    .then(function(r) {
+      // Yahoo's "symbol not found" is a definitive answer — don't retry it
+      if (r.status === 404) {
+        return r.json().catch(function() { return null; }).then(function(j) {
+          if (j && j.chart && j.chart.error) return j;
+          throw new Error('cf-worker 404');
+        });
+      }
+      if (!r.ok) throw new Error('cf-worker ' + r.status);
+      return r.json();
+    });
+}
+
 var INV_PROXIES = [
-  /* 1. Own Cloudflare Worker — fastest, most reliable, full header control.
-        Skipped automatically if INV_CF_WORKER_URL is null. */
+  invWorkerFetch,
+  /* Yahoo rate-limits (429) per host, so retry the worker on the other one */
   function(url) {
-    if (!INV_CF_WORKER_URL) return Promise.reject(new Error('cf-worker not configured'));
-    var proxyUrl = INV_CF_WORKER_URL + '?url=' + encodeURIComponent(url);
-    return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) {
-        if (!r.ok) throw new Error('cf-worker ' + r.status);
-        return r.json();
-      });
-  },
-  /* 2. api.codetabs.com — doesn't forward auth headers, Yahoo treats it as
-        anonymous browser traffic */
-  function(url) {
-    var proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-    return invTimedFetch(proxyUrl, 7000)
-      .then(function(r) {
-        if (!r.ok) throw new Error('codetabs ' + r.status);
-        return r.json();
-      });
-  },
-  /* 3. corsproxy.io — Yahoo sometimes 403s its IP range */
-  function(url) {
-    var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-    return invTimedFetch(proxyUrl, 6000)
-      .then(function(r) {
-        if (!r.ok) throw new Error('corsproxy ' + r.status);
-        return r.json();
-      });
-  },
-  /* 4. thingproxy.freeboard.io — different IP pool */
-  function(url) {
-    var proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + url;
-    return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) {
-        if (!r.ok) throw new Error('thingproxy ' + r.status);
-        return r.json();
-      });
-  },
-  /* 5. allorigins.win raw — last resort */
-  function(url) {
-    var proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-    return invTimedFetch(proxyUrl, 8000)
-      .then(function(r) {
-        if (!r.ok) throw new Error('allorigins ' + r.status);
-        return r.json();
-      });
+    var other = url.indexOf('://query1.') !== -1
+      ? url.replace('://query1.', '://query2.')
+      : url.replace('://query2.', '://query1.');
+    return invWorkerFetch(other);
   },
 ];
 
@@ -369,37 +349,12 @@ function invProxyFetch(yahooUrl) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   LIVE QUOTE — Yahoo Finance with proxy fallback chain
-   Tries v7/quote first (lighter, less blocked), then v8/chart.
+   LIVE QUOTE — Yahoo Finance v8/chart via the worker.
+   (v7/quote now returns 401 without a crumb, so it is no longer tried.)
 ══════════════════════════════════════════════════════════ */
 function invFetchQuote(ticker) {
-  /* v7/quote — simpler endpoint, less aggressively rate-limited */
-  var v7url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols='
-            + encodeURIComponent(ticker)
-            + '&fields=regularMarketPrice,regularMarketPreviousClose,shortName,longName,currency';
-
-  /* v8/chart — heavier but carries more meta; used as fallback */
   var v8url = 'https://query2.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker)
             + '?interval=1d&range=1d';
-
-  function parseV7(data) {
-    var q = data && data.quoteResponse && data.quoteResponse.result && data.quoteResponse.result[0];
-    if (!q || !isFinite(q.regularMarketPrice) || q.regularMarketPrice <= 0)
-      throw new Error('no v7 result for ' + ticker);
-    var price     = parseFloat(q.regularMarketPrice);
-    var prevClose = parseFloat(q.regularMarketPreviousClose || price);
-    var change    = price - prevClose;
-    var changePct = prevClose ? (change / prevClose) * 100 : 0;
-    return {
-      ticker:    ticker,
-      name:      q.shortName || q.longName || q.symbol || ticker,
-      price:     price,
-      change:    isFinite(change)    ? change    : 0,
-      changePct: isFinite(changePct) ? changePct : 0,
-      currency:  q.currency || 'INR',
-      ts:        Date.now(),
-    };
-  }
 
   function parseV8(data) {
     var result = data && data.chart && data.chart.result && data.chart.result[0];
@@ -421,12 +376,7 @@ function invFetchQuote(ticker) {
     };
   }
 
-  return invProxyFetch(v7url)
-    .then(parseV7)
-    .catch(function(e) {
-      console.warn('[InvQuote] v7 failed for', ticker, '—', e.message, '— trying v8/chart');
-      return invProxyFetch(v8url).then(parseV8);
-    });
+  return invProxyFetch(v8url).then(parseV8);
 }
 
 /* ── Gold Live Price (CoinGecko → Yahoo Finance fallback) ───── */
@@ -1221,12 +1171,8 @@ function invStripExchange(ticker) {
 }
 
 /* ── Financials ──────────────────────────────────────────────────
-   Waterfall of 3 strategies — first success wins:
-
-   1. quoteSummary via codetabs proxy (doesn't forward auth headers,
-      so Yahoo treats it as anonymous browser → often returns data)
-   2. v8/chart events=earnings  (works for US stocks)
-   3. v8/chart meta only        (always works — 52W, currency, exchange)
+   1. v8/chart events=earnings  (works for US stocks)
+   2. v8/chart meta only        (always works — 52W, currency, exchange)
 
    Never shows price-trend table as "financials".
    If nothing meaningful loads → shows direct links to Screener / YF.
@@ -1236,52 +1182,33 @@ function invLoadFinancials(h) {
   var ticker = (h.ticker || '').toUpperCase();
   body.innerHTML = '<div class="inv-loading"><div class="inv-spinner"></div> Loading financials…</div>';
 
-  /* ── Strategy 1: quoteSummary via codetabs (no auth forwarded) ── */
-  var modules = 'incomeStatementHistoryQuarterly,balanceSheetHistoryQuarterly'
-              + ',cashflowStatementHistoryQuarterly,defaultKeyStatistics,summaryDetail';
-  var qsUrl   = 'https://query2.finance.yahoo.com/v10/finance/quoteSummary/'
-              + encodeURIComponent(ticker) + '?modules=' + encodeURIComponent(modules);
-  var qsProxy = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(qsUrl);
+  /* quoteSummary (full statements) now needs a Yahoo crumb (401) and the
+     codetabs proxy used to reach it is dead, so go straight to v8/chart:
+     earnings events where Yahoo has them, otherwise meta + links. */
+  var chartUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/'
+               + encodeURIComponent(ticker)
+               + '?interval=1d&range=1y&events=earnings';
+  invProxyFetch(chartUrl)
+    .then(function(d) {
+      var result   = d.chart.result[0];
+      var meta     = result.meta;
+      var events   = result.events || {};
+      var earnsMap = events.earnings || {};
+      var quarters = Object.values(earnsMap)
+        .filter(function(e) { return e.epsactual !== undefined || e.actual !== undefined; })
+        .sort(function(a, b) { return (a.date||0) - (b.date||0) })
+        .slice(-4);
 
-  fetch(qsProxy)
-    .then(function(r) {
-      if (!r.ok) throw new Error('codetabs ' + r.status);
-      return r.json();
+      if (quarters.length > 0) {
+        _renderChartEarnings(meta, quarters, h, body);
+      } else {
+        /* Has meta but no earnings — show meta + links */
+        _renderMetaOnly(meta, h, body);
+      }
     })
-    .then(function(data) {
-      var qs = data.quoteSummary && data.quoteSummary.result && data.quoteSummary.result[0];
-      if (!qs) throw new Error('empty quoteSummary');
-      _renderQuoteSummary(qs, h, body);
-    })
-    .catch(function(e1) {
-      console.warn('[Fin] Strategy 1 failed:', e1.message, '— trying v8/chart');
-
-      /* ── Strategy 2: v8/chart events=earnings ── */
-      var chartUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/'
-                   + encodeURIComponent(ticker)
-                   + '?interval=1d&range=1y&events=earnings';
-      invProxyFetch(chartUrl)
-        .then(function(d) {
-          var result   = d.chart.result[0];
-          var meta     = result.meta;
-          var events   = result.events || {};
-          var earnsMap = events.earnings || {};
-          var quarters = Object.values(earnsMap)
-            .filter(function(e) { return e.epsactual !== undefined || e.actual !== undefined; })
-            .sort(function(a, b) { return (a.date||0) - (b.date||0) })
-            .slice(-4);
-
-          if (quarters.length > 0) {
-            _renderChartEarnings(meta, quarters, h, body);
-          } else {
-            /* Has meta but no earnings — show meta + links */
-            _renderMetaOnly(meta, h, body);
-          }
-        })
-        .catch(function(e2) {
-          console.warn('[Fin] Strategy 2 failed:', e2.message, '— showing fallback');
-          _renderFallbackLinks(h, body);
-        });
+    .catch(function(e) {
+      console.warn('[Fin] v8/chart failed:', e.message, '— showing fallback');
+      _renderFallbackLinks(h, body);
     });
 }
 
@@ -1539,29 +1466,37 @@ function _linkCard(icon, title, sub, href) {
 
 function invLoadNews(h) {
   var body = document.getElementById('invDetailBody');
-  // Use Yahoo Finance news RSS via rss2json
+  // Yahoo Finance news RSS through our worker (rss2json now sits behind a
+  // Cloudflare challenge and 403s), parsed client-side.
   var rssUrl = 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=' + encodeURIComponent(h.ticker) + '&region=IN&lang=en-IN';
-  var apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl) + '&count=10';
-  fetch(apiUrl)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (!data.items || !data.items.length) throw new Error('no items');
-      if (body) body.innerHTML = '<div class="inv-news-list">' + data.items.map(function(item){
+  invTimedFetch(INV_CF_WORKER_URL + '?url=' + encodeURIComponent(rssUrl), 8000)
+    .then(function(r){
+      if (!r.ok) throw new Error('rss ' + r.status);
+      return r.text();
+    })
+    .then(function(xml){
+      var doc   = new DOMParser().parseFromString(xml, 'text/xml');
+      var text  = function(el, tag){ var n = el.getElementsByTagName(tag)[0]; return n ? n.textContent : ''; };
+      var items = Array.prototype.slice.call(doc.getElementsByTagName('item'), 0, 10).map(function(el){
+        return { title: text(el, 'title'), link: text(el, 'link'), pubDate: text(el, 'pubDate') };
+      }).filter(function(it){ return it.title && /^https?:\/\//.test(it.link); });
+      if (!items.length) throw new Error('no items');
+      if (body) body.innerHTML = '<div class="inv-news-list">' + items.map(function(item){
         var pub = new Date(item.pubDate);
-        var ago = invTimeAgo(pub);
+        var ago = isNaN(pub) ? '' : invTimeAgo(pub);
         return '<a class="inv-news-item" href="' + invEsc(item.link) + '" target="_blank" rel="noopener">'
           + '<div class="inv-news-badge">📰</div>'
           + '<div style="flex:1;min-width:0">'
-          + '<div class="inv-news-source">' + invEsc(item.author || data.feed.title || h.ticker) + '</div>'
+          + '<div class="inv-news-source">Yahoo Finance</div>'
           + '<div class="inv-news-title">' + invEsc(item.title) + '</div>'
-          + '<div class="inv-news-time">🕐 ' + ago + '</div>'
+          + (ago ? '<div class="inv-news-time">🕐 ' + ago + '</div>' : '')
           + '</div></a>';
       }).join('') + '</div>';
     })
     .catch(function(){
       // Fallback: show generic financial news search link
       if (body) body.innerHTML = '<div class="inv-loading" style="flex-direction:column;gap:.75rem">'
-        + '<div>Live news not available via API for this ticker.</div>'
+        + '<div>Live news is not available for this holding right now.</div>'
         + '<a href="https://finance.yahoo.com/quote/' + encodeURIComponent(h.ticker) + '/news" target="_blank" rel="noopener" '
         + 'style="color:var(--accent4);font-size:.75rem">📰 View on Yahoo Finance →</a>'
         + '<a href="https://economictimes.indiatimes.com/markets/stocks/news" target="_blank" rel="noopener" '
@@ -2244,7 +2179,45 @@ function openInvModal(id, defaultCat) {
   invCalcREPreview();
   invSetCatPill(_cat);
   invHideQuotePreview();
+  invAttachNameSearch();
+  invSetTickerStatus();
   modal.classList.remove('hidden');
+}
+
+/* Name search: typing a company/fund name lists matches; picking one stores
+   its Yahoo ticker in the hidden #invFormTicker and fetches the live price. */
+function invIsLiveCat() {
+  return invSelectedCat === 'Stock' || invSelectedCat === 'MF' || invSelectedCat === 'ESOP';
+}
+
+function invAttachNameSearch() {
+  if (typeof FrSecuritySearch === 'undefined') return;
+  FrSecuritySearch.attach(document.getElementById('invFormName'), {
+    enabled: invIsLiveCat,
+    prefer:  function() { return invSelectedCat === 'MF' ? 'MUTUALFUND' : 'EQUITY'; },
+    onEdit:  function() {
+      // Name changed by hand → it no longer matches the linked ticker
+      var t = document.getElementById('invFormTicker');
+      if (t.value) { t.value = ''; invHideQuotePreview(); invSetTickerStatus(); }
+    },
+    onPick:  function(it) {
+      document.getElementById('invFormTicker').value = it.symbol;
+      invSetTickerStatus();
+      invTickerInput();
+    },
+  });
+}
+
+function invSetTickerStatus() {
+  var el = document.getElementById('invTickerStatus');
+  if (!el) return;
+  var linked = !!document.getElementById('invFormTicker').value;
+  el.className   = 'frss-status' + (linked ? ' linked' : '');
+  el.textContent = linked
+    ? '✓ Live price linked'
+    : (invSelectedCat === 'ESOP'
+        ? 'Optional: pick the company from the search list to track its live price.'
+        : 'Pick a match from the search list to track its live price.');
 }
 
 /* RE live preview: gain + return % */
@@ -2296,15 +2269,14 @@ function invSetCatPill(cat) {
   var tickerRow = document.getElementById('invTickerRow');
   if (tickerRow) tickerRow.style.display = isLive ? '' : 'none';
 
-  // Update ticker label/hint for ESOP vs Stock/MF
-  var tickerLabel = document.getElementById('invTickerLabel');
-  var tickerInput = document.getElementById('invFormTicker');
-  if (tickerLabel) tickerLabel.innerHTML = isESOPOpt
-    ? 'Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(optional — enables live prices)</span>'
-    : 'Ticker Symbol <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:.62rem">(for live prices)</span>';
-  if (tickerInput) tickerInput.placeholder = isESOPOpt
-    ? 'e.g. INFY.NS (leave blank for manual value)'
-    : 'e.g. RELIANCE.NS / INFY.NS / 0P0001FOP8.BO';
+  // Name field doubles as the stock/fund search for live categories
+  var nameInput = document.getElementById('invFormName');
+  if (nameInput) nameInput.placeholder = cat === 'MF'
+    ? 'Search fund name, e.g. Parag Parikh Flexi Cap'
+    : isLive
+      ? 'Search company name, e.g. Reliance, HDFC Bank, Apple'
+      : 'e.g. SBI FD, RBI Bond, Plot in Pune';
+  invSetTickerStatus();
 
   // Purchase records (lots) section: show for Stock / MF / ESOP / Bond / FD / Others
   var lotsSection   = document.getElementById('invLotsSection');
@@ -2418,8 +2390,8 @@ function invFetchModalQuote(ticker) {
           + (usdInrRate ? ' <span style="color:var(--muted);font-size:.65rem">≈ ₹' + inrPrice.toFixed(2) + '</span>' : '')
         : '₹' + rawPrice.toFixed(2);
 
-      preview.innerHTML = '<div><div class="inv-quote-ticker">' + invEsc(q.ticker) + '</div>'
-        + '<div class="inv-quote-name">' + invEsc(q.name) + '</div></div>'
+      preview.innerHTML = '<div><div class="inv-quote-ticker">' + invEsc(q.name) + '</div>'
+        + '<div class="inv-quote-name">Live price</div></div>'
         + '<div><div class="inv-quote-price">' + priceHtml + '</div>'
         + '<div class="' + (qChgPct(q) >= 0 ? 'inv-change-pos' : 'inv-change-neg') + '" style="font-size:.7rem">'
         + fmtIPct(qChgPct(q)) + ' today</div></div>';
@@ -2434,7 +2406,7 @@ function invFetchModalQuote(ticker) {
       }
     }
   }).catch(function() {
-    if (preview) preview.innerHTML = '<span style="color:var(--accent2)">⚠ Ticker not found — check symbol (e.g. RELIANCE.NS)</span>';
+    if (preview) preview.innerHTML = '<span style="color:var(--accent2)">⚠ Live price is unavailable right now — you can still save the holding.</span>';
   });
 }
 
