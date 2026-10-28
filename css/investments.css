@@ -928,6 +928,9 @@
   border-radius: var(--radius-lg); padding: 1rem 1.1rem;
   animation: fadeUp .35s ease both;
 }
+#invBucketsList[data-painted] .inv-bucket-card,
+#invBucketsList[data-painted] .inv-journey-table-card,
+#invBucketsSummaryStrip[data-painted] .inv-sum-card { animation: none; }
 .inv-bucket-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: .75rem; flex-wrap: wrap; margin-bottom: .9rem;
@@ -1020,6 +1023,7 @@
 .inv-bucket-map-avail { color: var(--accent); font-weight: 600; }
 .inv-bucket-map-input { display: flex; gap: .35rem; align-items: center; flex-shrink: 0; }
 .inv-bucket-map-input .inv-form-input { width: 100px; padding: .35rem .5rem; }
+.inv-bucket-map-input .inv-bucket-map-avg { width: 120px; }
 .inv-bucket-map-input .btn-import { padding: .35rem .6rem; font-size: .65rem; margin: 0; }
 .inv-bucket-hold-pnl { font-size: .76rem; font-weight: 600; text-align: right; flex-shrink: 0; white-space: nowrap; }
 .inv-bucket-hold-row .inv-lot-del-btn { flex-shrink: 0; }
@@ -1060,7 +1064,8 @@
   /* Map popup: put the input on its own full-width line under the holding */
   .inv-bucket-map-row { flex-wrap: wrap; gap: .45rem; }
   .inv-bucket-map-input { width: 100%; }
-  .inv-bucket-map-input .inv-form-input { flex: 1; width: auto; min-width: 0; }
+  .inv-bucket-map-input .inv-form-input,
+  .inv-bucket-map-input .inv-bucket-map-avg { flex: 1; width: auto; min-width: 0; }
   /* 16px stops iOS Safari zooming into the field on focus */
   .inv-bucket-map-input .inv-form-input,
   #invBucketMapSearch { font-size: 16px; }

@@ -17,11 +17,20 @@
     gap: .5rem;
   }
   #headerTrackerControls { flex: 1; }
+  /* Off the tracker the right side is just the avatar — keep it beside the logo */
+  header:has(#headerTrackerControls[style*="none"]) .header-right { width: auto; margin-left: auto; }
   .month-selector label { display: none; }
   select { font-size: .72rem; padding: .28rem .4rem; }
   #syncStatus { display: none; }
   .btn-import { font-size: .7rem; padding: .35rem .6rem; }
-  .user-name { max-width: 64px; }
+  .user-name { display: none; }
+  .user-pill { padding: .25rem .55rem .25rem .25rem; gap: .45rem; }
+  /* Health / Preferences / Theme / Modern-UI live in the account menu here */
+  .header-shortcut { display: none !important; }
+  /* Near-full-width sheet under the pill, with roomier touch targets */
+  .user-menu { width: calc(100vw - 2rem); max-width: 360px; top: calc(100% + 8px); }
+  .user-menu-item { padding: .8rem .7rem; font-size: .88rem; }
+  .user-menu-avatar { width: 46px; height: 46px; }
 }
 
 /* ── Main padding ───────────────────────────────────────────── */

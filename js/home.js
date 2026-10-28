@@ -1085,7 +1085,10 @@ function _introHideTrackerPanel() {
 
 function _introShowHeaderHighlight() {
   const pill   = document.getElementById('userPill');
-  const toggle = document.getElementById('themeToggle');
+  // The theme toggle is hidden on phones (it lives in the account menu), so
+  // fall back to ringing just the pill when it has no layout box.
+  const themeBtn = document.getElementById('themeToggle');
+  const toggle = themeBtn && themeBtn.offsetParent ? themeBtn : pill;
   const ring   = document.getElementById('introHighlightRing');
   const callout= document.getElementById('introHeaderCallout');
 

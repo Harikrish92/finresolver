@@ -219,33 +219,61 @@
     <div id="headerTrackerControls" style="display:none;align-items:center;gap:.85rem;flex-wrap:wrap;">
     </div>
 
-    <div class="user-pill" id="userPill" onclick="toggleUserMenu()">
+    <div class="user-pill" id="userPill" onclick="toggleUserMenu()" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu" title="Account">
       <div class="user-avatar" id="userAvatar">?</div>
       <span class="user-name" id="userName">User</span>
+      <svg class="user-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
 
-      <!-- Dropdown -->
-      <div class="user-menu" id="userMenu" onclick="event.stopPropagation()">
-        <div class="user-menu-item user-menu-email" id="menuUserInfo"></div>
+      <!-- Account menu: profile card + header shortcuts (which are hidden from
+           the header on phones, so this is their only entry point there) -->
+      <div class="user-menu" id="userMenu" role="menu" onclick="event.stopPropagation()">
+        <div class="user-menu-profile">
+          <div class="user-avatar user-menu-avatar" id="menuAvatar">?</div>
+          <div class="user-menu-id">
+            <div class="user-menu-fullname" id="menuUserName">User</div>
+            <div class="user-menu-email" id="menuUserInfo"></div>
+          </div>
+        </div>
+
+        <div class="user-menu-sep"></div>
+        <button class="user-menu-item" role="menuitem" onclick="closeUserMenu();openHealthCheck()">
+          <span class="user-menu-icon">🩺</span><span class="user-menu-label">Finance Health Checkup</span>
+        </button>
+        <button class="user-menu-item" role="menuitem" onclick="closeUserMenu();openPreferences()">
+          <span class="user-menu-icon">⚙️</span><span class="user-menu-label">Preferences</span>
+        </button>
+        <button class="user-menu-item" role="menuitemcheckbox" id="menuThemeRow" onclick="toggleTheme()">
+          <span class="user-menu-icon">🌙</span><span class="user-menu-label">Dark mode</span>
+          <span class="ui-switch-track"><span class="ui-switch-thumb"></span></span>
+        </button>
+        <a class="user-menu-item" role="menuitem" href="v2/index.html">
+          <span class="user-menu-icon">✨</span><span class="user-menu-label">Switch to Modern UI</span>
+          <span class="user-menu-hint">→</span>
+        </a>
+
+        <div class="user-menu-sep"></div>
         <div id="menuSignInRow" style="display:none">
-          <div class="user-menu-sep"></div>
-          <div class="user-menu-item" style="color:var(--accent)" onclick="loginWithGoogle()">🔑&nbsp; Sign in with Google</div>
+          <button class="user-menu-item accent" role="menuitem" onclick="closeUserMenu();loginWithGoogle()">
+            <span class="user-menu-icon">🔑</span><span class="user-menu-label">Sign in with Google</span>
+          </button>
         </div>
         <div id="menuSignOutRow">
-          <div class="user-menu-sep"></div>
-          <div class="user-menu-item danger" onclick="logOut()">⎋&nbsp; Sign Out</div>
+          <button class="user-menu-item danger" role="menuitem" onclick="closeUserMenu();logOut()">
+            <span class="user-menu-icon">⎋</span><span class="user-menu-label">Sign out</span>
+          </button>
         </div>
       </div>
     </div>
 
-    <button id="healthCheckBtn" class="theme-toggle" onclick="openHealthCheck()" title="Finance Health Checkup">🩺</button>
+    <button id="healthCheckBtn" class="theme-toggle header-shortcut" onclick="openHealthCheck()" title="Finance Health Checkup">🩺</button>
 
-    <button id="preferencesBtn" class="theme-toggle" onclick="openPreferences()" title="Preferences">⚙️</button>
+    <button id="preferencesBtn" class="theme-toggle header-shortcut" onclick="openPreferences()" title="Preferences">⚙️</button>
 
-    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Switch theme">☀️</button>
+    <button id="themeToggle" class="theme-toggle header-shortcut" onclick="toggleTheme()" title="Switch theme">☀️</button>
 
     <span id="proBadgeHeader" title="FinResolver Pro">👑 Pro</span>
 
-    <a href="v2/index.html" class="ui-switch" title="Switch to the Modern UI">
+    <a href="v2/index.html" class="ui-switch header-shortcut" title="Switch to the Modern UI">
       <span class="ui-switch-label active">Classic</span>
       <span class="ui-switch-track"><span class="ui-switch-thumb"></span></span>
       <span class="ui-switch-label">Modern</span>
@@ -1636,6 +1664,7 @@
       <div class="inv-bucket-map-help">
         Enter how much of each holding belongs to this bucket. Units already placed in other buckets are not available here.
         Holdings without a quantity (EPF, Real Estate) are split by %.
+        Average price is optional — enter what you paid for this bucket's units, or leave it blank to use the holding's own average.
       </div>
       <input type="text" class="inv-form-input" id="invBucketMapSearch" placeholder="🔍 Search holdings…" oninput="bucketMapFilter()" style="margin-bottom:.75rem" />
       <div id="invBucketMapBody"></div>
@@ -2444,7 +2473,7 @@
 
 <!-- Slide 0: callout bubble that appears below the header controls -->
 <div class="intro-header-callout hidden" id="introHeaderCallout">
-  <div class="intro-callout-row"><span>👤</span><span><strong>User menu</strong> — view profile &amp; sign out</span></div>
+  <div class="intro-callout-row"><span>👤</span><span><strong>Account menu</strong> — profile, settings &amp; sign out</span></div>
   <div class="intro-callout-row"><span>☀️</span><span><strong>Theme toggle</strong> — switch dark / light</span></div>
 </div>
 

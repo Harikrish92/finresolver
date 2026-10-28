@@ -3703,10 +3703,11 @@ function confirmInvClear() {
    Bucket shape:
      { id, name, notes, invested, charges,
        entries:  [{ id, type:'in'|'profit', date, amount, notes }],
-       holdings: [{ holdingId, qty }] }
+       holdings: [{ holdingId, qty, avgPrice? }] }
 
    Invested is the cost basis of mapped holdings when any are
-   mapped, otherwise the manually entered figure.
+   mapped, otherwise the manually entered figure. An allocation's
+   optional avgPrice overrides the holding's own average price.
 
    Derived metrics (see calcBucketMetrics):
      Total Amount    = Σ received
@@ -3764,11 +3765,13 @@ function _findBucket(id) {
 }
 
 /* ── Holding allocation ──────────────────────────────────────
-   Each bucket keeps holdings: [{ holdingId, qty }]. "qty" is in the
-   holding's own unit: units for lot-based holdings, grams for Gold,
-   and % for holdings without a quantity (EPF, Real Estate, or any
+   Each bucket keeps holdings: [{ holdingId, qty, avgPrice? }]. "qty" is
+   in the holding's own unit: units for lot-based holdings, grams for
+   Gold, and % for holdings without a quantity (EPF, Real Estate, or any
    holding entered by amount only). A holding's units are shared
-   across buckets — one bucket can only take what the others left. */
+   across buckets — one bucket can only take what the others left.
+   avgPrice (per unit / per gram, optional, not for %) is the bucket's
+   own buy price; when set, the allocation's cost is qty × avgPrice. */
 var BUCKET_EPS = 1e-6;
 
 function bucketHoldingUnits(h) {
@@ -3785,6 +3788,12 @@ function bucketHoldingUnits(h) {
 function _fmtUnits(n, unit) {
   var s = Number(n).toLocaleString('en-IN', { maximumFractionDigits: 4 });
   return unit === '%' ? s + '%' : (unit === 'g' ? s + ' g' : s);
+}
+
+/* Holding's own average buy price per unit (or per gram); 0 for % holdings. */
+function bucketHoldingAvg(h) {
+  var u = bucketHoldingUnits(h);
+  return u.unit === '%' ? 0 : getCostBasis(h) / u.total;
 }
 
 function _findHolding(id) {
@@ -3812,8 +3821,11 @@ function bucketMappedRows(b) {
     var u     = bucketHoldingUnits(h);
     var frac  = Math.min(qty / u.total, 1);
     var over  = bucketAllocatedElsewhere(h.id, null) > u.total + BUCKET_EPS;
+    var ownAvg = u.unit !== '%' && Number(a.avgPrice) > 0 ? Number(a.avgPrice) : 0;
     rows.push({ h: h, qty: qty, unit: u.unit, total: u.total,
-                cost: getCostBasis(h) * frac, value: getLiveValue(h) * frac, over: over });
+                avg: ownAvg || bucketHoldingAvg(h), ownAvg: !!ownAvg,
+                cost: ownAvg ? qty * ownAvg : getCostBasis(h) * frac,
+                value: getLiveValue(h) * frac, over: over });
   });
   return rows;
 }
@@ -3859,10 +3871,21 @@ function renderInvBuckets() {
   renderBucketsList();
 }
 
+/* Live-price refreshes re-render buckets every batch; skip identical writes and
+   only play the fadeUp entry animation on first paint so cards don't flicker. */
+function _setBucketsHtml(el, html) {
+  if (el._frHtml === html) return;
+  el._frHtml = html;
+  el.innerHTML = html;
+  if (!el.hasAttribute('data-painted')) {
+    setTimeout(function(){ el.setAttribute('data-painted', ''); }, 500);
+  }
+}
+
 function renderBucketsSummary() {
   var strip = document.getElementById('invBucketsSummaryStrip');
   if (!strip) return;
-  if (!invBucketsData.length) { strip.style.display = 'none'; strip.innerHTML = ''; return; }
+  if (!invBucketsData.length) { strip.style.display = 'none'; _setBucketsHtml(strip, ''); return; }
 
   var t = { total: 0, invested: 0, alpha: 0, returns: 0 };
   invBucketsData.forEach(function(b) {
@@ -3872,11 +3895,11 @@ function renderBucketsSummary() {
   var pct = t.total > 0 ? fmtIPct(t.returns / t.total * 100) + ' on total' : 'Across all buckets';
 
   strip.style.display = '';
-  strip.innerHTML =
+  _setBucketsHtml(strip,
     _jCard('Total Amount',    fmtI(t.total),         invBucketsData.length + ' bucket' + (invBucketsData.length === 1 ? '' : 's'), 'var(--accent4)', 'var(--accent4)') +
     _jCard('Invested',        fmtI(t.invested),      'Currently deployed',  'var(--accent3)', '') +
     _jCard('Alpha Generated', _signedFmt(t.alpha),   'Profits booked',      _pnlColor(t.alpha),   _pnlColor(t.alpha)) +
-    _jCard('Actual Returns',  _signedFmt(t.returns), pct,                   _pnlColor(t.returns), _pnlColor(t.returns));
+    _jCard('Actual Returns',  _signedFmt(t.returns), pct,                   _pnlColor(t.returns), _pnlColor(t.returns)));
 }
 
 function renderBucketsList() {
@@ -3884,15 +3907,15 @@ function renderBucketsList() {
   if (!wrap) return;
 
   if (!invBucketsData.length) {
-    wrap.innerHTML = '<div class="inv-journey-table-card"><div class="inv-empty-state">'
+    _setBucketsHtml(wrap, '<div class="inv-journey-table-card"><div class="inv-empty-state">'
       + '<div class="inv-empty-icon">🪣</div>'
       + '<div class="inv-empty-title">No buckets yet</div>'
       + '<div class="inv-empty-sub">Split your broker account into buckets (e.g. Swing, Long-term, IPO) and track the money received and profit booked in each one separately.</div>'
-      + '</div></div>';
+      + '</div></div>');
     return;
   }
 
-  wrap.innerHTML = invBucketsData.map(_bucketCardHtml).join('');
+  _setBucketsHtml(wrap, invBucketsData.map(_bucketCardHtml).join(''));
 }
 
 function _bucketStat(label, value, sub, color) {
@@ -3982,6 +4005,10 @@ function _bucketHoldingsHtml(b, rows) {
           + (r.over ? ' <span class="inv-bucket-warn" title="Allocated across buckets exceeds what you hold">⚠</span>' : '') + '</div>'
         + '<div class="inv-bucket-map-meta">'
           + '<span>' + _fmtUnits(r.qty, r.unit) + ' of ' + _fmtUnits(r.total, r.unit) + '</span>'
+          + (r.unit !== '%' && r.avg > 0
+              ? '<span' + (r.ownAvg ? ' title="Bucket\'s own average price"' : '') + '>Avg ' + _fmtAvg(r.avg) + (r.unit === 'g' ? '/g' : '')
+                + (r.ownAvg ? ' (own)' : '') + '</span>'
+              : '')
           + '<span>Invested ' + fmtI(r.cost) + '</span>'
           + '<span>Value ' + fmtI(r.value) + '</span>'
         + '</div>'
@@ -3992,6 +4019,10 @@ function _bucketHoldingsHtml(b, rows) {
       + '</div>';
   });
   return html + '</div>';
+}
+
+function _fmtAvg(n) {
+  return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function toggleBucketCollapse(id) {
@@ -4029,8 +4060,11 @@ function openBucketMapModal(bucketId) {
       + '<div class="inv-empty-title">No holdings yet</div>'
       + '<div class="inv-empty-sub">Add holdings to your portfolio first, then map them into buckets.</div></div>';
   } else {
-    var mine = {};
-    (b.holdings || []).forEach(function(a){ mine[a.holdingId] = Number(a.qty) || 0; });
+    var mine = {}, mineAvg = {};
+    (b.holdings || []).forEach(function(a){
+      mine[a.holdingId]    = Number(a.qty) || 0;
+      mineAvg[a.holdingId] = Number(a.avgPrice) || 0;
+    });
     var list = investmentsData.slice().sort(function(x, y) {
       var c = (x.category || '').localeCompare(y.category || '');
       return c || (x.name || '').localeCompare(y.name || '');
@@ -4044,6 +4078,9 @@ function openBucketMapModal(bucketId) {
           var avail = Math.max(0, u.total - other);
           var cur   = mine[h.id] || 0;
           var full  = avail <= BUCKET_EPS && !cur;
+          var hAvg  = bucketHoldingAvg(h);
+          var curAvg = u.unit !== '%' ? (mineAvg[h.id] || 0) : 0;
+          var hName = invEsc(h.name).replace(/"/g, '&quot;');
           return '<div class="inv-bucket-map-row' + (full ? ' is-full' : '') + '"'
             + ' data-search="' + invEsc(((h.name || '') + ' ' + (h.ticker || '') + ' ' + meta.label).toLowerCase()).replace(/"/g, '&quot;') + '">'
             + '<div class="inv-bucket-map-info">'
@@ -4059,7 +4096,14 @@ function openBucketMapModal(bucketId) {
               + '<input type="number" inputmode="decimal" class="inv-form-input" min="0" step="any" max="' + avail + '"'
                 + ' data-hid="' + h.id + '" data-max="' + avail + '" data-unit="' + u.unit + '"'
                 + ' value="' + (cur ? +cur.toFixed(6) : '') + '" placeholder="0' + (u.unit === '%' ? ' %' : (u.unit === 'g' ? ' g' : '')) + '"'
-                + (full ? ' disabled' : '') + ' oninput="bucketMapValidate(this)" aria-label="Amount of ' + invEsc(h.name).replace(/"/g, '&quot;') + ' in this bucket" />'
+                + (full ? ' disabled' : '') + ' oninput="bucketMapValidate(this)" aria-label="Amount of ' + hName + ' in this bucket" title="' + (u.unit === '%' ? 'Share %' : (u.unit === 'g' ? 'Grams' : 'Quantity')) + '" />'
+              + (u.unit !== '%'
+                  ? '<input type="number" inputmode="decimal" class="inv-form-input inv-bucket-map-avg" min="0" step="any"'
+                    + ' data-avg-hid="' + h.id + '" value="' + (curAvg ? +curAvg.toFixed(6) : '') + '"'
+                    + ' placeholder="Avg ' + (hAvg > 0 ? _fmtAvg(hAvg) : '₹') + '"' + (full ? ' disabled' : '')
+                    + ' oninput="bucketMapValidate(this)" title="Optional: your average buy price' + (u.unit === 'g' ? ' per gram' : '') + ' for this bucket. Leave blank to use the holding\'s average' + (hAvg > 0 ? ' (' + _fmtAvg(hAvg) + ')' : '') + '."'
+                    + ' aria-label="Average price of ' + hName + ' in this bucket (optional)" />'
+                  : '')
               + '<button type="button" class="btn-import" onclick="bucketMapFill(\'' + h.id + '\')"' + (full ? ' disabled' : '') + '>Max</button>'
             + '</div>'
           + '</div>';
@@ -4087,7 +4131,8 @@ function bucketMapFill(holdingId) {
 
 function bucketMapValidate(inp) {
   var v = parseFloat(inp.value);
-  var bad = inp.value !== '' && (!isFinite(v) || v < 0 || v > Number(inp.dataset.max) + BUCKET_EPS);
+  var max = inp.dataset.max !== undefined ? Number(inp.dataset.max) + BUCKET_EPS : Infinity;
+  var bad = inp.value !== '' && (!isFinite(v) || v < 0 || v > max);
   inp.classList.toggle('inv-input-invalid', bad);
   return !bad;
 }
@@ -4104,17 +4149,30 @@ async function saveBucketMap() {
   if (!b) { closeBucketMapModal(); return; }
 
   var inputs = document.querySelectorAll('#invBucketMapBody input[data-hid]');
-  var next = [], badName = null;
+  var next = [], badName = null, badAvg = null;
   inputs.forEach(function(inp) {
     if (!bucketMapValidate(inp)) {
       if (!badName) { var h = _findHolding(inp.dataset.hid); badName = h ? h.name : 'a holding'; }
       return;
     }
     var v = parseFloat(inp.value);
-    if (v > 0) next.push({ holdingId: inp.dataset.hid, qty: Math.min(v, Number(inp.dataset.max)) });
+    if (!(v > 0)) return;
+    var alloc  = { holdingId: inp.dataset.hid, qty: Math.min(v, Number(inp.dataset.max)) };
+    var avgInp = document.querySelector('#invBucketMapBody input[data-avg-hid="' + inp.dataset.hid + '"]');
+    if (avgInp && !bucketMapValidate(avgInp)) {
+      if (!badAvg) { var ah = _findHolding(inp.dataset.hid); badAvg = ah ? ah.name : 'a holding'; }
+      return;
+    }
+    var avg = avgInp ? parseFloat(avgInp.value) : 0;
+    if (avg > 0) alloc.avgPrice = avg;
+    next.push(alloc);
   });
   if (badName) {
     showInvToast('Quantity for "' + badName + '" is more than what is available.', 'error');
+    return;
+  }
+  if (badAvg) {
+    showInvToast('Average price for "' + badAvg + '" is not valid.', 'error');
     return;
   }
 

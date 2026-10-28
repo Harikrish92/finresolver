@@ -217,9 +217,15 @@ function applyUser(user, skipSave = false) {
   }
   document.getElementById('userName').textContent = firstName;
 
+  // Account-menu profile card mirrors the pill avatar, with the full name
+  const menuAv = document.getElementById('menuAvatar');
+  if (menuAv) menuAv.innerHTML = av.innerHTML;
+  const menuName = document.getElementById('menuUserName');
+  if (menuName) menuName.textContent = user.isGuest ? 'Guest' : displayName;
+
   // Support both element ids used across versions
   const infoEl = document.getElementById('menuUserInfo') || document.getElementById('menuEmail');
-  if (infoEl) infoEl.textContent = user.email || '';
+  if (infoEl) infoEl.textContent = user.email || (user.isGuest ? 'Data stays on this device' : '');
 
   // Show/hide guest-specific UI
   const isGuest   = !!user.isGuest;
@@ -334,13 +340,24 @@ function loginAsGuest() {
 }
 
 /* ── User menu ────────────────────────────────────────────── */
-function toggleUserMenu() {
-  document.getElementById('userMenu').classList.toggle('open');
+function toggleUserMenu(force) {
+  const menu = document.getElementById('userMenu');
+  const pill = document.getElementById('userPill');
+  if (!menu) return;
+  const open = menu.classList.toggle('open', force);
+  if (pill) pill.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
+function closeUserMenu() { toggleUserMenu(false); }
 document.addEventListener('click', e => {
   const pill = document.getElementById('userPill');
-  if (pill && !pill.contains(e.target))
-    document.getElementById('userMenu').classList.remove('open');
+  if (pill && !pill.contains(e.target)) closeUserMenu();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeUserMenu(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'userPill') {
+    e.preventDefault();
+    toggleUserMenu();
+  }
 });
 
 /* ── Helpers ──────────────────────────────────────────────── */

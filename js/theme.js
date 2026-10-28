@@ -29,10 +29,7 @@ function applyTheme(theme, skipCharts = false) {
   const isDark = theme === 'dark';
   document.documentElement.classList.toggle('theme-light', !isDark);
 
-  // Update toggle icon
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
-  if (btn) btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+  syncThemeControls(theme);
 
   // Re-render charts if they exist so colors update immediately
   if (!skipCharts && typeof render === 'function') {
@@ -56,12 +53,20 @@ function getChartTheme() {
 /* Apply saved theme immediately on script load (before paint) */
 applyTheme(getCurrentTheme(), true);
 
-/* After DOM is ready, update the toggle button icon */
-document.addEventListener('DOMContentLoaded', () => {
-  const theme = getCurrentTheme();
+/* Header toggle icon + account-menu "Dark mode" switch */
+function syncThemeControls(theme) {
+  const isDark = theme === 'dark';
   const btn = document.getElementById('themeToggle');
   if (btn) {
-    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-    btn.title = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.textContent = isDark ? '☀️' : '🌙';
+    btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
   }
-});
+  const row = document.getElementById('menuThemeRow');
+  if (row) {
+    row.classList.toggle('is-on', isDark);
+    row.setAttribute('aria-checked', isDark ? 'true' : 'false');
+  }
+}
+
+/* After DOM is ready, update the toggle controls */
+document.addEventListener('DOMContentLoaded', () => syncThemeControls(getCurrentTheme()));
