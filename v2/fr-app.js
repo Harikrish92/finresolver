@@ -47,6 +47,7 @@ function navigate(screen, opts = {}) {
     return;
   }
   if (typeof _syncOnNavigate === 'function') _syncOnNavigate(screen, _screen);
+  if (window.FrUsage) FrUsage.screen(screen);
   if (opts.loanId)  APP.activeLoanId  = opts.loanId;
   if (opts.goalId)  APP.activeGoalId  = opts.goalId;
   _screen = screen;
@@ -128,7 +129,7 @@ function loginGoogle() {
 }
 
 function loginGuest() {
-  APP.user = { name:'Guest User', email:'guest@finresolver.app', initials:'G' };
+  APP.user = { uid:'guest', name:'Guest User', email:'guest@finresolver.app', initials:'G', isGuest:true };
   showApp();
 }
 
@@ -742,6 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
         email:    s.email    || '',
         initials: s.initials || 'U',
         photo:    s.photo    || null,
+        isGuest:  !!s.isGuest || s.uid === 'guest',
       };
       showApp();
       autoLoggedIn = true;

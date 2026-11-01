@@ -50,7 +50,9 @@ var ADVISOR_BASE_PROMPT =
   'You are a friendly, expert personal finance advisor for an Indian user. ' +
   'You have access to their real financial data (provided below in each message), covering ' +
   'up to the last 6 months: monthly.last6Months is a per-month income/expenses/savings trend ' +
-  '(oldest to newest — use it to spot trends, not just a single-month snapshot), loans.list has ' +
+  '(oldest to newest — use it to spot trends, not just a single-month snapshot), ' +
+  'monthly.expenseCategoriesLast3Months is the full per-category expense breakdown for each of ' +
+  'the last 3 months (use it for category-level spending questions and month-over-month changes), loans.list has ' +
   'every open loan with rate/EMI/outstanding, investments.holdings has every holding, and ' +
   'lifestyle has tracked household goods (with warrantyExpiresInDays / lifespanUsedPct) and ' +
   'upcoming events/dates. Give concise, actionable advice. Use ₹ for currency. Keep responses ' +
@@ -103,6 +105,22 @@ var ADVISOR_MONTH_NAMES = ['January','February','March','April','May','June',
    1. FINANCIAL SNAPSHOT
 ───────────────────────────────────────────────────────────── */
 
+/* Groups expense entries by description (the user's own category label,
+   case-insensitive) → [{ name, amount, entries }], largest first. */
+function _advCategoryBreakdown(expenses) {
+  var map = {};
+  (expenses || []).forEach(function(e) {
+    var name = String(e.desc || 'Other').trim() || 'Other';
+    var key  = name.toLowerCase();
+    if (!map[key]) map[key] = { name: name, amount: 0, entries: 0 };
+    map[key].amount  += Number(e.amount || 0);
+    map[key].entries += 1;
+  });
+  return Object.keys(map).map(function(k) {
+    return { name: map[k].name, amount: Math.round(map[k].amount), entries: map[k].entries };
+  }).sort(function(a, b) { return b.amount - a.amount; });
+}
+
 function getFinancialSnapshot() {
   var uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid)
             ? fbAuth.currentUser.uid
@@ -126,7 +144,8 @@ function getFinancialSnapshot() {
 
   var descMap = {}; // expense description → total amount (current month only)
   var monthlyTrend = [];
-  months.forEach(function(mo2) {
+  var expenseCategoriesLast3Months = []; // per-month full category breakdown (oldest → newest)
+  months.forEach(function(mo2, idx) {
     var d = (typeof getCachedMonthData === 'function')
             ? getCachedMonthData(uid, mo2.year, mo2.month) : null;
     if (!d) return;
@@ -139,6 +158,13 @@ function getFinancialSnapshot() {
       savings:     Math.round(savings),
       savingsRate: inc > 0 ? Math.round((savings / inc) * 100) : 0
     });
+    if (idx >= months.length - 3) {
+      expenseCategoriesLast3Months.push({
+        period:     ADVISOR_MONTH_NAMES[mo2.month] + ' ' + mo2.year,
+        total:      Math.round(exp),
+        categories: _advCategoryBreakdown(d.expense)
+      });
+    }
     if (mo2.year === yr && mo2.month === mo) {
       (d.expense || []).forEach(function(e) {
         var cat = (e.desc || 'Other').trim();
@@ -329,6 +355,7 @@ function getFinancialSnapshot() {
     monthly: {
       last6Months:    monthlyTrend,
       topCategories:  topCategories,
+      expenseCategoriesLast3Months: expenseCategoriesLast3Months,
       avgSavingsRate: savingsRate
     },
     loans: {
@@ -705,7 +732,7 @@ var _advInsightsSeq = 0;  // drops answers from a superseded request
 
 async function _advisorLoadInsights(snap, force) {
   var container = document.getElementById('advisorInsightsCards');
-  if (!container || !snap) return;
+  if (!container || !snap || _advIsGuest()) return;
   var uid = _advUid(), seq = ++_advInsightsSeq;
 
   if (!force) {
@@ -801,6 +828,7 @@ async function advisorSend(text) {
   var inp = document.getElementById('advisorInput');
   var msg = (text || (inp && inp.value) || '').trim();
   if (!msg) return;
+  if (_advIsGuest()) { _advShowError('Sign in with Google to chat with FINOVA.'); return; }
   if (!(await _advIsConfigured())) { _advShowError("FINOVA isn't configured yet — please check back later."); return; }
 
   if (window.FinovaVoice) FinovaVoice.cancel();
@@ -813,6 +841,7 @@ async function advisorSend(text) {
   }
 
   _advisorLoading = true;
+  if (window.FrUsage) FrUsage.event('finova_query');
 
   /* Hide error */
   var errEl = document.getElementById('advisorError');
@@ -1292,7 +1321,15 @@ var _advHomeQueued  = false;  // another refresh was requested meanwhile
 var _advPricesWarm  = false;  // live prices fetched once this session
 var _advHomeHasData = null;   // last known data state, to spot first data arriving
 
+/* Guests have no Firebase account, so FINOVA (which spends the app-wide AI
+   key) is reserved for signed-in users. */
+function _advIsGuest() {
+  return typeof currentUser !== 'undefined' && !!currentUser &&
+         (!!currentUser.isGuest || currentUser.uid === 'guest');
+}
+
 function _advAvailable() {
+  if (_advIsGuest()) return { ok: false, guest: true, title: 'Sign in to use FINOVA', desc: 'FINOVA, your AI money assistant, is available once you sign in with Google. As a guest you can still use every tracker and planner from the ☰ menu.' };
   if (!ADVISOR_ENABLED) return { ok: false, title: 'FINOVA is coming soon', desc: "We're still building it — use the tiles above to open your trackers and planners." };
   if (typeof ProManager !== 'undefined' && !ProManager.isPro()) return { ok: false, pro: true, title: 'FINOVA is a Pro feature', desc: 'Upgrade to chat with FINOVA. Your trackers and planners are still one tap away above.' };
   return { ok: true };
@@ -1303,6 +1340,7 @@ function _advAvailable() {
    synchronously (the intro walkthrough measures it right after). */
 function finovaShowHome() {
   if (typeof _currentScreen !== 'undefined') _currentScreen = 'home';
+  if (window.FrUsage) FrUsage.screen('home');
   toggleFinovaPanel(false);  // it may still be open from tapping one of its tiles
   var screen = document.getElementById('advisorScreen');
   if (screen) screen.style.display = 'block';
@@ -1324,12 +1362,22 @@ function finovaShowHome() {
       lockEl.style.display = 'flex';
       document.getElementById('advisorLockedTitle').textContent = avail.title;
       document.getElementById('advisorLockedDesc').textContent  = avail.desc;
-      if (avail.pro && !lockEl.querySelector('.adv-empty-btn')) {
+      /* Rebuilt every time: a guest who signs in, or a Pro upgrade, changes the buttons. */
+      var acts = lockEl.querySelector('.adv-empty-actions');
+      if (!acts) { acts = document.createElement('div'); acts.className = 'adv-empty-actions'; lockEl.appendChild(acts); }
+      acts.innerHTML = '';
+      var addBtn = function(label, onclick) {
         var btn = document.createElement('button');
         btn.className = 'adv-empty-btn';
-        btn.textContent = '👑 Upgrade to Pro';
-        btn.onclick = function() { ProManager.showUpgradeModal('FINOVA'); };
-        lockEl.appendChild(btn);
+        btn.textContent = label;
+        btn.onclick = onclick;
+        acts.appendChild(btn);
+      };
+      if (avail.guest) {
+        addBtn('🔑 Sign in with Google', function() { if (typeof loginWithGoogle === 'function') loginWithGoogle(); });
+        addBtn('☰ Open trackers', function() { if (typeof openNavDrawer === 'function') openNavDrawer(); });
+      } else if (avail.pro) {
+        addBtn('👑 Upgrade to Pro', function() { ProManager.showUpgradeModal('FINOVA'); });
       }
     }
     return;

@@ -368,6 +368,7 @@ async function _loadRecentHistory(n) {
         expenses: sum(APP.monthly.expenses),
         income:   sum(APP.monthly.income),
         balance:  _calcBalance(APP.monthly),
+        expenseItems: (APP.monthly.expenses || []).map(e => ({ desc: e.desc, amount: e.amount })),
       });
     } else {
       const sm  = m - 1; // 0-indexed storage key
@@ -394,6 +395,7 @@ async function _loadRecentHistory(n) {
             expenses: sum(v2.expenses),
             income:   sum(v2.income),
             balance:  _calcBalance(v2),
+            expenseItems: (v2.expenses || []).map(e => ({ desc: e.desc, amount: e.amount })),
           });
         }
       }

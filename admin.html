@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>FinResolver Admin</title>
+  <link rel="icon" href="finresolver.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
+  <script>
+    /* Follow the app's theme choice (js/theme.js, light by default). */
+    try { if ((localStorage.getItem('fr_theme') || 'light') !== 'dark') document.documentElement.classList.add('theme-light'); } catch (e) {}
+  </script>
+  <script src="js/config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #151c28; --surface2: #1c2438; --border: #263040;
+      --text: #e8edf5; --muted: #8a96b2; --accent: #00e5a0;
+      --series-1: #3987e5; --series-2: #d95926;
+      --grid: rgba(255,255,255,.06);
+      --radius: 12px;
+    }
+    .theme-light {
+      --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f3f8; --border: #dde3ec;
+      --text: #141b2d; --muted: #5d6880; --accent: #00a374;
+      --series-1: #2a78d6; --series-2: #eb6834;
+      --grid: rgba(0,0,0,.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 15px/1.5 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2 { font-family: 'Syne', sans-serif; }
+    a { color: inherit; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
+
+    .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .top h1 { font-size: 1.4rem; margin-right: auto; }
+    .top h1 span { color: var(--accent); }
+    .who { font-size: .8125rem; color: var(--muted); }
+    select, button, input[type=search] {
+      font: inherit; font-size: .875rem; color: var(--text); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px;
+    }
+    button { cursor: pointer; }
+    button:hover, select:hover { border-color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #06221a; border-color: var(--accent); font-weight: 600; }
+
+    .state { text-align: center; padding: 80px 16px; color: var(--muted); }
+    .state h2 { color: var(--text); font-size: 1.25rem; margin-bottom: 8px; }
+    .state p { max-width: 460px; margin: 0 auto 18px; }
+
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .kpi-label { font-size: .8125rem; color: var(--muted); }
+    .kpi-value { font-family: 'Syne', sans-serif; font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin-top: 2px; }
+    .kpi-sub { font-size: .75rem; color: var(--muted); }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; min-width: 0; }
+    .card h2 { font-size: 1rem; margin-bottom: 2px; }
+    .card .sub { font-size: .8125rem; color: var(--muted); margin-bottom: 12px; }
+    .chart-box { position: relative; height: 240px; }
+
+    .rank { list-style: none; }
+    .rank li { display: grid; grid-template-columns: 130px 1fr 70px; align-items: center; gap: 10px; padding: 5px 0; font-size: .875rem; }
+    .rank .bar { height: 10px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .rank .bar i { display: block; height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+    .rank .num { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .rank .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .split { margin-bottom: 14px; }
+    .split-label { font-size: .8125rem; color: var(--muted); margin-bottom: 6px; }
+    .split-bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); }
+    .split-bar i { display: block; height: 100%; }
+    .split-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8125rem; margin-top: 6px; }
+    .split-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--c); vertical-align: -1px; }
+
+    .signals { list-style: none; font-size: .875rem; }
+    .signals li { padding: 8px 0; border-top: 1px solid var(--border); }
+    .signals li:first-child { border-top: 0; }
+    .signals b { font-weight: 600; }
+
+    .table-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .table-head h2 { margin: 0 auto 0 0; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; user-select: none; }
+    th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .u { display: flex; align-items: center; gap: 10px; }
+    .u img, .u .av { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: var(--surface2); display: grid; place-items: center; font-size: .75rem; }
+    .u small { display: block; color: var(--muted); font-size: .75rem; }
+    .pill { font-size: .75rem; padding: 2px 8px; border-radius: 999px; background: var(--surface2); }
+    .empty-row { text-align: center; color: var(--muted); padding: 24px; }
+
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+      .rank li { grid-template-columns: 100px 1fr 56px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>FinResolver <span>Admin</span></h1>
+      <span class="who" id="who"></span>
+      <select id="range" aria-label="Date range">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button id="refresh">Refresh</button>
+      <a href="./" style="font-size:.875rem">← Back to app</a>
+    </div>
+
+    <div id="state" class="state"><h2>Loading…</h2></div>
+
+    <div id="dash" hidden>
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Daily active users</h2>
+          <div class="sub">Signed-in users who opened the app each day</div>
+          <div class="chart-box"><canvas id="dauChart" aria-label="Daily active users chart"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>FINOVA questions per day</h2>
+          <div class="sub">Messages sent to FINOVA, both UIs</div>
+          <div class="chart-box"><canvas id="finovaChart" aria-label="FINOVA questions per day chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Screens used</h2>
+          <div class="sub">Screen visits in the selected range, most used first</div>
+          <ul class="rank" id="screens"></ul>
+        </div>
+        <div class="card">
+          <h2>How people use the app</h2>
+          <div class="sub">Sessions in the selected range</div>
+          <div id="splits"></div>
+          <h2 style="margin-top:18px">Build signals</h2>
+          <ul class="signals" id="signals"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-head">
+          <h2>Users</h2>
+          <input type="search" id="search" placeholder="Search name or email" aria-label="Search users" />
+          <button id="csv">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SCREEN_NAMES = {
+    finova: 'FINOVA (home)', dashboard: 'Overview', monthly: 'Monthly Tracker',
+    investments: 'Investments', loans: 'Loans', portfolio: 'Portfolio & FIRE',
+    goals: 'Goals', lifestyle: 'Lifestyle', dayplanner: 'Day Planner',
+    'tracker-hub': 'Tracker hub', 'planner-hub': 'Planner hub'
+  };
+  var DAY_MS = 86400000;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var db, users = [], days = [], sortKey = 'lastSeen', sortDir = -1, charts = {};
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dayKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function screenName(k) { return SCREEN_NAMES[k] || k; }
+  function sum(o) { var t = 0; for (var k in (o || {})) t += o[k] || 0; return t; }
+  function toDate(ts) { return ts && ts.toDate ? ts.toDate() : null; }
+  function fmtDate(d) { return d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; }
+  function fmtNum(n) { return (n || 0).toLocaleString('en-IN'); }
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function topKey(o) { var best = null; for (var k in (o || {})) if (best === null || o[k] > o[best]) best = k; return best; }
+
+  function showState(title, msg, action) {
+    $('dash').hidden = true;
+    var s = $('state');
+    s.hidden = false;
+    s.innerHTML = '<h2>' + esc(title) + '</h2>' + (msg ? '<p>' + esc(msg) + '</p>' : '');
+    if (action) s.appendChild(action);
+  }
+
+  function signInButton() {
+    var b = document.createElement('button');
+    b.className = 'btn-primary';
+    b.textContent = 'Sign in with Google';
+    b.onclick = function () {
+      firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
+        .catch(function (e) { showState('Sign-in failed', e.message, signInButton()); });
+    };
+    return b;
+  }
+
+  /* ── Data ─────────────────────────────────────────────── */
+  async function load() {
+    showState('Loading…');
+    var range = +$('range').value;
+    var start = new Date(Date.now() - (range - 1) * DAY_MS);
+    try {
+      var results = await Promise.all([
+        db.collection('analytics_users').orderBy('lastSeen', 'desc').limit(2000).get(),
+        db.collection('analytics_daily').where('date', '>=', dayKey(start)).get()
+      ]);
+      users = results[0].docs.map(function (d) { return d.data(); });
+      var byDay = {};
+      results[1].docs.forEach(function (d) { var x = d.data(); byDay[x.date] = x; });
+      days = [];
+      for (var i = 0; i < range; i++) {
+        var k = dayKey(new Date(start.getTime() + i * DAY_MS));
+        days.push(byDay[k] || { date: k });
+      }
+    } catch (e) {
+      showState("Couldn't load usage data", e.code === 'permission-denied'
+        ? 'Firestore refused the read. Check that firestore.rules is deployed and your email is in app_admin/admins.'
+        : e.message);
+      return;
+    }
+    if (!users.length) {
+      showState('No usage recorded yet', 'Counts appear here once signed-in users open the app after this release.');
+      return;
+    }
+    $('state').hidden = true;
+    $('dash').hidden = false;
+    render(start);
+  }
+
+  /* ── Render ───────────────────────────────────────────── */
+  function render(start) {
+    var range = days.length;
+    var active = {}, views = 0, sessions = 0, finova = 0, screens = {}, ui = {}, devices = {};
+    days.forEach(function (d) {
+      Object.keys(d.users || {}).forEach(function (u) { active[u] = 1; });
+      views += d.views || 0;
+      sessions += d.sessions || 0;
+      finova += (d.events || {}).finova_query || 0;
+      ['screens', 'ui', 'devices'].forEach(function (f) {
+        var target = { screens: screens, ui: ui, devices: devices }[f];
+        for (var k in (d[f] || {})) target[k] = (target[k] || 0) + d[f][k];
+      });
+    });
+    var activeCount = Object.keys(active).length;
+    var today = days[days.length - 1] || {};
+    var newUsers = users.filter(function (u) { var f = toDate(u.firstSeen); return f && f >= start; }).length;
+
+    var kpis = [
+      { l: 'Total users', v: fmtNum(users.length), s: 'all time, signed in' },
+      { l: 'Active today', v: fmtNum(Object.keys(today.users || {}).length), s: fmtNum(today.views) + ' screen visits' },
+      { l: 'Active users', v: fmtNum(activeCount), s: 'last ' + range + ' days' },
+      { l: 'New users', v: fmtNum(newUsers), s: 'last ' + range + ' days' },
+      { l: 'Screen visits', v: fmtNum(views), s: sessions ? (views / sessions).toFixed(1) + ' per session' : '—' },
+      { l: 'FINOVA questions', v: fmtNum(finova), s: activeCount ? (finova / activeCount).toFixed(1) + ' per active user' : '—' }
+    ];
+    $('kpis').innerHTML = kpis.map(function (k) {
+      return '<div class="kpi"><div class="kpi-label">' + k.l + '</div><div class="kpi-value">' + k.v +
+             '</div><div class="kpi-sub">' + k.s + '</div></div>';
+    }).join('');
+
+    var labels = days.map(function (d) {
+      var p = d.date.split('-'); return new Date(+p[0], p[1] - 1, +p[2]).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    });
+    lineChart('dauChart', labels, days.map(function (d) { return Object.keys(d.users || {}).length; }), 'Active users', css('--series-1'));
+    barChart('finovaChart', labels, days.map(function (d) { return (d.events || {}).finova_query || 0; }), 'FINOVA questions', css('--series-2'));
+
+    var ranked = Object.keys(screens).sort(function (a, b) { return screens[b] - screens[a]; });
+    var max = ranked.length ? screens[ranked[0]] : 1;
+    var totalScreens = sum(screens) || 1;
+    $('screens').innerHTML = ranked.length ? ranked.map(function (k) {
+      var pct = Math.round(screens[k] / totalScreens * 100);
+      return '<li title="' + fmtNum(screens[k]) + ' visits"><span class="name">' + esc(screenName(k)) + '</span>' +
+             '<span class="bar"><i style="width:' + (screens[k] / max * 100).toFixed(1) + '%"></i></span>' +
+             '<span class="num">' + fmtNum(screens[k]) + ' · ' + pct + '%</span></li>';
+    }).join('') : '<li class="empty-row">No screen visits in this range</li>';
+
+    $('splits').innerHTML =
+      split('Interface', [['Classic', ui.classic, css('--series-1')], ['Modern', ui.modern, css('--series-2')]]) +
+      split('Device', [['Desktop', devices.desktop, css('--series-1')], ['Mobile', devices.mobile, css('--series-2')]]);
+
+    var signals = [];
+    var userFinova = users.filter(function (u) { return (u.events || {}).finova_query; }).length;
+    signals.push('<b>' + Math.round(userFinova / users.length * 100) + '%</b> of all users have asked FINOVA at least one question.');
+    if (ranked.length) signals.push('Most used: <b>' + esc(screenName(ranked[0])) + '</b> (' + Math.round(screens[ranked[0]] / totalScreens * 100) + '% of visits).');
+    var unused = Object.keys(SCREEN_NAMES).filter(function (k) { return !screens[k]; });
+    var least = ranked.slice(-3).reverse().filter(function (k) { return k !== ranked[0]; });
+    if (unused.length) signals.push('Not opened in this range: <b>' + unused.map(screenName).map(esc).join(', ') + '</b> — candidates to promote, rethink or retire.');
+    else if (least.length) signals.push('Least used: <b>' + least.map(screenName).map(esc).join(', ') + '</b>.');
+    var returning = users.filter(function (u) { return (u.sessions || 0) > 1; }).length;
+    signals.push('<b>' + Math.round(returning / users.length * 100) + '%</b> of users came back for more than one session.');
+    $('signals').innerHTML = signals.map(function (s) { return '<li>' + s + '</li>'; }).join('');
+
+    renderTable();
+  }
+
+  function split(label, parts) {
+    var total = parts.reduce(function (t, p) { return t + (p[1] || 0); }, 0);
+    if (!total) return '<div class="split"><div class="split-label">' + label + '</div><div class="kpi-sub">No sessions yet</div></div>';
+    return '<div class="split"><div class="split-label">' + label + '</div><div class="split-bar">' +
+      parts.map(function (p) { return p[1] ? '<i style="width:' + (p[1] / total * 100) + '%;background:' + p[2] + '" title="' + p[0] + ': ' + fmtNum(p[1]) + '"></i>' : ''; }).join('') +
+      '</div><div class="split-legend">' +
+      parts.map(function (p) { return '<span style="--c:' + p[2] + '">' + p[0] + ' ' + Math.round((p[1] || 0) / total * 100) + '% (' + fmtNum(p[1]) + ')</span>'; }).join('') +
+      '</div></div>';
+  }
+
+  function baseOptions() {
+    var tick = css('--muted'), grid = css('--grid');
+    return {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tick, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+        y: { beginAtZero: true, grid: { color: grid }, border: { display: false }, ticks: { color: tick, precision: 0 } }
+      }
+    };
+  }
+  function lineChart(id, labels, data, label, color) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart($(id), { type: 'line', options: baseOptions(), data: { labels: labels, datasets: [{
+      label: label, data: data, borderColor: color, backgroundColor: color, borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 5, tension: .3 }] } });
+  }
+  function barChart(id, labels, data, label, color) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart($(id), { type: 'bar', options: baseOptions(), data: { labels: labels, datasets: [{
+      label: label, data: data, backgroundColor: color, borderRadius: 4, maxBarThickness: 18 }] } });
+  }
+
+  /* ── Users table ──────────────────────────────────────── */
+  var COLS = [
+    { k: 'name',      l: 'User' },
+    { k: 'firstSeen', l: 'First seen' },
+    { k: 'lastSeen',  l: 'Last seen' },
+    { k: 'sessions',  l: 'Sessions', num: true },
+    { k: 'views',     l: 'Visits',   num: true },
+    { k: 'finova',    l: 'FINOVA',   num: true },
+    { k: 'top',       l: 'Top screen' },
+    { k: 'lastUi',    l: 'UI' }
+  ];
+  function rowVal(u, k) {
+    if (k === 'firstSeen' || k === 'lastSeen') { var d = toDate(u[k]); return d ? d.getTime() : 0; }
+    if (k === 'finova') return (u.events || {}).finova_query || 0;
+    if (k === 'top') return screenName(topKey(u.screens) || '');
+    if (k === 'name') return (u.name || u.email || '').toLowerCase();
+    return u[k] || 0;
+  }
+  function filtered() {
+    var q = $('search').value.trim().toLowerCase();
+    return users.filter(function (u) {
+      return !q || (u.name || '').toLowerCase().indexOf(q) >= 0 || (u.email || '').toLowerCase().indexOf(q) >= 0;
+    }).sort(function (a, b) {
+      var x = rowVal(a, sortKey), y = rowVal(b, sortKey);
+      return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+    });
+  }
+  function renderTable() {
+    $('thead').innerHTML = COLS.map(function (c) {
+      var arrow = c.k === sortKey ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
+      return '<th data-k="' + c.k + '"' + (c.num ? ' class="num"' : '') + '>' + c.l + arrow + '</th>';
+    }).join('');
+    var rows = filtered();
+    $('tbody').innerHTML = rows.length ? rows.map(function (u) {
+      var av = u.photo ? '<img src="' + esc(u.photo) + '" alt="" referrerpolicy="no-referrer" />'
+                       : '<span class="av">' + esc((u.name || u.email || '?').charAt(0).toUpperCase()) + '</span>';
+      return '<tr><td><div class="u">' + av + '<div>' + esc(u.name || '—') + '<small>' + esc(u.email) + '</small></div></div></td>' +
+        '<td>' + fmtDate(toDate(u.firstSeen)) + '</td>' +
+        '<td>' + fmtDate(toDate(u.lastSeen)) + '</td>' +
+        '<td class="num">' + fmtNum(u.sessions) + '</td>' +
+        '<td class="num">' + fmtNum(u.views) + '</td>' +
+        '<td class="num">' + fmtNum((u.events || {}).finova_query) + '</td>' +
+        '<td>' + esc(screenName(topKey(u.screens) || '—')) + '</td>' +
+        '<td><span class="pill">' + esc(u.lastUi || '—') + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="' + COLS.length + '" class="empty-row">No users match</td></tr>';
+  }
+
+  function exportCsv() {
+    var cell = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var lines = [['Name', 'Email', 'First seen', 'Last seen', 'Sessions', 'Visits', 'FINOVA questions', 'Top screen', 'Last UI', 'Device'].join(',')];
+    filtered().forEach(function (u) {
+      var f = toDate(u.firstSeen), l = toDate(u.lastSeen);
+      lines.push([u.name, u.email, f ? f.toISOString() : '', l ? l.toISOString() : '', u.sessions || 0, u.views || 0,
+                  (u.events || {}).finova_query || 0, screenName(topKey(u.screens) || ''), u.lastUi, u.device].map(cell).join(','));
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+    a.download = 'finresolver-users-' + dayKey(new Date()) + '.csv';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  /* ── Boot ─────────────────────────────────────────────── */
+  $('range').onchange = load;
+  $('refresh').onclick = load;
+  $('search').oninput = renderTable;
+  $('csv').onclick = exportCsv;
+  $('thead').onclick = function (e) {
+    var th = e.target.closest('th');
+    if (!th) return;
+    if (sortKey === th.dataset.k) sortDir = -sortDir; else { sortKey = th.dataset.k; sortDir = th.dataset.k === 'name' ? 1 : -1; }
+    renderTable();
+  };
+
+  var cfg = (window.FINRESOLVER_CONFIG || {}).firebase || {};
+  if (!cfg.apiKey || typeof firebase === 'undefined') {
+    showState('Firebase is not configured', 'js/config.js has no Firebase settings, so there is no usage data to show.');
+    return;
+  }
+  if (!firebase.apps.length) firebase.initializeApp(cfg);
+  db = firebase.firestore();
+
+  firebase.auth().onAuthStateChanged(async function (user) {
+    if (!user) {
+      $('who').textContent = '';
+      showState('Admin sign-in', 'Sign in with an admin Google account to see usage.', signInButton());
+      return;
+    }
+    $('who').textContent = user.email || '';
+    var ok = await db.collection('app_admin').doc('admins').get().then(function (d) { return d.exists; }).catch(function () { return false; });
+    if (!ok) {
+      showState('Not authorised', (user.email || 'This account') + ' is not an admin. Add the email to app_admin/admins in Firestore (field "emails", an array).');
+      return;
+    }
+    load();
+  });
+})();
+</script>
+</body>
+</html>

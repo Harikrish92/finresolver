@@ -36,6 +36,7 @@ function _hideAllScreens() {
 
 function _enterTracker(screen) {
   _currentScreen = screen;
+  if (window.FrUsage) FrUsage.screen(screen);
   _hideAllScreens();
   document.getElementById('btnHamburger').style.display = 'flex';
 }
@@ -104,6 +105,7 @@ function goToPortfolio() {
 function goToTrackerHub(_fromPopstate) {
   if (!_fromPopstate) history.pushState({ screen: 'tracker-hub' }, '');
   _currentScreen = 'tracker-hub';
+  if (window.FrUsage) FrUsage.screen('tracker-hub');
   _hideAllScreens();
   document.getElementById('trackerHubScreen').style.display = 'block';
   document.getElementById('btnHamburger').style.display = 'flex';
@@ -115,6 +117,7 @@ function goToTrackerHub(_fromPopstate) {
 function goToPlannerHub(_fromPopstate) {
   if (!_fromPopstate) history.pushState({ screen: 'planner-hub' }, '');
   _currentScreen = 'planner-hub';
+  if (window.FrUsage) FrUsage.screen('planner-hub');
   _hideAllScreens();
   document.getElementById('plannerHubScreen').style.display = 'block';
   document.getElementById('btnHamburger').style.display = 'flex';
@@ -149,6 +152,7 @@ function goToLifestyle(_fromPopstate) {
 function goToDayPlanner(_fromPopstate) {
   if (!_fromPopstate) history.pushState({ screen: 'dayplanner' }, '');
   _currentScreen = 'dayplanner';
+  if (window.FrUsage) FrUsage.screen('dayplanner');
   _hideAllScreens();
   document.getElementById('dayPlannerScreen').style.display = 'block';
   document.getElementById('btnHamburger').style.display = 'flex';

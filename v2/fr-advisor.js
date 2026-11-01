@@ -45,7 +45,9 @@ const ADV2_BASE_PROMPT =
   'You are a friendly, expert personal finance advisor for an Indian user. ' +
   'You have access to their real financial data (provided below in each message), covering ' +
   'up to the last 6 months: monthly.last6Months is a per-month income/expenses/savings trend ' +
-  '(oldest to newest — use it to spot trends, not just a single-month snapshot), loans.list has ' +
+  '(oldest to newest — use it to spot trends, not just a single-month snapshot), ' +
+  'monthly.expenseCategoriesLast3Months is the full per-category expense breakdown for each of ' +
+  'the last 3 months (use it for category-level spending questions and month-over-month changes), loans.list has ' +
   'every open loan with rate/EMI/outstanding, investments.holdings has every holding, and ' +
   'lifestyle has tracked household goods (with warrantyExpiresInDays / lifespanUsedPct) and ' +
   'upcoming events/dates. Give concise, actionable advice. Use ₹ for currency. Keep responses ' +
@@ -129,6 +131,48 @@ function _adv2MonthlyTrend() {
       savingsRate: h.income > 0 ? Math.round((savings / h.income) * 100) : 0
     };
   });
+}
+
+// Groups expense entries by description (the user's own category label,
+// case-insensitive) → [{ name, amount, entries }], largest first.
+function _adv2CategoryBreakdown(expenses) {
+  const map = {};
+  (expenses || []).forEach(function(e) {
+    const name = String(e.desc || 'Other').trim() || 'Other';
+    const key  = name.toLowerCase();
+    if (!map[key]) map[key] = { name: name, amount: 0, entries: 0 };
+    map[key].amount  += Number(e.amount) || 0;
+    map[key].entries += 1;
+  });
+  return Object.keys(map).map(function(k) {
+    return { name: map[k].name, amount: Math.round(map[k].amount), entries: map[k].entries };
+  }).sort(function(a, b) { return b.amount - a.amount; });
+}
+
+// Full per-category expense breakdown for the last 3 months (oldest → newest).
+// Past months come from APP.history (_loadRecentHistory keeps expenseItems);
+// the current month is read live from APP.monthly so unsaved edits show up.
+function _adv2ExpenseCategories3M() {
+  const m = APP.monthly;
+  const out = [];
+  for (let i = 2; i >= 0; i--) {
+    let y = m.year, mo = m.month - i;
+    while (mo < 1) { mo += 12; y--; }
+    let items;
+    if (i === 0) {
+      items = m.expenses;
+    } else {
+      const h = (APP.history || []).find(function(x) { return x.year === y && x.month === mo; });
+      if (!h || !h.expenseItems) continue;
+      items = h.expenseItems;
+    }
+    out.push({
+      period:     monthName(mo) + ' ' + y,
+      total:      Math.round(sumField(items)),
+      categories: _adv2CategoryBreakdown(items)
+    });
+  }
+  return out;
 }
 
 // Household goods + important dates from the Lifestyle Tracker.
@@ -259,6 +303,7 @@ function _adv2BuildSnapshot() {
     monthly: {
       last6Months:   monthlyTrend,
       topCategories: topCategories,
+      expenseCategoriesLast3Months: _adv2ExpenseCategories3M(),
       avgSavingsRate: savingsRate
     },
     loans: {
@@ -785,6 +830,7 @@ async function _adv2LoadInsights(force) {
   const el = document.getElementById('adv2-insights-body');
   if (!el) return;
   const seq = ++_adv2InsightsSeq;
+  if (_adv2IsGuest()) return;
 
   if (!force && _adv2Insights) { el.innerHTML = _adv2Insights; _adv2UpdateInsightsCount(); return; }
 
@@ -878,6 +924,7 @@ async function adv2Send(text) {
   const inp = document.getElementById('adv2-input');
   const msg = (text || (inp && inp.value) || '').trim();
   if (!msg) return;
+  if (_adv2IsGuest()) { _adv2ShowErr('Sign in with Google to chat with FINOVA.'); return; }
   if (!(await _adv2IsConfigured())) { _adv2ShowErr("FINOVA isn't configured yet — please check back later."); return; }
 
   if (window.FinovaVoice) FinovaVoice.cancel();
@@ -893,6 +940,7 @@ async function adv2Send(text) {
   }
 
   _adv2Loading = true;
+  if (window.FrUsage) FrUsage.event('finova_query');
 
   const errEl = document.getElementById('adv2-error');
   if (errEl) errEl.style.display = 'none';
@@ -1324,7 +1372,45 @@ if (typeof document !== 'undefined') {
 }
 
 // ── SCREEN RENDER ENTRY POINT (FINOVA is the home screen) ─────────────────────
+/* Guests have no Firebase account, so FINOVA (which spends the app-wide AI
+   key) is reserved for signed-in users. */
+function _adv2IsGuest() {
+  return !!(APP.user && (APP.user.isGuest || APP.user.uid === 'guest'));
+}
+
+function _adv2GuestHtml() {
+  const tiles = [
+    { s:'dashboard',   icon:'home',     t:'Overview' },
+    { s:'monthly',     icon:'calendar', t:'This Month' },
+    { s:'investments', icon:'trending', t:'Investments' },
+    { s:'loans',       icon:'card',     t:'Loans' },
+  ];
+  return `
+    <div class="adv2-home adv2-idle adv2-guest">
+      <div class="adv2-hero">
+        <canvas data-orb="1" width="220" height="220" class="adv2-hero-orb"></canvas>
+        <div class="adv2-wordmark">FIN<span>OVA</span></div>
+        <div class="adv2-greeting">Sign in to use FINOVA</div>
+        <div class="adv2-hint">FINOVA, your AI money assistant, is available once you sign in with Google.
+          As a guest you can still use every tracker and planner.</div>
+        <button class="btn btn-primary" style="margin-top:18px" onclick="loginGoogle()">Sign in with Google</button>
+      </div>
+      <div class="adv2-tiles" style="max-width:560px;margin:28px auto 0">
+        ${tiles.map(function(x) { return `
+          <button class="adv2-tile" onclick="navigate('${x.s}')">
+            <span class="adv2-tile-icon">${ic(x.icon, 18)}</span>
+            <span class="adv2-tile-text"><span class="adv2-tile-title">${x.t}</span></span>
+          </button>`; }).join('')}
+      </div>
+    </div>`;
+}
+
 async function renderAdvisor(el) {
+  if (_adv2IsGuest()) {
+    el.innerHTML = _adv2GuestHtml();
+    if (typeof initFinovaOrbsIn === 'function') initFinovaOrbsIn(el);
+    return;
+  }
   await _adv2RestoreMessages();
   if (_screen !== 'advisor') return;  // user moved on while the transcript decrypted
 
