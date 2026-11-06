@@ -10,21 +10,20 @@
     advisor: 'FINOVA',
   };
 
-  // Paused until the Razorpay merchant account is live post-KYC.
-  // Flip back to true to resume enforcing the paywall — every gate in this
-  // file funnels through isPro(), so no other file needs to change either way.
-  const PRO_TIER_ENABLED = false;
-
   window.ProManager = {
-    _status: null,
-    _uid:    null,
+    _status:    null,
+    _uid:       null,
+    _granted:   false,  // admin grant — see loadGrant()
+    _grantLoad: null,   // in-flight grant read, see ready()
 
     /* ── Init (call with Firebase uid after login) ─────────── */
     init(uid) {
+      if (this._uid !== uid) { this._status = null; this._granted = false; }
       this._uid = uid;
       try {
         const cached = localStorage.getItem('fr_pro_' + uid);
         if (cached) this._status = JSON.parse(cached);
+        this._granted = localStorage.getItem('fr_pro_grant_' + uid) === '1';
       } catch (e) { /* ignore parse errors */ }
       this._refreshProUI();
     },
@@ -38,9 +37,37 @@
       this._refreshProUI();
     },
 
+    /* ── Admin grants ──────────────────────────────────────── */
+    /* An admin adds a user from admin.html, which writes pro_users/{email}
+       (lowercased). The doc existing is the grant; deleting it revokes Pro.
+       Called by sync.js / fr-sync.js once Firebase auth is ready. The result
+       is cached so the next page load knows before this read finishes; if the
+       read fails the last known state stands. */
+    loadGrant() {
+      let user = null;
+      try { user = firebase.auth().currentUser; } catch (e) { /* not loaded */ }
+      if (!user || !user.email) return Promise.resolve();
+      if (this._uid !== user.uid) this.init(user.uid);
+      const uid = user.uid;
+      this._grantLoad = firebase.firestore().collection('pro_users').doc(user.email.toLowerCase()).get()
+        .then(snap => {
+          if (this._uid !== uid) return;  // signed out meanwhile
+          this._granted = snap.exists;
+          if (snap.exists) localStorage.setItem('fr_pro_grant_' + uid, '1');
+          else localStorage.removeItem('fr_pro_grant_' + uid);
+          this._refreshProUI();
+        })
+        .catch(e => console.warn('[Pro] Grant load failed:', e.message));
+      return this._grantLoad;
+    },
+
+    /* Resolves once any in-flight grant read has settled, so a FINOVA call
+       made right after sign-in is routed on the real answer. */
+    ready() { return this._grantLoad || Promise.resolve(); },
+
     /* ── Core check ────────────────────────────────────────── */
     isPro() {
-      if (!PRO_TIER_ENABLED) return true;
+      if (this._granted) return true;
       if (!this._status || !this._status.active) return false;
       if (this._status.expiresAt && new Date(this._status.expiresAt) < new Date()) return false;
       return true;
@@ -180,17 +207,22 @@
       document.querySelectorAll('.home-nav-card.pro-gated').forEach(el => {
         el.classList.toggle('pro-locked-card', !pro);
       });
-      // Pro crown in header — never show it while the tier is paused, even
-      // though isPro() reports true, since no one has actually paid.
+      // Pro crown in header
       const crown = document.getElementById('proBadgeHeader');
-      if (crown) crown.style.display = (pro && PRO_TIER_ENABLED) ? 'inline-flex' : 'none';
+      if (crown) crown.style.display = pro ? 'inline-flex' : 'none';
     },
 
     /* ── Reset on logout ────────────────────────────────────── */
     reset() {
-      if (this._uid) localStorage.removeItem('fr_pro_' + this._uid);
-      this._status = null;
-      this._uid    = null;
+      if (this._uid) {
+        localStorage.removeItem('fr_pro_' + this._uid);
+        localStorage.removeItem('fr_pro_grant_' + this._uid);
+      }
+      this._status    = null;
+      this._uid       = null;
+      this._granted   = false;
+      this._grantLoad = null;
+      this._refreshProUI();
     },
   };
 

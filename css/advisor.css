@@ -767,6 +767,12 @@
 #advisorScreen.adv-no-data .adv-needs-data { display: none; }
 .fnv-panel-empty { display: none; font-size: var(--text-sm); color: var(--muted); padding: 0 1.25rem 1rem; }
 #advisorScreen.adv-no-data .fnv-panel-empty { display: block; }
+/* Guests get the tiles only: no numbers, and no insights (they'd need an AI call) */
+.fnv-panel-guest { display: none; font-size: var(--text-sm); color: var(--muted); padding: 0 1.25rem 1rem; }
+#advisorScreen.adv-guest .adv-needs-data,
+#advisorScreen.adv-guest .fnv-panel-empty,
+#advisorScreen.adv-guest .fnv-newchat-btn { display: none; }
+#advisorScreen.adv-guest .fnv-panel-guest { display: block; }
 
 /* Snapshot panel: drops down under the top bar, over the page */
 .fnv-panel {

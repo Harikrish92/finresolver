@@ -148,6 +148,10 @@ function showApp() {
   document.getElementById('sb-user-email').textContent   = APP.user.email;
   document.getElementById('sb-user-initials').textContent = APP.user.initials;
 
+  // Pro status from the local cache, so FINOVA routes correctly straight away
+  // (fr-sync.js refreshes it from Firestore once Firebase auth is ready).
+  if (typeof ProManager !== 'undefined' && APP.user.uid) ProManager.init(APP.user.uid);
+
   navigate(HOME_SCREEN);
 
   // First-time walkthrough — runs once per browser regardless of which login

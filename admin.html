@@ -41,7 +41,7 @@
     .top h1 { font-size: 1.4rem; margin-right: auto; }
     .top h1 span { color: var(--accent); }
     .who { font-size: .8125rem; color: var(--muted); }
-    select, button, input[type=search] {
+    select, button, input[type=search], input[type=email] {
       font: inherit; font-size: .875rem; color: var(--text); background: var(--surface);
       border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px;
     }
@@ -83,6 +83,12 @@
     .signals li { padding: 8px 0; border-top: 1px solid var(--border); }
     .signals li:first-child { border-top: 0; }
     .signals b { font-weight: 600; }
+    #proList li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    #proList small { color: var(--muted); font-size: .75rem; }
+    .pro-btn { font-size: .75rem; padding: 3px 10px; }
+    .pro-msg { font-size: .875rem; font-weight: 500; padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--accent); }
+    .pro-msg.err { border-color: #e5484d; color: #e5484d; }
+    button:disabled { opacity: .6; cursor: wait; }
 
     .table-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
     .table-head h2 { margin: 0 auto 0 0; }
@@ -150,12 +156,27 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:16px">
+        <div class="table-head">
+          <h2>Pro users</h2>
+          <form id="proForm" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="email" id="proEmail" placeholder="Google account email" aria-label="Email to add to Pro" required />
+            <button type="submit" class="btn-primary">Add to Pro</button>
+          </form>
+        </div>
+        <div class="sub">FINOVA uses the premium AI first for these users; everyone else goes straight to the open-source models. Takes effect the next time they open the app.</div>
+        <div id="proMsg" class="pro-msg" role="status" hidden></div>
+        <ul class="signals" id="proList"></ul>
+      </div>
+
       <div class="card">
         <div class="table-head">
           <h2>Users</h2>
           <input type="search" id="search" placeholder="Search name or email" aria-label="Search users" />
+          <button id="acctLoad">Load all accounts</button>
           <button id="csv">Export CSV</button>
         </div>
+        <div class="sub" id="acctStatus" role="status"></div>
         <div class="table-scroll">
           <table>
             <thead><tr id="thead"></tr></thead>
@@ -179,7 +200,7 @@
   var DAY_MS = 86400000;
 
   var $ = function (id) { return document.getElementById(id); };
-  var db, users = [], days = [], sortKey = 'lastSeen', sortDir = -1, charts = {};
+  var db, users = [], accounts = null, days = [], proUsers = {}, sortKey = 'lastSeen', sortDir = -1, charts = {};
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -246,7 +267,178 @@
     $('state').hidden = true;
     $('dash').hidden = false;
     render(start);
+    loadPro();
+    acctIdle();
   }
+
+  /* ── All accounts ─────────────────────────────────────── */
+  /* analytics_users only has people who opened the app after usage tracking
+     shipped. Firebase Auth has everyone, but listing it takes a Google token
+     with admin rights on the project. The page asks the admin for one per load
+     and never stores it, so regular users are never asked for this scope. */
+  var ACCOUNTS_SCOPE = 'https://www.googleapis.com/auth/firebase';
+  var ACCOUNTS_TIMEOUT_MS = 20000;
+  var ACCT_PARTIAL = 'This list only has people who opened the app since usage tracking began.';
+
+  function acctStatus(text, isError) {
+    $('acctStatus').textContent = text;
+    $('acctStatus').className = isError ? 'pro-msg err' : 'sub';
+  }
+  function acctIdle() {
+    if (!accounts) { acctStatus(ACCT_PARTIAL + ' Use "Load all accounts" to include everyone.'); return; }
+    var rows = allUsers();
+    var unused = rows.filter(function (u) { return !u.sessions; }).length;
+    acctStatus(fmtNum(rows.length) + ' accounts, ' + fmtNum(unused) + " with no usage recorded (they haven't opened the app since usage tracking began).");
+  }
+  function acctError(e) {
+    if (e.code === 'auth/popup-blocked') return 'Your browser blocked the Google popup. Allow popups for this site and try again.';
+    if (e.code === 'auth/user-mismatch') return 'Choose ' + firebase.auth().currentUser.email + ' in the Google popup, the account you are signed in with.';
+    var said = e.google ? ' Google said: "' + e.google + '"' : '';
+    if (e.status === 401 || e.status === 403) return 'Google refused access (HTTP ' + e.status + '). Tick the Firebase permission in the popup, and check this account has a role such as Firebase Authentication Viewer on the Google Cloud project.' + said;
+    return e.message + said;
+  }
+  async function fetchAccounts(token) {
+    var url = 'https://identitytoolkit.googleapis.com/v1/projects/' + encodeURIComponent(firebase.app().options.projectId) + '/accounts:batchGet?maxResults=1000';
+    var list = [], pageToken = '';
+    do {
+      var res = await fetch(url + (pageToken ? '&nextPageToken=' + encodeURIComponent(pageToken) : ''), {
+        headers: { Authorization: 'Bearer ' + token },
+        signal: AbortSignal.timeout(ACCOUNTS_TIMEOUT_MS)
+      });
+      if (!res.ok) {
+        var googleErr = ((await res.json().catch(function () { return {}; })).error || {});
+        throw Object.assign(new Error('Listing accounts failed: HTTP ' + res.status), { status: res.status, google: googleErr.message || '' });
+      }
+      var page = await res.json();
+      (page.users || []).forEach(function (u) {
+        list.push({
+          uid: u.localId, email: u.email || '', name: u.displayName || '', photo: u.photoUrl || '',
+          signedUp: u.createdAt ? new Date(+u.createdAt).toISOString() : null,
+          lastSignIn: u.lastLoginAt ? new Date(+u.lastLoginAt).toISOString() : null
+        });
+      });
+      pageToken = page.nextPageToken || '';
+    } while (pageToken);
+    return list;
+  }
+  /* Runs straight from the button click, or browsers block the popup. */
+  async function loadAccounts() {
+    $('acctLoad').disabled = true;
+    acctStatus('Waiting for the Google popup…');
+    try {
+      var user = firebase.auth().currentUser;
+      var provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope(ACCOUNTS_SCOPE);
+      provider.setCustomParameters({ login_hint: user.email });
+      var result = await user.reauthenticateWithPopup(provider);
+      acctStatus('Loading all accounts…');
+      accounts = await fetchAccounts(result.credential.accessToken);
+      acctIdle();
+    } catch (e) {
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+        acctIdle();
+      } else {
+        console.error('[Admin] All accounts:', e);
+        accounts = null;
+        acctStatus(ACCT_PARTIAL + " The full account list didn't load: " + acctError(e), true);
+      }
+    } finally {
+      $('acctLoad').disabled = false;
+    }
+    $('kpiTotal').textContent = fmtNum(allUsers().length);
+    renderTable();
+  }
+  /* Usage rows with their Auth account merged in, then accounts with no usage. */
+  function allUsers() {
+    if (!accounts) return users;
+    var byUid = {};
+    accounts.forEach(function (a) { byUid[a.uid] = a; });
+    var rows = users.map(function (u) {
+      var a = byUid[u.uid];
+      if (!a) return u;
+      delete byUid[u.uid];
+      return Object.assign({}, u, a);
+    });
+    return rows.concat(Object.keys(byUid).map(function (uid) { return byUid[uid]; }));
+  }
+  function joinedOn(u) { return u.signedUp ? new Date(u.signedUp) : toDate(u.firstSeen); }
+  function lastActive(u) {
+    var seen = toDate(u.lastSeen), signIn = u.lastSignIn ? new Date(u.lastSignIn) : null;
+    return seen && signIn ? (seen > signIn ? seen : signIn) : seen || signIn;
+  }
+
+  /* ── Pro users ────────────────────────────────────────── */
+  /* A doc in pro_users/{lowercased email} makes that account Pro (js/pro.js).
+     Keyed by email so someone who hasn't signed in yet can be added too. */
+  var PRO_WRITE_TIMEOUT_MS = 15000;
+  var proBusy = false;
+
+  function proMsg(text, isError) {
+    $('proMsg').textContent = text || '';
+    $('proMsg').hidden = !text;
+    $('proMsg').classList.toggle('err', !!isError);
+  }
+  function proError(e) {
+    console.error('[Admin] Pro users:', e);
+    proMsg(e.code === 'permission-denied'
+      ? 'Firestore refused this (permission-denied), so nothing changed. The pro_users rule is probably not live yet: deploy the latest firestore.rules, then try again.'
+      : 'Nothing changed: ' + e.message, true);
+  }
+  /* Returns false if the list couldn't be read. */
+  async function loadPro() {
+    var ok = true;
+    try {
+      var snap = await db.collection('pro_users').get();
+      proUsers = {};
+      snap.docs.forEach(function (d) { proUsers[d.id] = d.data(); });
+    } catch (e) {
+      proError(e);
+      ok = false;
+    }
+    renderPro();
+    renderTable();
+    return ok;
+  }
+  function renderPro() {
+    var emails = Object.keys(proUsers).sort();
+    $('proList').innerHTML = emails.length ? emails.map(function (email) {
+      var p = proUsers[email], when = toDate(p.grantedAt);
+      return '<li><span>' + esc(email) + (p.grantedBy ? ' <small>added by ' + esc(p.grantedBy) + (when ? ', ' + fmtDate(when) : '') + '</small>' : '') + '</span>' +
+             '<button class="pro-btn" data-pro-remove="' + esc(email) + '">Remove</button></li>';
+    }).join('') : '<li class="empty-row">No Pro users yet</li>';
+  }
+  async function setPro(email, on) {
+    if (proBusy) return false;
+    email = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/.test(email)) { proMsg('Enter a valid email address.', true); return false; }
+    proBusy = true;
+    proMsg(on ? 'Adding ' + email + '…' : 'Removing ' + email + '…');
+    var btns = document.querySelectorAll('#proForm button, .pro-btn');
+    btns.forEach(function (b) { b.disabled = true; });
+    try {
+      var ref = db.collection('pro_users').doc(email);
+      var write = on
+        ? ref.set({ email: email, grantedBy: firebase.auth().currentUser.email,
+                    grantedAt: firebase.firestore.FieldValue.serverTimestamp() })
+        : ref.delete();
+      /* An offline Firestore write never settles, which would look like a dead button. */
+      await Promise.race([write, new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error("couldn't reach Firestore. Check your connection and refresh.")); }, PRO_WRITE_TIMEOUT_MS);
+      })]);
+      if (await loadPro()) {
+        proMsg(on ? email + ' is now Pro. It applies the next time they open the app.'
+                  : email + ' is no longer Pro. It applies the next time they open the app.');
+      }
+      return true;
+    } catch (e) {
+      proError(e);
+      return false;
+    } finally {
+      proBusy = false;
+      document.querySelectorAll('#proForm button, .pro-btn').forEach(function (b) { b.disabled = false; });
+    }
+  }
+  function isProRow(u) { return !!proUsers[(u.email || '').toLowerCase()]; }
 
   /* ── Render ───────────────────────────────────────────── */
   function render(start) {
@@ -267,7 +459,7 @@
     var newUsers = users.filter(function (u) { var f = toDate(u.firstSeen); return f && f >= start; }).length;
 
     var kpis = [
-      { l: 'Total users', v: fmtNum(users.length), s: 'all time, signed in' },
+      { l: 'Total users', v: fmtNum(allUsers().length), s: 'all time, signed in', id: 'kpiTotal' },
       { l: 'Active today', v: fmtNum(Object.keys(today.users || {}).length), s: fmtNum(today.views) + ' screen visits' },
       { l: 'Active users', v: fmtNum(activeCount), s: 'last ' + range + ' days' },
       { l: 'New users', v: fmtNum(newUsers), s: 'last ' + range + ' days' },
@@ -275,7 +467,7 @@
       { l: 'FINOVA questions', v: fmtNum(finova), s: activeCount ? (finova / activeCount).toFixed(1) + ' per active user' : '—' }
     ];
     $('kpis').innerHTML = kpis.map(function (k) {
-      return '<div class="kpi"><div class="kpi-label">' + k.l + '</div><div class="kpi-value">' + k.v +
+      return '<div class="kpi"><div class="kpi-label">' + k.l + '</div><div class="kpi-value"' + (k.id ? ' id="' + k.id + '"' : '') + '>' + k.v +
              '</div><div class="kpi-sub">' + k.s + '</div></div>';
     }).join('');
 
@@ -351,16 +543,18 @@
   /* ── Users table ──────────────────────────────────────── */
   var COLS = [
     { k: 'name',      l: 'User' },
-    { k: 'firstSeen', l: 'First seen' },
+    { k: 'firstSeen', l: 'Joined' },
     { k: 'lastSeen',  l: 'Last seen' },
     { k: 'sessions',  l: 'Sessions', num: true },
     { k: 'views',     l: 'Visits',   num: true },
     { k: 'finova',    l: 'FINOVA',   num: true },
     { k: 'top',       l: 'Top screen' },
-    { k: 'lastUi',    l: 'UI' }
+    { k: 'lastUi',    l: 'UI' },
+    { k: 'pro',       l: 'Pro' }
   ];
   function rowVal(u, k) {
-    if (k === 'firstSeen' || k === 'lastSeen') { var d = toDate(u[k]); return d ? d.getTime() : 0; }
+    if (k === 'pro') return isProRow(u) ? 1 : 0;
+    if (k === 'firstSeen' || k === 'lastSeen') { var d = k === 'firstSeen' ? joinedOn(u) : lastActive(u); return d ? d.getTime() : 0; }
     if (k === 'finova') return (u.events || {}).finova_query || 0;
     if (k === 'top') return screenName(topKey(u.screens) || '');
     if (k === 'name') return (u.name || u.email || '').toLowerCase();
@@ -368,7 +562,7 @@
   }
   function filtered() {
     var q = $('search').value.trim().toLowerCase();
-    return users.filter(function (u) {
+    return allUsers().filter(function (u) {
       return !q || (u.name || '').toLowerCase().indexOf(q) >= 0 || (u.email || '').toLowerCase().indexOf(q) >= 0;
     }).sort(function (a, b) {
       var x = rowVal(a, sortKey), y = rowVal(b, sortKey);
@@ -385,23 +579,26 @@
       var av = u.photo ? '<img src="' + esc(u.photo) + '" alt="" referrerpolicy="no-referrer" />'
                        : '<span class="av">' + esc((u.name || u.email || '?').charAt(0).toUpperCase()) + '</span>';
       return '<tr><td><div class="u">' + av + '<div>' + esc(u.name || '—') + '<small>' + esc(u.email) + '</small></div></div></td>' +
-        '<td>' + fmtDate(toDate(u.firstSeen)) + '</td>' +
-        '<td>' + fmtDate(toDate(u.lastSeen)) + '</td>' +
+        '<td>' + fmtDate(joinedOn(u)) + '</td>' +
+        '<td>' + fmtDate(lastActive(u)) + '</td>' +
         '<td class="num">' + fmtNum(u.sessions) + '</td>' +
         '<td class="num">' + fmtNum(u.views) + '</td>' +
         '<td class="num">' + fmtNum((u.events || {}).finova_query) + '</td>' +
         '<td>' + esc(screenName(topKey(u.screens) || '—')) + '</td>' +
-        '<td><span class="pill">' + esc(u.lastUi || '—') + '</span></td></tr>';
+        '<td><span class="pill">' + esc(u.lastUi || '—') + '</span></td>' +
+        '<td>' + (!u.email ? '—' : isProRow(u)
+          ? '<button class="pro-btn" data-pro-remove="' + esc(u.email) + '">👑 Remove</button>'
+          : '<button class="pro-btn" data-pro-add="' + esc(u.email) + '">Add</button>') + '</td></tr>';
     }).join('') : '<tr><td colspan="' + COLS.length + '" class="empty-row">No users match</td></tr>';
   }
 
   function exportCsv() {
     var cell = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    var lines = [['Name', 'Email', 'First seen', 'Last seen', 'Sessions', 'Visits', 'FINOVA questions', 'Top screen', 'Last UI', 'Device'].join(',')];
+    var lines = [['Name', 'Email', 'Joined', 'Last seen', 'Sessions', 'Visits', 'FINOVA questions', 'Top screen', 'Last UI', 'Device', 'Pro'].join(',')];
     filtered().forEach(function (u) {
-      var f = toDate(u.firstSeen), l = toDate(u.lastSeen);
+      var f = joinedOn(u), l = lastActive(u);
       lines.push([u.name, u.email, f ? f.toISOString() : '', l ? l.toISOString() : '', u.sessions || 0, u.views || 0,
-                  (u.events || {}).finova_query || 0, screenName(topKey(u.screens) || ''), u.lastUi, u.device].map(cell).join(','));
+                  (u.events || {}).finova_query || 0, screenName(topKey(u.screens) || ''), u.lastUi, u.device, isProRow(u) ? 'yes' : 'no'].map(cell).join(','));
     });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
@@ -415,6 +612,16 @@
   $('refresh').onclick = load;
   $('search').oninput = renderTable;
   $('csv').onclick = exportCsv;
+  $('acctLoad').onclick = loadAccounts;
+  $('proForm').onsubmit = async function (e) {
+    e.preventDefault();
+    if (await setPro($('proEmail').value, true)) $('proEmail').value = '';
+  };
+  $('dash').addEventListener('click', function (e) {
+    var add = e.target.closest('[data-pro-add]'), rem = e.target.closest('[data-pro-remove]');
+    if (add) setPro(add.getAttribute('data-pro-add'), true);
+    if (rem) setPro(rem.getAttribute('data-pro-remove'), false);
+  });
   $('thead').onclick = function (e) {
     var th = e.target.closest('th');
     if (!th) return;

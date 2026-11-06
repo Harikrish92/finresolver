@@ -2,12 +2,13 @@
 // App-wide keys come from js/config.js (window.FINRESOLVER_CONFIG), generated
 // by CI from repo secrets. A user may also save their own Anthropic key in
 // Preferences (fr-preferences.js); when present it is used instead of the
-// app's primary key — see _adv2PrimaryKey().
+// app's primary key. The app's primary key is for Pro users only — see
+// _adv2PrimaryKey().
 const _adv2Cfg = (typeof window !== 'undefined' && window.FINRESOLVER_CONFIG) || {};
 
 // Chat and insights state — persists across in-session navigation
 let _adv2ApiKey       = _adv2Cfg.anthropicApiKey  || null;
-let _adv2BackupApiKey = _adv2Cfg.openRouterApiKey || null; // OpenRouter — optional backup when the primary is unavailable
+let _adv2BackupApiKey = _adv2Cfg.openRouterApiKey || null; // OpenRouter — used directly without Pro, and as backup when the primary is unavailable
 let _adv2History  = [];   // Anthropic API messages [{role, content}]
 let _adv2Messages = [];   // display log [{role, text}]
 let _adv2Snap     = null; // cached financial snapshot
@@ -331,11 +332,15 @@ function _adv2BuildSnapshot() {
 
 // ── AI API ────────────────────────────────────────────────────────────────────
 // Resolves which Anthropic key the next call uses: the user's own key from
-// Preferences if they saved one, else the app-wide key.
+// Preferences if they saved one, else the app-wide key for Pro users. Everyone
+// else gets no key, so their calls go straight to the OpenRouter models.
 async function _adv2PrimaryKey() {
   let own = '';
   try { own = (typeof getUserAnthropicKey === 'function') ? await getUserAnthropicKey() : ''; } catch (e) {}
-  return own || _adv2ApiKey;
+  if (own) return own;
+  if (typeof ProManager === 'undefined') return '';
+  await ProManager.ready();
+  return ProManager.isPro() ? _adv2ApiKey : '';
 }
 
 // A rejected own key is reported to the user rather than treated as a generic
@@ -351,11 +356,12 @@ const ADV2_OWN_KEY_INVALID_MSG = 'Anthropic rejected your API key. Update or rem
 // whenever the backup does. The one exception is a rejected *own* key: that's
 // for the user to fix in Preferences, so it is shown to them.
 function _adv2ShouldFallback(err) {
-  return !(err && err.message === 'OWN_KEY_INVALID') && !!_adv2BackupApiKey;
+  return !(err && (err.message === 'OWN_KEY_INVALID' || err.message === 'GUEST_BLOCKED')) && !!_adv2BackupApiKey;
 }
 
 // fetch() with an abort timeout, for the primary call.
 async function _adv2PrimaryFetch(key, body) {
+  if (_adv2IsGuest()) throw new Error('GUEST_BLOCKED');  // no AI call of any kind for guests
   if (!key) throw new Error('NOT_CONFIGURED');
   const ctrl  = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, ADV2_PRIMARY_TIMEOUT_MS) : null;
@@ -388,7 +394,7 @@ function _adv2ActionsOn() {
 }
 
 // Backup call — OpenRouter (OpenAI-compatible chat completions), used when
-// the primary model fails and a backup key is set.
+// the primary model fails or the user isn't Pro, and a backup key is set.
 // Returns { text, calls }. With withTools, FINOVA's action tools are offered;
 // if the backup model/route doesn't support tool calling, the request is
 // retried once without them (plain advice still works).
@@ -408,6 +414,7 @@ async function _adv2BackupCall(messages, withTools) {
 }
 
 async function _adv2BackupCallGroup(models, system, messages, withTools) {
+  if (_adv2IsGuest()) throw new Error('GUEST_BLOCKED');  // no AI call of any kind for guests
   const body = {
     models: models, max_tokens: ADV2_BACKUP_MAX_TOK,
     reasoning: { effort: 'low', exclude: true },
@@ -456,7 +463,7 @@ async function _adv2CallRaw(userContent) {
     return await _adv2CallPrimaryRaw(userContent);
   } catch (e) {
     if (_adv2ShouldFallback(e)) {
-      console.warn('[FINOVA] primary unavailable, using backup:', e.message);
+      if (e.message !== 'NOT_CONFIGURED') console.warn('[FINOVA] primary unavailable, using backup:', e.message);
       return (await _adv2BackupCall([{ role: 'user', content: userContent }], false)).text;
     }
     throw e;
@@ -476,7 +483,9 @@ async function _adv2CallPrimaryRaw(userContent) {
     throw new Error((e.error && e.error.message) || 'API_ERROR');
   }
   const data = await resp.json();
-  return (data.content && data.content[0] && data.content[0].text) || '';
+  const text = (data.content && data.content[0] && data.content[0].text) || '';
+  if (!text.trim()) throw new Error('EMPTY_RESPONSE');  // no answer also falls back
+  return text;
 }
 
 /* Conversational call — maintains rolling 6-message history. Falls back to
@@ -491,7 +500,7 @@ async function _adv2CallChat(userContent) {
     answer = await _adv2CallPrimaryChat();
   } catch (e) {
     if (_adv2ShouldFallback(e)) {
-      console.warn('[FINOVA] primary unavailable, using backup:', e.message);
+      if (e.message !== 'NOT_CONFIGURED') console.warn('[FINOVA] primary unavailable, using backup:', e.message);
       try {
         answer = await _adv2BackupCall(_adv2History, true);
       } catch (e2) {
@@ -530,8 +539,11 @@ async function _adv2CallPrimaryChat() {
     throw new Error((e.error && e.error.message) || 'API_ERROR');
   }
   const data   = await resp.json();
-  if (_adv2ActionsOn()) return FinovaActions.fromAnthropic(data.content);
-  return { text: (data.content && data.content[0] && data.content[0].text) || '', calls: [] };
+  const out = _adv2ActionsOn()
+    ? FinovaActions.fromAnthropic(data.content)
+    : { text: (data.content && data.content[0] && data.content[0].text) || '', calls: [] };
+  if (!out.text.trim() && !out.calls.length) throw new Error('EMPTY_RESPONSE');  // no answer also falls back
+  return out;
 }
 
 // ── CHARTS & IMAGES ───────────────────────────────────────────────────────────
@@ -1373,9 +1385,10 @@ if (typeof document !== 'undefined') {
 
 // ── SCREEN RENDER ENTRY POINT (FINOVA is the home screen) ─────────────────────
 /* Guests have no Firebase account, so FINOVA (which spends the app-wide AI
-   key) is reserved for signed-in users. */
+   key) is reserved for signed-in users. Nobody signed in counts as a guest (the
+   stub logout() leaves behind has no uid), so this fails closed. */
 function _adv2IsGuest() {
-  return !!(APP.user && (APP.user.isGuest || APP.user.uid === 'guest'));
+  return !APP.user || !!APP.user.isGuest || !APP.user.uid || APP.user.uid === 'guest';
 }
 
 function _adv2GuestHtml() {

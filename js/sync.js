@@ -391,6 +391,7 @@ async function syncLoadConfig(uid) {
       })
       .catch(e => console.warn('[Sync] Pro subscription load failed:', e.message))
   );
+  if (typeof ProManager !== 'undefined') promises.push(ProManager.loadGrant());
 
   await Promise.all(promises);
 

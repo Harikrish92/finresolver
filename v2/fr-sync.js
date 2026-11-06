@@ -235,6 +235,7 @@ async function loadAllData() {
   // page is navigating away.
   if (await prefCheckUiModeRedirect()) return;
   prefApplyFinBolt();
+  if (typeof ProManager !== 'undefined') ProManager.loadGrant();
 
   const year  = APP.monthly.year;
   const month = APP.monthly.month;
@@ -716,6 +717,7 @@ async function logout() {
     localStorage.removeItem(`fr_userprefs_${signedOutUid}`); // may hold the user's own API key
   }
   if (typeof resetDayPlannerV2State === 'function') resetDayPlannerV2State();
+  if (typeof ProManager !== 'undefined') ProManager.reset();
 
   _syncReady   = false;
   _currentUID  = null;
